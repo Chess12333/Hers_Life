@@ -1,0 +1,45 @@
+{
+  "name": "dsh-ming-mousepet",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "桌面上陪着她：看得见（截图/连拍）、会说一句话（气泡，不抢焦点）、也能动手（UIA/窗口消息优先，物理输入是显式回退）。",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./sidecar.ps1": "./sidecar.ps1",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "assets",
+    "sidecar.ps1",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "plugin",
+    "computer-use",
+    "input",
+    "uia",
+    "windows"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "license": "MIT"
+}

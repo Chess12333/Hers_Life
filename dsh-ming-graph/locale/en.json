@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memory Neurons",
+    "description": "One node per real memory; every edge states why it exists (content reference / shared keywords / project membership / same-project adjacency). Click a node to read its text and every edge reason. Reads DSH archived notes and the QQ-Agent observation store directly, without a model."
+  }
+}

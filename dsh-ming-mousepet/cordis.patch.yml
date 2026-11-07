@@ -1,0 +1,25 @@
+# 独立鼠标键盘。默认 UIA / 窗口消息，不碰真实光标；物理输入是显式回退。
+# cursorMode: companion（陪伴，默认，AI 光标一直显示）
+#              clean（整洁，动作后 cursorHoldMs 毫秒自动收起）
+# cursorSize: AI 光标边长像素（24–192，默认 64）
+# 光标外观按操作自动切换（pointer / text / link / vert / horz / move / dgn1 / dgn2 /
+# cross / unavailiable / help ...），不需要手选。
+- insert:
+    - id: ming-mousepet
+      name: dsh-ming-mousepet
+      config:
+        cursorMode: companion
+        cursorHoldMs: 2600
+        cursorSize: 64
+        companion:
+          enabled: true
+          tickMs: 0   # 0 = 走心跳（10–90 分钟，中位 50）；给正数就固定间隔
+          provider: wb-proxy
+          model: 'hy4-preview'
+          bubbleMs: 4200
+          workspace: ''
+
+# 桌面陪伴：开了就自己开口（2026-11-08）
+# enabled  true = 插件自己定时判断、自己调模型说一句；关了就只剩手动调 pet say
+# provider / model  走宿主已配好的那条通道，不另外给 key
+# workspace  子工作区；空 = 用进程当前目录，插件会在里面建 .mousepet/persona.md

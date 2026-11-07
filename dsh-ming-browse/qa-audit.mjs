@@ -1,0 +1,156 @@
+/**
+ * 自测：三处审计修复（2026-10-29）—— 开关只认她的私聊 / 前台查不到不许放行 / 一轮没结束不许再开一轮。
+ *
+ * 跑法：node qa-audit.mjs
+ * 不连真 DSH、不开模拟器、不花钱：adhPath 故意指向一个不存在的文件，
+ * 于是「查不到前台」这条路才测得到。
+ */
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { apply } from './index.js'
+
+const OWNER = process.env.MING_OWNER_QQ || '000000000'
+const fails = []
+const ok = (cond, label, extra = '') => {
+  console.log((cond ? 'PASS ' : 'FAIL ') + label + (extra ? '  — ' + extra : ''))
+  if (!cond) fails.push(label)
+}
+
+const ws = await mkdtemp(path.join(tmpdir(), 'ming-audit-'))
+await mkdir(path.join(ws, 'live'), { recursive: true })
+await writeFile(path.join(ws, 'live', 'holidays.json'), JSON.stringify({ off: [], work: [] }), 'utf8')
+const fakeHome = await mkdtemp(path.join(tmpdir(), 'ming-audit-home-'))
+await mkdir(path.join(fakeHome, 'sessions'), { recursive: true })
+process.env.DSH_HOME = fakeHome
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const pauseFile = path.join(ws, 'live', 'browse-pause.json')
+const unlimitedFile = path.join(ws, 'live', 'browse-unlimited.json')
+const clean = async () => { for (const f of [pauseFile, unlimitedFile]) await rm(f, { force: true }) }
+
+const handlers = new Map()
+const woken = []
+const live = new Map()
+const makeAgent = (id) => ({
+  id,
+  session: { header: { id, cwd: ws } },
+  followup() { woken.push(id); return Promise.resolve() },
+})
+
+const ctx = {
+  logger: { info: () => {}, warn: () => {}, error: () => {} },
+  on: (name, fn) => { const arr = handlers.get(name) || []; arr.push(fn); handlers.set(name, arr) },
+  get: () => undefined,
+  effect: () => {},
+  interval: (fn) => { ctx.__tick = fn },
+  agents: {
+    list: () => [...live.values()],
+    get: (id) => live.get(id),
+    create: async ({ sessionId }) => {
+      const agent = makeAgent(sessionId)
+      live.set(sessionId, agent)
+      return { agent, dispose: async () => { live.delete(sessionId) } }
+    },
+    resume: async ({ resumeSessionId }) => {
+      const agent = makeAgent(resumeSessionId)
+      live.set(resumeSessionId, agent)
+      return { agent, dispose: async () => { live.delete(resumeSessionId) } }
+    },
+  },
+}
+
+apply(ctx, {
+  enabled: true,
+  workspacePath: ws,
+  targetMode: 'self',
+  dailyMax: 8,
+  minGapMinutes: 0,
+  freeWindows: [{ start: '00:00', end: '23:59' }],
+  maxItems: 1,
+  maxShots: 0,
+  // ★ 故意指到不存在的 exe：前台永远查不到 ⇒ 测的就是「查不到怎么办」。
+  adbPath: path.join(ws, 'no-such-adb.exe'),
+  serial: '127.0.0.1:16448',
+})
+
+const fire = async (sessionId, text) => {
+  const ev = { type: 'user/message', data: { content: [{ type: 'text', text }] } }
+  const ses = { id: sessionId, header: { id: sessionId, cwd: ws } }
+  for (const fn of handlers.get('session/event') || []) fn(ses, ev)
+  await sleep(50)
+}
+const wrap = (qq, body) => `<user_message qq="${qq}" nickname="x">\n${body}\n</user_message>`
+
+// ------------------------------------------------ 1. 开关只认她私聊
+await clean()
+
+await fire('onebot-group-000000000', wrap('123456', '别刷了'))
+ok(!existsSync(pauseFile), '群里陌生人说「别刷了」→ 不停', '文件被写了')
+
+await fire('onebot-group-000000000', wrap(OWNER, '别刷了'))
+ok(!existsSync(pauseFile), '她自己发在群里也不算（群里容易看错主语）', '文件被写了')
+
+await fire('onebot-private-123456', wrap('123456', '随便刷吧'))
+ok(!existsSync(unlimitedFile), '陌生人私聊说「随便刷吧」→ 不放开额度', '文件被写了')
+
+await fire('onebot-private-000000000', wrap(OWNER, '别刷了'))
+ok(existsSync(pauseFile), '她私聊说「别刷了」→ 停今天', '文件没写')
+
+await clean()
+await fire('onebot-private-000000000', wrap(OWNER, '可以刷了'))
+ok(!existsSync(pauseFile), '她私聊说「可以刷了」→ 恢复', '文件还在')
+
+// 她私聊说「随便刷吧」应当真的放开（别把闸修成聋子）
+await fire('onebot-private-000000000', wrap(OWNER, '不限量'))
+ok(existsSync(unlimitedFile), '她私聊说「不限量」→ 额度真放开了（别把闸修成聋子）', '文件没写')
+await clean()
+
+// ------------------------------------------------ 2. 查不到前台 ⇒ 写操作一律拒
+await ctx.__tick()   // 醒一轮，把 guarded 挂上
+await sleep(50)
+const guardRuns = handlers.get('tools/pre-execute') || []
+ok(guardRuns.length > 0, '护栏钩子挂上了')
+const runGuard = (tool, args) => {
+  let decision = 'NEXT'
+  const next = () => { decision = 'ALLOW'; return 'ALLOW' }
+  for (const fn of guardRuns) {
+    const r = fn({ name: tool, arguments: args, agent: { id: 'ming-browse' } }, next)
+    if (r && r.kind === 'deny') return { kind: 'deny', reason: r.reason }
+  }
+  return { kind: decision === 'ALLOW' ? 'allow' : 'next' }
+}
+
+const denyWrite = runGuard('android_tap', { text: '点赞' })
+ok(denyWrite.kind === 'deny', '查不到前台时「点赞」被拒', JSON.stringify(denyWrite))
+ok(/查不到手机前台/.test(String(denyWrite.reason || '')), '拒的理由说清了是查不到前台', String(denyWrite.reason || '').slice(0, 60))
+
+const denyFollow = runGuard('android_interact', { action: 'tap', query: '关注' })
+ok(denyFollow.kind === 'deny', '同样条件下「关注」也被拒')
+
+const allowPlain = runGuard('android_tap', { text: '下一页' })
+ok(allowPlain.kind === 'allow', '不带写操作字样的点按照放', JSON.stringify(allowPlain))
+
+const denyMoney = runGuard('android_tap', { text: '充电池' })
+ok(denyMoney.kind === 'deny', '带「充电」的按钮照旧一律拒', JSON.stringify(denyMoney).slice(0, 80))
+
+// ------------------------------------------------ 3. 一轮没结束不许再开一轮
+// 注意：browse-state.json 是节流写的（20 秒一次、只在内容变化时写），所以这里不拿它当判据，
+// 只看「有没有再叫醒」。真正的 20 分钟判据（静默才算卡死、还在冒事件就不算）靠读代码 + 日志核，
+// 这个自测跑不了「等 20 分钟」。
+const before = woken.length
+await ctx.__tick()
+await sleep(50)
+ok(woken.length === before, '上一轮还在跑 → 不会再开一轮', woken.length + ' vs ' + before)
+
+console.log('')
+if (fails.length) {
+  console.log('失败 ' + fails.length + ' 项：' + fails.join(' / '))
+  await rm(ws, { recursive: true, force: true })
+  await rm(fakeHome, { recursive: true, force: true })
+  process.exit(1)
+}
+console.log('全部通过')
+await rm(ws, { recursive: true, force: true })
+await rm(fakeHome, { recursive: true, force: true })

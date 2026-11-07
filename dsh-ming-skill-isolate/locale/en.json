@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ming · Workspace Skill Isolation",
+    "description": "Shadow a workspace's irrelevant skills so the model never sees them. No files deleted, no SKILL.md rewritten, other workspaces unaffected."
+  }
+}

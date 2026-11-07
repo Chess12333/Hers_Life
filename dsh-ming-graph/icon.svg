@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Memory graph">
+  <rect width="128" height="128" rx="28" fill="#0f1a33"/>
+  <g stroke="#4f6ef7" stroke-width="1.8" opacity="0.55" stroke-linecap="round">
+    <line x1="64" y1="64" x2="34" y2="38"/>
+    <line x1="64" y1="64" x2="94" y2="36"/>
+    <line x1="64" y1="64" x2="26" y2="80"/>
+    <line x1="64" y1="64" x2="72" y2="100"/>
+    <line x1="64" y1="64" x2="102" y2="82"/>
+    <line x1="34" y1="38" x2="94" y2="36"/>
+    <line x1="26" y1="80" x2="72" y2="100"/>
+  </g>
+  <g fill="#7ee0d0">
+    <circle cx="34" cy="38" r="5.5"/>
+    <circle cx="94" cy="36" r="4.5"/>
+    <circle cx="26" cy="80" r="4"/>
+    <circle cx="72" cy="100" r="5"/>
+    <circle cx="102" cy="82" r="3.6"/>
+  </g>
+  <circle cx="64" cy="64" r="15" fill="#4f6ef7" fill-opacity="0.25"/>
+  <circle cx="64" cy="64" r="10" fill="#4f6ef7"/>
+</svg>

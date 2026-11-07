@@ -1,0 +1,5 @@
+- insert:
+    - id: ming-resume
+      name: 'dsh-ming-resume'
+      config:
+        root: 'C:\dsh\hers_workplace'

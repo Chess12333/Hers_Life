@@ -1,0 +1,74 @@
+- insert:
+    - id: ming-browse
+      name: dsh-ming-browse
+      config:
+        enabled: true
+        workspacePath: 'C:\dsh\hers_workplace'
+        # 2026-10-23 她改：自由窗口 = 每天 18:30–08:00，另加「节假日/双休日 13:50–18:15」。
+        # 2026-10-25：额度多了个临时开关 live/browse-unlimited.json（她说「不限量」就全放开，
+        #   默认每天早上 09:00 自己收）。dailyMax / minGapMinutes 仍是平时的底。
+        idleMinutes: 1
+        minGapMinutes: 30
+        dailyMax: 8
+        # 2026-10-25 她定的：每 15 轮换一个新会话（跑到 30 轮时后段每轮的上下文是前段的四倍）。
+        # 账本 live/browse-session.json，跑满就换 ming-browse-5、-6……
+        # ★ 2026-10-28 22:5x 改成 6，依据是当天量的两条曲线（scripts\session-shape.mjs）：
+        #   ming-browse-20：15 轮 396 次调用，每次上下文 72k → 457k，平均 281k，整段 111.4M prompt；
+        #   相邻两拍只有 43% 接得上缓存——几乎每次都按全价重读整份上下文。
+        #   上下文按轮线性长，砍一半轮数就砍掉一半均值：15 轮均值约 237k，6 轮约 138k。
+        #   多出来的「新会话第一拍」约 72k，摊进 6 轮可以忽略。
+        #   要回 15 就把这个数改回来（下次 DSH 启动生效）。
+        sessionRounds: 6
+        quietHours: '08:00-18:30'   # 兜底，有 freeWindows 时不用
+        freeWindows:
+          - { start: '18:30', end: '08:00' }
+          - { start: '13:50', end: '18:15', only: rest }
+        holidaysFile: 'live/holidays.json'
+        maxItems: 2
+        maxShots: 2
+        serial: '127.0.0.1:7555'
+        # 在正在使用的 QQ 会话里叫醒，不另开会话（她 2026-10-20 定的）。
+        targetMode: self
+        qqSessionPrefix: onebot-
+        adbPath: 'D:\MuMuPlayer\nx_device\12.0\shell\adb.exe'
+        # 她 2026-10-20 原话：除了 B站，其它社交平台不许点赞/评论/关注，但没说不让浏览。
+        # 所以这里是一份「社交平台名单」：在前台是这些 App 时，点赞/评论/关注这类写操作被拒；
+        # 浏览、点开内容、别的 App（含游戏）不拦。
+        socialApps:
+          - com.xingin.xhs
+          - com.tencent.weibo
+          - com.sina.weibo
+          - com.ss.android.ugc.aweme
+          - com.smile.gifmaker
+          - com.zhihu.android
+          - com.baidu.tieba
+          - com.tencent.mm
+          - com.tencent.mobileqq
+        socialWriteWords:
+          - 点赞
+          - 关注
+          - 评论
+          - 收藏
+          - 转发
+          - 分享
+          - 发布
+          - 发送
+          - 投币
+          - 私信
+        tapTextDeny:
+          - 充电
+          - 大会员
+          - 购买
+          - 支付
+          - 充值
+          - 打赏
+          - 送礼
+          - 开通
+          - 续费
+          - 礼包
+          - 支付宝
+          - 微信支付
+          - 结算
+        targets:
+          - bilibili
+          - xiaohongshu

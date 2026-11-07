@@ -1,0 +1,5 @@
+- insert:
+    - id: ming-wake
+      name: 'dsh-ming-wake'
+      config:
+        root: 'C:\dsh\hers_workplace'

@@ -1,0 +1,24 @@
+{
+  "name": "dsh-ming-resume",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "插话之后记得回去：检测 QQ 通道的 steer 插话，在下一步追加一条「先答她、再回到原任务」的指令。",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

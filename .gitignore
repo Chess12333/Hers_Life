@@ -1,0 +1,30 @@
+# 构建物与备份不进仓
+*.bak
+*.bak-*
+*.log
+node_modules/
+dist/
+
+# 图片、截图、预览页：上一次就是 html 里带着整张图的数据上去的
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.html
+
+# 媒体
+*.mp4
+*.mp3
+*.wav
+
+# 本机配置
+*.local.json
+.env
+.env.*
+ming.local.json
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store

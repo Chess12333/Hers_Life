@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ming · Bilibili Account",
+    "description": "QR login, account capability check, and nickname change. Session cookies live in process memory only — never written to disk."
+  }
+}

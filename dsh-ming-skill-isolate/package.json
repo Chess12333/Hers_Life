@@ -1,0 +1,24 @@
+{
+  "name": "dsh-ming-skill-isolate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "按工作区隔离 skill：给指定工作区加一层同名遮罩，把这个目录用不上的 skill 从模型视野里关掉，不删文件、不改别人的 SKILL.md。",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

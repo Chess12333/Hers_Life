@@ -1,0 +1,6 @@
+# 记忆关系图：Host 半端读两侧记忆并算图，Client 半端在左侧图标栏放一个图标、点开占满主区域。
+- insert:
+    - id: ming-graph
+      name: dsh-ming-graph
+      config:
+        syncSeconds: 120

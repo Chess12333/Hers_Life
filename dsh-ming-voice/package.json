@@ -1,0 +1,26 @@
+{
+  "name": "dsh-ming-voice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "让我能出声：文字转语音，落成 mp3，交给 qq_send_voice 发出去。",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "client.js"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}
