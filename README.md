@@ -61,6 +61,14 @@ cd dsh-ming-memory && node build.mjs
 
 在一台机器上天天用，不是发布版。改动的理由和踩过的坑都写在代码注释里——那些注释是这个仓最有用的部分。
 
+## 来源与致谢
+
+- `dsh-ming-mousepet` 里**输入与 AI 光标**那一半，来自 [**dsh-independent-input**](https://github.com/dongcaodeliyu/dsh-independent-input)（作者 **dongcaodeliyu**）。
+  它把「操作鼠标键盘」从悬浮球里单独拆出来，默认走 UIA / 窗口消息、不动主人真实光标。这份代码的安全边界原样保留（见那个包的 README）。
+  原仓照旧可用，只想要输入、不想要陪桌的，直接用原仓就行。
+- 截屏与「看屏幕」那一半原有 `dsh-ming-desktop`，2026-11-08 起退役，已并进 `dsh-ming-mousepet`。
+- 其余各包为本机自写。
+
 ## 许可
 
 MIT。随便用，出问题别找我。

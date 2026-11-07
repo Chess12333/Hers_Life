@@ -68,3 +68,21 @@ node test/pet-test.mjs
 
 - `sidecar.ps1` **必须带 UTF-8 BOM**。PS 5.1 读无 BOM 的文件按 ANSI 解，中文注释会把字符串截断，整份解析失败。编辑这个文件之后记得补 BOM。
 - 跟 `dsh-independent-input`、`dsh-ming-desktop` 目前并存；两套 AI 光标会叠在一起。替掉旧插件之前别同时开。
+
+---
+
+## 来源与致谢
+
+这个插件是把两样东西并起来的，其中一样不是我的：
+
+| 部分 | 出处 |
+|---|---|
+| UIA / 窗口消息那套输入、AI 光标 | [**dsh-independent-input**](https://github.com/dongcaodeliyu/dsh-independent-input)（作者 dongcaodeliyu），原仓照旧可用 |
+| 截屏、看屏幕 | `dsh-ming-desktop`，我自己写的，2026-11-08 起退役 |
+
+「独立」两个字是从前者带过来的：它的意思**不是**再装一套系统鼠标（Windows 只有一个光标和一个键盘焦点），
+而是**不占用主人那套光标和焦点**——点击/输入优先走 UIA 或窗口消息，只有显式 `mode:"physical"` 才动真光标，
+而且主人一碰键鼠就立刻暂停、把光标放回原处。
+
+合并时我保留了它的这条安全边界，也保留了「物理输入是显式回退」这个默认值。要是有人只想要输入、不想要陪桌，
+直接用上面那个原仓就行。
