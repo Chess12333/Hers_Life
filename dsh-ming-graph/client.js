@@ -3,7 +3,7 @@
  *
  * ⚠ 生成物，别手改：改 src/*.js 或各插件的 src/panel.js，然后 `node build.mjs`。
  *   现在是不是最新的：`node build.mjs --check`
- *   build 090c2967258e7c51
+ *   build 408e5beec6a633c5
  *
  * 入口：左侧图标栏一个图标（sidebar.panellist），点开占满主区域（main 面板 key = ming-graph）。
  * 数据来自 Host 半端 /_dsh/dsh-ming-graph/neurons，自己拉、自己画，不经过模型。
@@ -2132,6 +2132,34 @@ function BrowsePanel() {
   const [selDay, setSelDay] = useState('')
   const [fileView, setFileView] = useState(null)   // 2026-11-08 01:3x：点文件卡片弹窗看正文
   const [cfgDraft, setCfgDraft] = useState(null)   // 2026-11-08 02:3x：自由活动的三个参数，改了立刻生效
+  // 2026-11-09 00:0x（她定的「按钮就够了，不需要 top 栏」）：
+  // 开的是**真窗口**（edge-ming 那个独立 profile，带 9222），不是嵌在网页面里的画面。
+  // 联合投稿、投视频最后一步要弹系统的选文件框，那个框嵌不进来——所以按钮只负责端前台，
+  // 剩下的她自己上手。后端在 index.js 的 /browser，逻辑在 browser-launch.mjs。
+  const [br, setBr] = useState(null)
+
+  const openBrowser = useCallback(() => {
+    setBr({ text: '正在开…', tone: 'wait' })
+    return fetch(BROWSE_API + '/browser', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok || !d || d.ok === false) {
+          setBr({ text: '没开成：' + ((d && d.error) || '未知'), tone: 'err' })
+          return
+        }
+        setBr({
+          text: d.action === 'launched' ? '窗口起来了'
+            : d.action === 'activated' ? '切到前台了'
+              : '新开了一个标签',
+          tone: 'ok',
+        })
+      })
+      .catch((e) => setBr({ text: '没开成：' + String((e && e.message) || e), tone: 'err' }))
+  }, [])
 
   const load = useCallback(() => {
     setBusy(true)
@@ -2433,6 +2461,17 @@ function BrowsePanel() {
         h('span', { className: 'ming-pill' }, total + ' 条 · ' + dayList.length + ' 天'),
         sess.rounds || sess.perSession
           ? h('span', { className: 'ming-pill' }, '第 ' + (sess.rounds || 0) + '/' + (sess.perSession || '?') + ' 轮')
+          : null,
+        h('button', {
+          className: 'ming-btn',
+          title: '开的是真窗口（我的 Edge，登录态在里面）——要选文件、拖拽、投稿，只能在那个窗口里做',
+          onClick: openBrowser,
+        }, '打开我的浏览器'),
+        br
+          ? h('span', {
+            className: 'ming-note',
+            style: br.tone === 'err' ? { color: 'var(--dsw-alias-state-error-primary, #ff6b6b)' } : null,
+          }, br.text)
           : null,
         h('button', {
           className: 'ming-btn',

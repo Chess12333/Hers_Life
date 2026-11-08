@@ -1,6 +1,6 @@
 {
   "name": "dsh-ming-browse",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "溟的谷期：这个工作区闲够久时，自己在刷手机会话里醒一醒，只读地看看手机（点按被硬拦）",

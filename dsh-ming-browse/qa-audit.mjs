@@ -44,6 +44,11 @@ const ctx = {
   on: (name, fn) => { const arr = handlers.get(name) || []; arr.push(fn); handlers.set(name, arr) },
   get: () => undefined,
   effect: () => {},
+  // 2026-11-09 00:0x：这里原来没有 inject，所以这份审计从「面板加了 webServer 路由」那天起
+  // 一跑就 TypeError —— 空转着，等于没审。补上，让它顺手把路由那段也跑一遍。
+  inject: (deps, fn) => {
+    fn({ effect: () => {}, webServer: { register: () => ({ dispose() {} }) } })
+  },
   interval: (fn) => { ctx.__tick = fn },
   agents: {
     list: () => [...live.values()],

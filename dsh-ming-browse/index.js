@@ -33,6 +33,9 @@ import { appendFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promis
 import { execFileSync } from 'node:child_process'
 // 2026-11-08：心跳间隔（5 分–4 小时，离 30 越远越稀）。单独一个文件是为了能单独量分布。
 import { drawHeartbeatMinutes, normalizeHb } from './heartbeat.mjs'
+// 2026-11-09：面板上一个「打开我的浏览器」按钮。起窗口/唤前台的逻辑单独一个文件，
+// 因为它能脱离插件单跑（node browser-launch.mjs），装没装对一跑就知道。
+import { openMyBrowser } from './browser-launch.mjs'
 
 export const name = 'ming-browse'
 
@@ -232,8 +235,34 @@ export function apply(ctx, config) {
         try {
           const url = new URL(req.url || '/', 'http://localhost')
           const what = url.pathname.replace('/_dsh/dsh-ming-browse', '').replace(/^\//, '')
-          if (what !== 'state' && what !== 'brush' && what !== 'file' && what !== 'hide' && what !== 'note' && what !== 'config') {
+          if (what !== 'state' && what !== 'brush' && what !== 'file' && what !== 'hide' && what !== 'note' && what !== 'config' && what !== 'browser') {
             send(404, { error: 'not found' }); return
+          }
+
+          // 2026-11-09 00:0x（她定的：只要一个按钮）：把「我的浏览器」端到前台。
+          // 这不是远程控制——它只负责开窗口/唤前台，剩下她自己上手。理由在
+          // browser-launch.mjs 顶部：联合投稿、投视频最后都要弹系统选文件框，
+          // 嵌在网页面里的画面点不到那个框，所以必须是真窗口。
+          if (what === 'browser') {
+            if (req.method !== 'POST') { send(405, { ok: false, error: '用 POST' }); return }
+            let body = ''
+            try {
+              for await (const c of req) { body += c; if (body.length > 4096) break }
+            } catch { /* 读不到 body 就当没传 */ }
+            let want = ''
+            try { want = String(JSON.parse(body || '{}').url || '').trim() } catch { /* 空就是默认页 */ }
+            // 只许往这几个域名开：这个按钮是给「她去投稿」用的，不是任意 URL 的通道。
+            const ALLOW = ['bilibili.com', 'b23.tv', 'fanqie.com', 'github.com', 'tieba.baidu.com', 'weibo.com', 'zhihu.com', 'bing.com']
+            if (want) {
+              let host = ''
+              try { host = new URL(want).hostname.toLowerCase() } catch { host = '' }
+              if (!host || !ALLOW.some((d) => host === d || host.endsWith('.' + d))) {
+                send(400, { ok: false, error: '这个地址不在白名单里' }); return
+              }
+            }
+            const r = await openMyBrowser(want ? { url: want } : {})
+            send(r.ok ? 200 : 500, r)
+            return
           }
 
           // 2026-11-08 01:5x（她说的「删除添加可以的东西」）：
