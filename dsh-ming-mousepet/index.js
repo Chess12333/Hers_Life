@@ -11,7 +11,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputEngine } from './lib/engine.js'
-import { judgeNudge, loadPetState, savePetState, spokenToday } from './lib/pet.js'
+import { judgeNudge, loadPetState, savePetState, spokenToday, updatePetState, normalizeSchedulePatch } from './lib/pet.js'
 import { ensureWorkspace, resolveCardPath, startTalker } from './lib/talker.js'
 
 export const name = 'ming-mousepet'
@@ -296,7 +296,7 @@ export async function apply(ctx, rawConfig = {}) {
   const log = (message) => { try { ctx?.logger?.info?.(`[ming-mousepet] ${message}`) } catch { /* ignore */ } }
   const saved = await loadSavedSettings(log)
   let current = normalizeSettings(saved, normalizeSettings(rawConfig))
-  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+  // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
   // sidecar 判出「这是一次轻点」才抛 tap；这里把它接成「桌宠说一句」，不占每日配额、不动 nextAt。
   let lastTapAt = 0
   const engine = new InputEngine({
@@ -859,6 +859,9 @@ export async function apply(ctx, rawConfig = {}) {
           return {
             ok: true,
             gapMode: String(st.gapMode || st.schedMode || 'heartbeat'),
+            schedMode: String(st.gapMode || st.schedMode || 'heartbeat'),
+            everyMin: n(st.minGapMinutes ?? st.everyMin, 50),
+            dailyCap: n(st.dailyMax ?? st.dailyCap, 6) < 0 ? 0 : n(st.dailyMax ?? st.dailyCap, 6),
             hbMin: n(st.hbMin, 15),
             hbCenter: n(st.hbCenter, 30),
             hbMax: n(st.hbMax, 60),
@@ -874,23 +877,10 @@ export async function apply(ctx, rawConfig = {}) {
         }
         if (req.method === 'POST') {
           const body = await readBody(req)
-          const st = await loadPetState()
-          const next = { ...st }
-          const clamp = (v, lo, hi, d) => {
-            const x = Number(v)
-            return Number.isFinite(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : d
-          }
-          const mode = String(body?.gapMode || '')
-          if (['off', 'heartbeat', 'random', 'fixed'].includes(mode)) next.gapMode = mode
-          if (body?.hbMin !== undefined) next.hbMin = clamp(body.hbMin, 1, 1440, 15)
-          if (body?.hbCenter !== undefined) next.hbCenter = clamp(body.hbCenter, 1, 1440, 30)
-          if (body?.hbMax !== undefined) next.hbMax = clamp(body.hbMax, 1, 1440, 60)
-          if (body?.minGapMinutes !== undefined) next.minGapMinutes = clamp(body.minGapMinutes, 1, 1440, 50)
-          // -1 = 不限（2026-11-08 15:15 她要的）
-          if (body?.dailyMax !== undefined) next.dailyMax = clamp(body.dailyMax, -1, 999, 6)
-          if (typeof body?.quietHours === 'boolean') next.quietHours = body.quietHours
-          await savePetState(next)
-          return json(res, 200, view(next))
+          const patch = normalizeSchedulePatch(body)
+          const next = await updatePetState(st => ({ ...st, ...patch, nextAt: 0 }))
+          await stopTalker?.reschedule?.()
+          return json(res, 200, view(await loadPetState()))
         }
       }
       return json(res, 404, { ok: false, error: 'not found' })
@@ -937,7 +927,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // ---------------------------------------------------------------- 自动开口
-  // 2026-11-08 她要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
+  // 2026-11-08 浔要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
   // 走宿主自己的模型通道（ctx.llm），模型名写在插件 config 里。
   const companionCfg = {
     enabled: Boolean(rawConfig?.companion?.enabled),
@@ -993,7 +983,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // 陪伴模式下，插件一加载就让光标出现在桌面上——藏着的陪伴不叫陪伴。
-  // 2026-11-08 她问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
+  // 2026-11-08 浔问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
   if (current.cursorMode === 'companion') {
     engine.request('overlay', { show: true }, 20000).catch((error) => {
       log(`AI 光标没能显示：${error?.message || error}`)

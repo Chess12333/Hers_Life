@@ -5,7 +5,8 @@
  * 现在值不值得说一句，现在是什么情况。话由外面的我不知道的那部分决定，
  * 插件一旦自己编话，就会变成定时播报器。
  */
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, mkdir, open, rename, unlink } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -15,7 +16,7 @@ const DEFAULTS = {
   lastSpokeAt: 0,
   lastLookAt: 0,
   spokenToday: { day: '', count: 0 },
-  // 2026-11-08 她要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。
+  // 2026-11-08 浔要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。
   gapMode: 'heartbeat',
   hbMin: 15,
   hbCenter: 30,
@@ -23,29 +24,57 @@ const DEFAULTS = {
   minGapMinutes: 50,
   dailyMax: 6,
   nextAt: 0,
-  // 宵禁开关（2026-11-08 她：「先把宵禁关了，我们先做测试看看」）。
+  // 宵禁开关（2026-11-08 浔：「先把宵禁关了，我们先做测试看看」）。
   // 放 state 文件而不是插件 config：改 config 要重启 DSH，测试时不该为一次开关重启。
   quietHours: true,
 }
 
-export async function loadPetState() {
-  try {
-    const raw = await readFile(STATE_FILE, 'utf8')
-    const parsed = JSON.parse(raw)
-    return { ...DEFAULTS, ...(parsed && typeof parsed === 'object' ? parsed : {}) }
-  } catch {
-    return { ...DEFAULTS }
-  }
+export function normalizeSchedulePatch(body = {}) {
+  const patch = {}
+  const mode = body.gapMode ?? body.schedMode
+  if (['off', 'fixed', 'random', 'heartbeat'].includes(mode)) patch.gapMode = mode
+  const gap = body.minGapMinutes ?? body.everyMin
+  if (gap !== undefined && Number.isFinite(Number(gap)) && Number(gap) > 0) patch.minGapMinutes = Math.min(1440, Number(gap))
+  const cap = body.dailyMax ?? body.dailyCap
+  if (cap !== undefined && Number.isFinite(Number(cap)) && Number(cap) >= -1) patch.dailyMax = body.dailyMax === undefined && Number(cap) === 0 ? -1 : Math.floor(Number(cap))
+  for (const k of ['hbMin', 'hbCenter', 'hbMax']) if (body[k] !== undefined && Number.isFinite(Number(body[k])) && Number(body[k]) > 0) patch[k] = Math.min(1440, Number(body[k]))
+  if (typeof body.quietHours === 'boolean') patch.quietHours = body.quietHours
+  return patch
 }
 
-export async function savePetState(state) {
-  try {
-    await mkdir(dirname(STATE_FILE), { recursive: true })
-    await writeFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
-  } catch {
-    // 记不下来不该拦住说话。
+export function createPetStateStore(file) {
+  let queue = Promise.resolve()
+  const valid = state => { if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('state must be an object'); return state }
+  const load = async () => {
+    try {
+      const raw = await readFile(file, 'utf8')
+      const parsed = valid(JSON.parse(raw.replace(/\\+n\s*$/, '')))
+      return { ...structuredClone(DEFAULTS), ...parsed, ...normalizeSchedulePatch(parsed) }
+    } catch (e) { if (e.code === 'ENOENT') return structuredClone(DEFAULTS); throw e }
   }
+  const persist = async state => {
+    valid(state)
+    await mkdir(dirname(file), { recursive: true })
+    const temp = file + '.' + randomUUID() + '.tmp'
+    let handle
+    try {
+      handle = await open(temp, 'wx')
+      await handle.writeFile(JSON.stringify(state, null, 2) + '\n', 'utf8')
+      await handle.sync(); await handle.close(); handle = null
+      await rename(temp, file)
+      return state
+    } finally {
+      await handle?.close().catch(() => {})
+      await unlink(temp).catch(() => {})
+    }
+  }
+  const enqueue = fn => { const result = queue.then(fn); queue = result.catch(() => {}); return result }
+  return { load: () => queue.then(load), save: state => enqueue(() => persist(state)), update: updater => enqueue(async () => persist(await updater(await load()))) }
 }
+const stateStore = createPetStateStore(STATE_FILE)
+export const loadPetState = () => stateStore.load()
+export const updatePetState = updater => stateStore.update(updater)
+export const savePetState = state => stateStore.save(state)
 
 export function dayKey(date = new Date()) {
   const y = date.getFullYear()
@@ -79,7 +108,7 @@ const DAILY_CAP = 6
 const QUIET_IDLE_MS = 25 * 60 * 1000
 const LEAVE_MS = 30 * 60 * 1000
 
-// 2026-11-08 她要测试：「现在测试吧，1分钟」。
+// 2026-11-08 浔要测试：「现在测试吧，1分钟」。
 // 阈值也跟宵禁一样放 state，改完立即生效——测试时不该为调一个数重启 DSH。
 function num(state, key, fallback) {
   const v = Number(state?.[key])
@@ -91,7 +120,7 @@ function num(state, key, fallback) {
 //   fixed      每 everyMin 分钟一次，不管前面说没说过
 //   random     everyMin 的 0.5~1.5 倍之间随机
 //   heartbeat  以 everyMin 为中位，0.35~1.6 倍，越靠中位越密（默认）
-// 2026-11-08 15:03 她：「怎么不是做成这样」——参照「自己玩」那条：
+// 2026-11-08 15:03 浔：「怎么不是做成这样」——参照「自己玩」那条：
 // 限额 + 间隔模式（固定/随机/心跳/关）+ 最低/中位/最高 三个数。
 export function schedGapMs(state, rand = Math.random) {
   const st = state || {}
@@ -135,19 +164,21 @@ export function judgeNudge({ now = new Date(), status, state } = {}) {
     return { speak: false, why: '静音时段 00:30–10:30（要关：pet config quietHours:false）', context }
   }
   if (st.paused) return { speak: false, why: '她按了暂停，别出声', context }
-  const minGapMs = num(state, 'minGapMs', MIN_GAP_MS)
+  const minGapMs = Number.isFinite(Number(state?.minGapMinutes))
+    ? Math.max(0, Number(state.minGapMinutes)) * 60000
+    : num(state, 'minGapMs', MIN_GAP_MS)
   const leaveMs = num(state, 'leaveAfterMs', LEAVE_MS)
 
-  if (sinceLastSpokeMin !== null && sinceLastSpokeMin * 60000 < minGapMs) {
+  if (state?.lastSpokeAt && now.getTime() - state.lastSpokeAt < minGapMs) {
     return { speak: false, why: `刚说过话（${sinceLastSpokeMin} 分钟前），还没到间隔`, context }
   }
   // 2026-11-08：dailyMax 优先（自己玩那边也叫这个名），老字段 dailyCap 留着兼容。
   const dailyMaxRaw = Number(state?.dailyMax)
-  const cap = Number.isFinite(dailyMaxRaw) && dailyMaxRaw >= 0 ? dailyMaxRaw : num(state, 'dailyCap', DAILY_CAP)
+  const cap = Number.isFinite(dailyMaxRaw) && dailyMaxRaw >= -1 ? dailyMaxRaw : num(state, 'dailyCap', DAILY_CAP)
   if (cap >= 0 && context.spokenToday >= cap) {
     return { speak: false, why: `今天已经说了 ${context.spokenToday} 次（上限 ${cap}），够了`, context }
   }
-  // 2026-11-08 她改的：「不用等安静满，只要在桌面就可以等」。
+  // 2026-11-08 浔改的：「不用等安静满，只要在桌面就可以等」。
   // 所以这里不再要求她静止，只排除「人根本不在」——半小时没动就算离开了。
   if (idleMs !== null && idleMs > leaveMs) {
     return { speak: false, why: `她 ${Math.round(idleMs / 60000)} 分钟没动了，多半不在桌边`, context }
