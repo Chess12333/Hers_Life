@@ -1,5 +1,6 @@
 /**
- * dsh-ming-graph / neuron.js —— 「记忆神经元」建图（纯函数 + 两个读盘函数）
+ * dsh-ming-memory / lib/neuron.mjs —— 「记忆神经元」建图（纯函数 + 两个读盘函数）
+ * 2026-11-08 从 dsh-ming-graph/neuron.js 整份搬来（内容未改），graph 改成 import 它。
  *
  * 一条规矩：**每个节点都是记忆库里一条真实记忆，每条边都得答得出「它凭什么连」。**
  * 所以边只有四种，每种都带一个 why 字符串，点开节点能逐条读。

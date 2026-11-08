@@ -1,0 +1,47 @@
+{
+  "hash": "090c2967258e7c51",
+  "at": "2026-11-08T10:58:12.466Z",
+  "bytes": 191080,
+  "units": [
+    {
+      "label": "主题",
+      "path": "C:/dsh/dsh-ming-ui/src/theme.js",
+      "chars": 8014
+    },
+    {
+      "label": "神经元",
+      "path": "C:/dsh/dsh-ming-graph/src/neuron-view.js",
+      "chars": 54973
+    },
+    {
+      "label": "星图",
+      "path": "C:/dsh/dsh-ming-graph/src/star-view.js",
+      "chars": 19390
+    },
+    {
+      "label": "兴趣",
+      "path": "C:/dsh/dsh-ming-interest/src/panel.js",
+      "chars": 5236
+    },
+    {
+      "label": "声音",
+      "path": "C:/dsh/dsh-ming-voice/src/panel.js",
+      "chars": 4438
+    },
+    {
+      "label": "自己玩",
+      "path": "C:/dsh/dsh-ming-browse/src/panel.js",
+      "chars": 23333
+    },
+    {
+      "label": "壳 extras",
+      "path": "C:/dsh/dsh-ming-graph/src/panels.js",
+      "chars": 3741
+    },
+    {
+      "label": "主面板",
+      "path": "C:/dsh/dsh-ming-graph/src/panel.js",
+      "chars": 71341
+    }
+  ]
+}

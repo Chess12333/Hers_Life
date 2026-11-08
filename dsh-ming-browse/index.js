@@ -1495,7 +1495,13 @@ export function apply(ctx, config) {
     ].filter((line) => line !== null).join('\n')
   }
 
+  let wakePending = false
   const wake = async (opts = {}) => {
+    if (wakePending) return { ok: false, reason: 'wake pending' }
+    wakePending = true
+    try {
+    const dispatchFile = path.join(cfg.workspacePath, 'live', 'browse-dispatch-pending.json')
+    if (existsSync(dispatchFile)) return { ok: false, status: 'unknown', reason: 'previous dispatch unresolved; inspect browse-dispatch-pending.json before clearing' }
     const now = new Date()
     // 上一轮已经收尾（tick 保证），这时候才轮到「该换会话了」这件事。
     if (cfg.targetMode === 'self') await rotateIfDue()
@@ -1510,11 +1516,19 @@ export function apply(ctx, config) {
     if (running.has(id)) return { ok: false, reason: 'target is running', id }
     // 收紧点按：只在「这一轮是自己闲逛」的时候，说完就由 turn-stopping 收回。
     guarded = id
+    let text
     try {
-      target.followup({
+      text = await promptFor(now, String(opts.task || ''), fresh)
+      await writeFile(dispatchFile, JSON.stringify({ id, status: 'attempting', at: now.toISOString() }), { encoding: 'utf8', flag: 'wx' })
+    } catch (error) {
+      guarded = null
+      return { ok: false, reason: 'before dispatch: ' + String(error), id }
+    }
+    try {
+      await target.followup({
         id: randomUUID(),
         role: 'user',
-        content: [{ type: 'text', text: await promptFor(now, String(opts.task || ''), fresh) }],
+        content: [{ type: 'text', text }],
         // 必须是非空且不等于裸 'plugin' 的 kind，否则 format v4 会整回合拒收。
         source: { kind: 'plugin:ming-browse' },
       })
@@ -1534,12 +1548,15 @@ export function apply(ctx, config) {
         (cfg.targetMode === 'self' ? ' — 这一段第 ' + rotation.rounds + '/' + PER_SESSION + ' 轮' : ''))
       // 独立会话逛完没人看见，收尾时往 QQ 递一句（她 2026-10-21 要的）。
       if (cfg.targetMode !== 'qq') sharePendingFor = id
+      if (opts.consume) await opts.consume()
+      await rm(dispatchFile, { force: true })
       return { ok: true, id }
     } catch (error) {
       guarded = null
-      log('warn', 'followup failed: ' + String(error))
-      return { ok: false, reason: 'followup threw: ' + String(error), id }
+      log('warn', 'dispatch outcome unknown; inspect pending marker: ' + String(error))
+      return { ok: false, status: 'unknown', reason: 'dispatch outcome unknown: ' + String(error), id }
     }
+    } finally { wakePending = false }
   }
 
   /**
@@ -1600,7 +1617,10 @@ export function apply(ctx, config) {
     }
   }
 
+  let tickPending = false
   const tick = async () => {
+    if (tickPending) return
+    tickPending = true
     try {
       const now = new Date()
       loadHolidays()
@@ -1716,9 +1736,8 @@ export function apply(ctx, config) {
         if (now.getTime() < at) {
           return note({ ...base, skip: 'heartbeat：还有 ' + Math.max(0, Math.round((at - now.getTime()) / 60_000)) + ' 分钟' })
         }
-        try { await rm(hbFile, { force: true }) } catch { /* ignore */ }
-        await wake()
-        return note({ ...base, skip: 'heartbeat → woke' })
+        const result = await wake({ consume: () => rm(hbFile, { force: true }) })
+        return note({ ...base, skip: result.ok ? 'heartbeat → woke' : 'heartbeat → ' + result.reason })
       }
       if (dailyMaxEff <= 0) return note({ ...base, skip: 'dailyMax<=0' })
       // ★ 2026-10-25：她在 QQ 说「不限量」→ live/browse-unlimited.json 在，就不再数次数。
@@ -1751,7 +1770,7 @@ export function apply(ctx, config) {
       note({ ...base, skip: 'woke' })
     } catch (error) {
       log('warn', 'tick failed: ' + String(error))
-    }
+    } finally { tickPending = false }
   }
 
   // 每分钟看一次就够了：这个功能要的是「闲够久了」，不是秒级反应。

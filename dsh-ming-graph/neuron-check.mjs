@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import { DEFAULTS, readDshNotes, readQqObservations, buildNeuron } from './neuron.js'
+import { DEFAULTS, readDshNotes, readQqObservations, buildNeuron } from '../dsh-ming-memory/lib/neuron.mjs'
 import { loadLocalConfig } from './index.js'
 
 // 路径和号码在 ~/.dsh/ming-graph.json（或用 MING_GRAPH_CONFIG 指一个文件），仓库里只有通用默认

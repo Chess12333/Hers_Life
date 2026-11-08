@@ -1,4 +1,4 @@
-// 设置 → 独立输入：AI 光标样式 / 大小 / 陪伴或整洁。
+// 设置 → 桌宠：AI 光标样式 / 大小 / 陪伴或整洁。
 // 纯手写客户端 chunk，格式与官方客户端插件一致；不需要构建。
 window.__ModuleLoader__.load({
   id: 'dsh-ming-mousepet',
@@ -105,6 +105,7 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [previewOn, setPreviewOn] = useState(false)
+      const [sched, setSched] = useState(null)
 
       const applyResult = (data) => {
         if (data?.settings) setSettings(data.settings)
@@ -113,6 +114,8 @@ window.__ModuleLoader__.load({
       const load = async () => {
         const data = await api('/settings')
         applyResult(data)
+        // 2026-11-08：自动开口的节奏存在 state 文件里，改完下一轮生效，不用重启。
+        try { setSched(await api('/schedule')) } catch { setSched(null) }
       }
 
       useEffect(() => {
@@ -127,6 +130,14 @@ window.__ModuleLoader__.load({
         try {
           const data = await api('/settings', { method: 'POST', body: settings })
           applyResult(data)
+          if (sched) {
+            try {
+              const ns = await api('/schedule', { method: 'POST', body: sched })
+              setSched(ns)
+            } catch (e) {
+              setError('节奏没存上：' + e.message)
+            }
+          }
           setNote('已保存并立即生效，不需要重启。')
         } catch (e) {
           setError(e.message)
@@ -174,7 +185,7 @@ window.__ModuleLoader__.load({
 
       if (!settings) {
         return h('div', { style: S.page },
-          h('div', { style: S.lead }, error ? `加载失败：${error}` : '正在读取独立输入设置……'),
+          h('div', { style: S.lead }, error ? `加载失败：${error}` : '正在读取桌宠设置……'),
           h('button', {
             type: 'button',
             style: S.btn,
@@ -186,7 +197,7 @@ window.__ModuleLoader__.load({
       const isClean = settings.cursorMode === 'clean'
 
       return h('div', { style: S.page },
-        h('div', { style: S.title }, '独立输入 · AI 光标'),
+        h('div', { style: S.title }, '桌宠 · AI 光标'),
         h('div', { style: S.lead },
           '这里调 AI 光标的显示方式和大小；外观会像正常鼠标一样，按当前操作自动切换。默认不移动你的真实光标、不抢键盘焦点，保存后立即生效。'),
 
@@ -249,6 +260,38 @@ window.__ModuleLoader__.load({
           ),
         ),
 
+        h('div', { style: S.card },
+          h('div', { style: S.title }, '自动开口的节奏'),
+          h('div', { style: S.hint }, '桌宠多久自己说一句。关 / 心跳（越靠近基础间隔越容易出现）/ 随机 / 固定。改完下一轮就生效，不用重启。'),
+          sched ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+            h('div', { style: S.row },
+              [['heartbeat', '心跳'], ['random', '随机'], ['fixed', '固定'], ['off', '关']].map(([id, label]) =>
+                h('button', {
+                  key: id, type: 'button',
+                  style: S.modeBtn(sched.schedMode === id),
+                  onClick: () => setSched((cur) => ({ ...cur, schedMode: id })),
+                }, label)),
+            ),
+            h('div', { style: S.row },
+              h('span', { style: S.hint }, '基础间隔'),
+              h('input', {
+                type: 'number', min: 1, max: 1440, step: 1, style: S.num,
+                value: sched.everyMin,
+                onChange: (e) => setSched((cur) => ({ ...cur, everyMin: Math.max(1, Math.min(1440, Number(e.target.value) || 50)) })),
+              }),
+              h('span', { style: S.hint }, '分钟'),
+              h('span', { style: S.hint }, '　每天最多'),
+              h('input', {
+                type: 'number', min: 0, max: 200, step: 1, style: S.num,
+                value: sched.dailyCap,
+                onChange: (e) => setSched((cur) => ({ ...cur, dailyCap: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })),
+              }),
+              h('span', { style: S.hint }, '句'),
+            ),
+            h('div', { style: S.hint }, `今天已经说了 ${sched.spokenToday ?? 0} 句`),
+          ) : h('div', { style: S.hint }, '读不到节奏设置'),
+        ),
+
         h('div', { style: S.row },
           h('button', { type: 'button', style: S.primary, disabled: busy, onClick: save }, busy ? '保存中…' : '保存并生效'),
           h('button', { type: 'button', style: S.btn, disabled: busy, onClick: reset }, '恢复默认'),
@@ -260,15 +303,9 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots'],
-      apply(ctx) {
-        ctx.slots.inject('settings.section', () => ctx.slots.register({
-          name: 'settings.section',
-          id: 'ming-mousepet',
-          order: 70,
-          label: () => '独立输入',
-        }, Page))
-      },
+      // 2026-11-08 15:17 她：「把设置栏中的桌宠删掉」。
+      // 光标 / 皮肤 / 自动开口现在全在「她的一生」→ 桌宠页里，设置栏这一节是重复的。
+      apply() {},
     }
   },
 })

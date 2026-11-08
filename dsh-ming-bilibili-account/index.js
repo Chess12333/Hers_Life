@@ -120,8 +120,34 @@ function parseSetCookies(setCookies) {
   return jar
 }
 
+// One deadline covers headers AND body; ambiguous writes are never retried here.
+async function requestBody(url, init = {}) {
+  const controller = new AbortController()
+  const signal = init.signal
+  if (signal?.aborted) throw signal.reason || new Error('Request cancelled before dispatch')
+  let rejectAbort
+  const aborted = new Promise((_, reject) => { rejectAbort = reject })
+  const abort = (reason) => { controller.abort(reason); rejectAbort(reason) }
+  const onAbort = () => abort(signal.reason || new Error('Request cancelled'))
+  signal?.addEventListener('abort', onAbort, { once: true })
+  const timer = setTimeout(() => abort(new Error('Bilibili request deadline exceeded; write outcome may be unknown')), 30000)
+  try {
+    return await Promise.race([
+      (async () => {
+        const res = await fetch(url, { ...init, signal: controller.signal })
+        const text = await res.text()
+        return { res, text }
+      })(),
+      aborted,
+    ])
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
 async function api(pathname, init) {
-  const res = await fetch('https://api.bilibili.com' + pathname, {
+  const { res, text } = await requestBody('https://api.bilibili.com' + pathname, {
     ...init,
     headers: {
       ...API_HEADERS,
@@ -129,7 +155,6 @@ async function api(pathname, init) {
       ...(init && init.headers ? init.headers : {}),
     },
   })
-  const text = await res.text()
   let json
   try { json = JSON.parse(text) } catch { json = { raw: text.slice(0, 300) } }
   return { status: res.status, json }
@@ -250,10 +275,10 @@ export function apply(ctx, config) {
       }
 
       if (action === 'start') {
-        const res = await fetch('https://passport.bilibili.com/x/passport-login/web/qrcode/generate', {
+        const { res, text } = await requestBody('https://passport.bilibili.com/x/passport-login/web/qrcode/generate', {
           headers: { ...API_HEADERS },
         })
-        const json = await res.json()
+        const json = JSON.parse(text)
         if (!json || json.code !== 0 || !json.data) return '生成登录二维码失败：' + JSON.stringify(json).slice(0, 200)
         pendingKey = json.data.qrcode_key
         return [
@@ -266,11 +291,11 @@ export function apply(ctx, config) {
 
       if (action === 'poll') {
         if (!pendingKey) return '还没有开始登录。先调用 action=start。'
-        const res = await fetch(
+        const { res, text } = await requestBody(
           'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=' + encodeURIComponent(pendingKey),
           { headers: { ...API_HEADERS } },
         )
-        const json = await res.json()
+        const json = JSON.parse(text)
         const code = json && json.data ? json.data.code : -1
         if (code === 86101) return '还没扫码。'
         if (code === 86090) return '扫了，但还没在手机上点确认。'
@@ -383,15 +408,14 @@ export function apply(ctx, config) {
           fd.append('csrf', session.csrf)
           let json
           try {
-            const res = await fetch(ep, {
+            const { res, text } = await requestBody(ep, {
               method: 'POST',
               headers: { ...API_HEADERS, Cookie: cookieHeader() },
               body: fd,
             })
-            json = await res.json()
+            json = JSON.parse(text)
           } catch (e) {
-            tried.push(ep + ' → ' + String((e && e.message) || e))
-            continue
+            return '头像请求结果不明，未重试：' + String((e && e.message) || e)
           }
           if (json && json.code === 0) return '头像已更新：' + (json.data && json.data.url ? json.data.url : 'ok')
           tried.push(ep + ' → code=' + (json && json.code) + ' ' + (json && json.message))

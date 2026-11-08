@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const r='C:/dsh/dsh-ming-mousepet/test/';
+let s=fs.readFileSync(r+'live-accept.ps1','utf8');
+s=s.replace("$ErrorActionPreference='Stop'","param([string]$Label='batch')\n$ErrorActionPreference='Stop'");
+s=s.replace('Sample "size-$size-settled"','for($j=0;$j -lt 30;$j++){Sample "size-$size-settled";Start-Sleep -Milliseconds 8}');
+s=s.replace('Start-Sleep -Milliseconds 650','for($j=0;$j -lt 85;$j++){Sample "size-$size-initial";Start-Sleep -Milliseconds 8}\n  Start-Sleep -Milliseconds 150');
+s=s.replace("for($i=0;$i -lt 8;$i++){Sample 'glide';Start-Sleep -Milliseconds 35}","for($i=0;$i -lt 18;$i++){Sample 'glide';Start-Sleep -Milliseconds 8}");
+s=s.replace("for($i=0;$i -lt 20;$i++){Sample 'retarget';Start-Sleep -Milliseconds 35}","for($i=0;$i -lt 100;$i++){Sample 'retarget';Start-Sleep -Milliseconds 8}");
+s=s.replace("for($i=0;$i -lt 25;$i++){Sample 'idle';Start-Sleep -Milliseconds 200}","for($i=0;$i -lt 150;$i++){Sample 'idle';Start-Sleep -Milliseconds 8}");
+s=s.replace("'C:/dsh/dsh-ming-mousepet/test/live-accept-result.json'","(\"C:/dsh/dsh-ming-mousepet/test/live-duration-$Label.json\")");
+s=s.replace('$report|ConvertTo-Json -Depth 8 -Compress','@{label=$Label;pid=$owner;samples=$rows.Count;debug=$report.finalDebug}|ConvertTo-Json -Depth 5 -Compress');
+fs.writeFileSync(r+'live-duration.ps1','\uFEFF'+s.replace(/^\uFEFF/,'').replace(/\r?\n/g,'\r\n'));

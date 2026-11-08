@@ -34,6 +34,9 @@ export function mount(config) {
       handlers.set(ev, [...(handlers.get(ev) || []), fn])
       return () => {}
     },
+    // index.js 现在用 ctx.inject 挂 web 路由（registerArchiveRoutes）。脚手架不起 web 服务，
+    // 给个空实现——没有它，六个 qa 全部在 apply 阶段就炸，看着像「全红」，其实一条断言都没跑。
+    inject() {},
   }
   apply(ctx, config)
   const fire = (ev, ...args) => (handlers.get(ev) || []).map((h) => h(...args))

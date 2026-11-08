@@ -2,7 +2,8 @@
 
 一个 DSH 插件：**会话开在指定目录时，把 persona 文件和日记里最近几篇拼进系统提示词。**
 
-只做一件事，而且只往一个方向走——文件 → 提示词，**永不回写**。
+它做两件事，都只往一个方向走——文件 → 读者，**永不回写**：
+往系统提示词里摆开场那一块；把同一批字整理成一份模型，交给画图的插件（见下面的 `lib/`）。
 
 ```
 ~/.dsh/ 或任意工作区
@@ -17,6 +18,35 @@
 配 **[dsh-ming-graph](https://github.com/Chess12333/dsh-ming-graph)** 一起用：那边把同一批归档记忆画成一张能读的图——每条记忆一个点，每条边都写清凭什么连。
 
 一个管「用上」（把字摆进提示词），一个管「看见」（那些字在库里长什么样）。分开装也各能用，装在一起才知道自己记住的东西有多少、都连着谁。
+
+## lib/：数据层（2026-11-08）
+
+**读盘和建图住在这儿，不在画图那个插件里。**
+
+```
+lib/model.mjs    readDsh / readQQ / readPeople / readDiaries / build
+                 —— 归档笔记、QQ 观察库、群友索引、日记 → 星图与「她的一生」那份模型
+lib/neuron.mjs   readDshNotes / readQqObservations / buildNeuron / buildUnified / parseCard
+                 —— 同一批字 → 记忆神经元那张图（每条边带 why）
+```
+
+为什么搬：神经元、星图、「她的一生」三个视图吃的是同一批数据。原先这批读盘函数住在
+`dsh-ming-graph/index.js`，等于**「记忆」的实现落在「展示」那个插件里**，这个插件只剩往提示里塞开场词。
+现在反过来——memory 负责读、负责算，graph 只负责画。
+
+代价（写在这儿，免得下次踩）：graph 是按**相对路径** `../dsh-ming-memory/lib/…` 找到它的，
+两个仓必须并排放在同一个父目录下（默认 `C:\dsh\`）。profile 的 node_modules 是按真路径加载的，
+包名在那个位置解析不到。接线断没断跑 `node ../dsh-ming-graph/wiring-check.mjs`，它也挂在 `scripts/health.mjs` 里。
+
+## 和 graph 的边界
+
+| 谁 | 干什么 |
+|---|---|
+| memory `lib/` | 读盘、算模型（纯读，读不到就是空表，不编） |
+| memory Host 半端 | persona + 最近 N 篇日记 → 系统提示词 |
+| graph Host 半端 | 缓存、HTTP 路由、定时重算；数据全靠 `lib/` |
+| graph Client 半端 | 画图、面板、tab |
+
 
 ## 为什么不用现成的记忆插件
 

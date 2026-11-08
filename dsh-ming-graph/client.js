@@ -1,7 +1,9 @@
 /**
  * dsh-ming-graph —— 记忆关系图 / 记忆神经元（Client 半端）
  *
- * ⚠ 这个文件是 build.mjs 生成的：改代码请改 src/neuron-view.js 与 src/panel.js，然后 `node build.mjs`。
+ * ⚠ 生成物，别手改：改 src/*.js 或各插件的 src/panel.js，然后 `node build.mjs`。
+ *   现在是不是最新的：`node build.mjs --check`
+ *   build 090c2967258e7c51
  *
  * 入口：左侧图标栏一个图标（sidebar.panellist），点开占满主区域（main 面板 key = ming-graph）。
  * 数据来自 Host 半端 /_dsh/dsh-ming-graph/neurons，自己拉、自己画，不经过模型。
@@ -16,7 +18,6 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { useState, useEffect, useRef, useCallback } = React
 
-// ⚠ 由 dsh-ming-ui/sync.mjs 生成，不要手改。改 C:\dsh\dsh-ming-ui\src\theme.js
 /**
  * dsh-ming-ui —— 我们自己那批插件的共用皮（2026-11-07 立）
  *
@@ -1878,18 +1879,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = MING_UI
 })()
 
 
-/* panels.js —— 从 dsh-ming-interest / dsh-ming-voice / dsh-ming-browse 搬进来的三块，
- * 2026-11-07 18:5x 她定的：侧栏只留一个入口，所有面板都收在这里面（21:47 这个入口改名叫「家底」）。
- * 各自仍然走自己的 Host 路由，只是渲染搬了过来；原来那三个插件的侧栏图标撤掉。
- */
-
-/**
- * dsh-ming-interest —— 兴趣面板（Client 半端源码）
- * 拼进 client.js 的 factory，能用外层的 h / React hooks。
- *
- * 2026-11-07 18:3x：从「只能看」变成「能按」——开关就是 live/interest-off 那个文件，
- * 面板只给它一个按钮；关键词还是改 live/interests.json。跳过原因拆开显示，不再是一整行字。
- */
 const INTEREST_API = '/_dsh/dsh-ming-interest'
 
 function fmtAgo(ms) {
@@ -2020,13 +2009,7 @@ function InterestIcon() {
   )
 }
 
-/**
- * dsh-ming-voice —— 声音面板（Client 半端源码）
- *
- * 2026-11-07 18:3x：原来只能看见文件名，听不了。现在每行一个「听」，点开就地播
- * （音频走 Host 的 /_dsh/dsh-ming-voice/file?name=…，只放 live/voice 下的 mp3）。
- * 合成仍然走 voice_say 工具，这里不合成。
- */
+
 const VOICE_API = '/_dsh/dsh-ming-voice'
 
 function fmtSize(n) {
@@ -2138,12 +2121,7 @@ function VoiceIcon() {
   )
 }
 
-/**
- * dsh-ming-browse —— 逛到哪儿了（Client 半端源码）
- *
- * 2026-11-07 18:3x 改：从「一页字」变成「今天看了什么」。
- * 上面一条状态（在逛 / 今天暂停 / 永久停）+ 今天的见闻条目；下面仍然是这一轮的原文。
- */
+
 const BROWSE_API = '/_dsh/dsh-ming-browse'
 
 function BrowsePanel() {
@@ -2651,16 +2629,17 @@ function BrowseIcon() {
   )
 }
 
-// 2026-11-08：桌面的 DesktopPanel 连同 /_dsh/dsh-ming-desktop 一起下线了（那个插件被 mousepet 取代，
-//   接口实测 404，top 栏那一格点开是空的）。代码不是丢了，原文在 backup/panels.js.20261108-033641。
-//   要复活它，先让某个插件真的把 /_dsh/dsh-ming-desktop/state 和 /file 提供出来。
 
-/**
- * dsh-ming-resume —— 记忆接续（Client 半端源码）
+/* panels.js —— 壳自己的 extras：没有独立插件的面板（现在只有「接续」）。
  *
- * 2026-11-07 19:1x 加：这一页回答两个问题——「我现在在做哪件事」和「最近被打断了几次」。
- * 只读。status.json 是给人看的账，不该由面板代笔。
+ * 2026-11-08 重整：兴趣 / 声音 / 自己玩 三块**不再往这里抄**了。
+ * 那三块的源就在各自插件的 src/panel.js，build.mjs 直接从那儿切（文字拼接，不是打包，
+ * 所以没法 import）。留一份拷贝在这儿，就得靠 sync-panels 手工推；忘了推一次，
+ * 界面就永远不动——这事儿栽过不止一次。拷贝没了，就没有会漂的地方。
+ *
+ * 各面板去哪儿找：见 build.mjs 顶部那张表。
  */
+
 const RESUME_API = '/_dsh/dsh-ming-resume'
 
 function ResumePanel() {
@@ -3375,6 +3354,10 @@ function PetPage() {
   const [note, setNote] = useState('')
   const [newName, setNewName] = useState('')
   const [sched, setSched] = useState(null)
+  // 2026-11-08（她提的「桌面那只只能用默认模型」）：模型选择器的数据源。
+  //   列表由 mousepet 那句 /models 从宿主 llm 现取；手填那一格是兜底。
+  const [models, setModels] = useState(null)
+  const [modelDraft, setModelDraft] = useState('')
   // 2026-11-08 16:0x 她说的「ai光标大小改成预设+左右拉条吧」：
   //   拉条拖动时只改本地 draft，松手才落盘——不然拖一次会发几十个 POST。
   const [sizeDraft, setSizeDraft] = useState(null)
@@ -3396,6 +3379,12 @@ function PetPage() {
     .then((d) => setSched(d && d.ok ? d : null))
     .catch(() => setSched(null)), [])
 
+  // 2026-11-08：能选哪些模型由宿主 llm 说了算，页面只负责显示和提交。
+  const loadModels = useCallback(() => fetch('/dsh-ming-mousepet/api/models', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((d) => setModels(d && d.ok ? d : null))
+    .catch(() => setModels(null)), [])
+
   // 2026-11-08：自动开口的节奏（关 / 心跳 / 随机 / 固定 + 基础间隔 + 每日上限）。
   // 存在 pet-state.json 里，改完下一轮就生效，不用重启 DSH。
   const saveSched = useCallback((patch) => {
@@ -3409,7 +3398,7 @@ function PetPage() {
       .catch(() => null)
   }, [])
 
-  useEffect(() => { loadSettings(); loadSkins(); loadSched() }, [loadSettings, loadSkins, loadSched])
+  useEffect(() => { loadSettings(); loadSkins(); loadSched(); loadModels() }, [loadSettings, loadSkins, loadSched, loadModels])
 
   const save = useCallback((patch) => {
     setBusy(true)
@@ -3497,7 +3486,7 @@ function PetPage() {
       h('div', { className: 'ming-sec' },
         h('div', { className: 'ming-sec-h' },
           h('span', { className: 'ming-sec-t' }, '光标'),
-          h('span', { className: 'ming-sec-n' }, '这只 AI 光标，不是你的真实鼠标'),
+          h('span', { className: 'ming-sec-n' }, '左键按住能拖走 · 右键有菜单（锁定 / 关掉）'),
         ),
         h('div', { className: 'ming-sec-b' },
           h('div', { className: 'mg-petrow' },
@@ -3624,6 +3613,76 @@ function PetPage() {
             : h('span', { className: 'mg-pop-sub' }, '读不到节奏设置'),
         ),
       ),
+      // ---- 2.5 用哪个模型（2026-11-08 她提的：桌面那只不能只能用默认模型）----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '用哪个模型'),
+          h('span', { className: 'ming-sec-n' }, models
+            ? (models.current.fromSettings ? '按这里选的 · 改完下一句就用新的' : '插件默认 · 还没在这里选过')
+            : '读不到模型列表'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          models
+            ? h('div', null,
+              h('div', { className: 'mg-petrow' },
+                h('b', null, '现在'),
+                h('span', { className: 'mg-pop-sub' }, models.current.provider + ' / ' + (models.current.model || '（没设）')),
+                models.current.talkerRunning ? null : h('span', { className: 'mg-pop-sub' }, '· 自动开口关着，选了也不开口'),
+              ),
+              h('div', { className: 'mg-petrow' },
+                h('select', {
+                  className: 'mg-input',
+                  style: { minWidth: 260, maxWidth: 420 },
+                  disabled: busy,
+                  value: models.current.provider + '||' + models.current.model,
+                  onChange: (e) => {
+                    const key = String(e.target.value || '')
+                    const at = key.indexOf('||')
+                    if (at < 0) return
+                    save({ talkProvider: key.slice(0, at), talkModel: key.slice(at + 2) })
+                  },
+                },
+                  h('option', { value: '' }, '插件默认（' + models.current.defaultProvider + ' / ' + (models.current.defaultModel || '未设') + '）'),
+                  models.providers.map((p) => (p.models && p.models.length
+                    ? h('optgroup', { key: 'p-' + p.id, label: p.name },
+                      p.models.map((m) => h('option', {
+                        key: p.id + '/' + m.id,
+                        value: p.id + '||' + m.id,
+                      }, m.name && m.name !== m.id ? m.name + '（' + m.id + '）' : m.id)))
+                    : h('option', {
+                      key: 'p-' + p.id,
+                      value: p.id + '||' + models.current.model,
+                      disabled: true,
+                    }, p.name + (p.error ? '（列不出来）' : '（没有模型目录）')))),
+                ),
+                h('button', { className: 'mg-btn', disabled: busy, onClick: () => loadModels() }, '刷新'),
+              ),
+              h('div', { className: 'mg-petrow' },
+                h('b', null, '手填'),
+                h('input', {
+                  className: 'mg-input',
+                  style: { minWidth: 200 },
+                  placeholder: '模型 id，比如 hy4-preview',
+                  value: modelDraft,
+                  disabled: busy,
+                  onChange: (e) => setModelDraft(e.target.value),
+                  onKeyDown: (e) => { if (e.key === 'Enter' && modelDraft.trim()) save({ talkProvider: models.current.provider, talkModel: modelDraft.trim() }) },
+                }),
+                h('button', {
+                  className: 'mg-btn',
+                  disabled: busy || !modelDraft.trim(),
+                  onClick: () => save({ talkProvider: models.current.provider, talkModel: modelDraft.trim() }),
+                }, '用这个'),
+                h('button', { className: 'mg-btn', disabled: busy, onClick: () => { setModelDraft(''); save({ talkProvider: '', talkModel: '' }) } }, '恢复默认'),
+              ),
+              (models.errors && models.errors.length)
+                ? h('div', { className: 'mg-pop-sub', style: { marginTop: 4 } }, models.errors.join(' · '))
+                : null,
+            )
+            : h('span', { className: 'mg-pop-sub' }, '读不到模型列表；可以在插件配置里改 companion.model，或者稍后点刷新'),
+        ),
+      ),
+
       // ---- 3. 默认皮肤 ----
       h('div', { className: 'ming-sec' },
         h('div', { className: 'ming-sec-h' },

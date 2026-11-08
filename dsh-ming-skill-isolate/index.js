@@ -72,7 +72,12 @@ async function writeState(stateFile, state) {
 
 export function apply(ctx, config) {
   const cfg = normalize(config)
-  let control = null
+  const controls = new Set()
+  const retainControl = (control) => {
+    if (control.signal?.aborted) return
+    controls.add(control)
+    control.signal?.addEventListener('abort', () => controls.delete(control), { once: true })
+  }
 
   /** 造一个遮罩 provider：只在 cwd 落在 root 下时返回条目 */
   const makeProvider = () => ({
@@ -110,7 +115,7 @@ export function apply(ctx, config) {
       actx.inject(['skills'], (c) => {
         try {
           c.skills.registerProvider((ctrl) => {
-            control = ctrl
+            retainControl(ctrl)
             return makeProvider()
           })
         } catch (e) {
@@ -125,7 +130,7 @@ export function apply(ctx, config) {
   // ---- 兜底：全局层也挂一份（agent 层注册不上时不至于完全没效果）----
   try {
     ctx.skills.registerProvider((c) => {
-      if (!control) control = c
+      retainControl(c)
       return makeProvider()
     })
   } catch (e) {
@@ -190,7 +195,9 @@ export function apply(ctx, config) {
         return '写状态文件失败：' + String((e && e.message) || e)
       }
       // 让注册表丢掉缓存，下一步就能看到变化
-      try { if (control && typeof control.invalidate === 'function') control.invalidate() } catch { /* 无视 */ }
+      for (const control of controls) {
+        try { control.invalidate() } catch { /* one registry must not block the others */ }
+      }
 
       const verb = action === 'off' ? '已隔离' : '已恢复'
       return verb + ' ' + target + '（本工作区）。现共隔离 ' + next.off.length + ' 个。'

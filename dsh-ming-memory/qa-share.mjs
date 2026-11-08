@@ -64,4 +64,13 @@ check('群是单独一间房（scope）', feed['onebot-group-123456789'] && feed
   JSON.stringify(feed['onebot-group-123456789'] && feed['onebot-group-123456789'].scope))
 check('私聊归 dm 那间房', (qqEntry.scope || '') === 'dm', JSON.stringify(qqEntry.scope))
 
+// 2026-11-08：注入段被当成她的话记下来——我在另一个窗口里编的「调试预算」按钮，
+// 就是这样绕回本会话、再变成「她说过」的。她的话后面追加的注入块必须剥掉。
+const injS = sessionFor('web-inject-1', ROOT)
+m.user(injS, '这是她真打的一句。\n\n【别的会话里的对话 · 新增】\n- [web 22:10] 她：我在另一个会话里编的调试预算按钮\n（只给新的一句；更早的已经在前几步给过。）')
+await sleep(1300)
+const injEntry = readFeed(ROOT)['web-inject-1'] || {}
+const injText = (Array.isArray(injEntry.items) ? injEntry.items : []).map((i) => i.t).join(' | ')
+check('她的话后面追加的注入段不会被记成她说的', injText.includes('这是她真打的一句') && !injText.includes('调试预算'), injText)
+
 summary('qa-share')

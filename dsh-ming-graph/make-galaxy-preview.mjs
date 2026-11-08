@@ -9,7 +9,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEFAULTS, readDshNotes, readQqObservations, buildNeuron, buildUnified } from './neuron.js'
+import { DEFAULTS, readDshNotes, readQqObservations, buildNeuron, buildUnified } from '../dsh-ming-memory/lib/neuron.mjs'
 import { loadLocalConfig } from './index.js'
 import { mergePeople } from './people-merge.mjs'
 

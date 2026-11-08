@@ -18,7 +18,7 @@
  *   · 任何异常都不影响这一步。
  */
 import { readFile, appendFile } from 'node:fs/promises'
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -72,51 +72,51 @@ function isSteer(msg) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function adbShell(cfg, args, timeout = 6000) {
-  return execFileSync(cfg.adbPath, ['-s', cfg.serial, 'shell', ...args], {
-    encoding: 'utf8',
-    timeout,
+  return new Promise((resolve, reject) => {
+    execFile(cfg.adbPath, ['-s', cfg.serial, 'shell', ...args], {
+      encoding: 'utf8', timeout, windowsHide: true, maxBuffer: 1024 * 1024,
+    }, (error, stdout) => error ? reject(error) : resolve(stdout))
   })
 }
 
 /** 有没有「媒体类」的正在播。看 dumpsys audio 里 state:started 且 usage=USAGE_MEDIA 的行。 */
-function mediaPlaying(cfg) {
+async function mediaPlaying(cfg) {
   try {
-    const out = adbShell(cfg, ['dumpsys audio'])
-    return out.split('\n').some((line) => line.includes('state:started') && line.includes('USAGE_MEDIA'))
-  } catch {
-    return false
-  }
+    const out = await adbShell(cfg, ['dumpsys audio'])
+    return out.split('\n').some(line => line.includes('state:started') && line.includes('USAGE_MEDIA'))
+  } catch { return null }
 }
-
-function pressKey(cfg, code) {
-  try {
-    adbShell(cfg, ['input', 'keyevent', String(code)])
-    return true
-  } catch {
-    return false
-  }
+async function pressKey(cfg, code) {
+  try { await adbShell(cfg, ['input', 'keyevent', String(code)]); return true }
+  catch { return false }
 }
-
-/** 暂停：先确认在播，再按；按完复查，没停住换一个键再来一次。 */
 async function pauseMedia(cfg) {
-  if (!mediaPlaying(cfg)) return 'idle'
-  pressKey(cfg, 85) // KEYCODE_MEDIA_PLAY_PAUSE
+  const playing = await mediaPlaying(cfg)
+  if (playing === null) return 'unknown'
+  if (!playing) return 'idle'
+  if (!await pressKey(cfg, 85)) return 'unknown'
   await sleep(700)
-  if (!mediaPlaying(cfg)) return 'paused'
-  pressKey(cfg, 127) // KEYCODE_MEDIA_PAUSE
+  const after = await mediaPlaying(cfg)
+  if (after === null) return 'unknown'
+  if (!after) return 'paused'
+  if (!await pressKey(cfg, 127)) return 'unknown'
   await sleep(800)
-  return mediaPlaying(cfg) ? 'failed' : 'paused'
+  const final = await mediaPlaying(cfg)
+  return final === null ? 'unknown' : final ? 'failed' : 'paused'
 }
-
-/** 继续播：只有我们暂停过、而且现在确实没在播，才按一次。 */
 async function resumeMedia(cfg) {
-  if (mediaPlaying(cfg)) return 'already'
-  pressKey(cfg, 85)
+  const playing = await mediaPlaying(cfg)
+  if (playing === null) return 'unknown'
+  if (playing) return 'already'
+  if (!await pressKey(cfg, 85)) return 'unknown'
   await sleep(700)
-  if (mediaPlaying(cfg)) return 'resumed'
-  pressKey(cfg, 126) // KEYCODE_MEDIA_PLAY
+  const after = await mediaPlaying(cfg)
+  if (after === null) return 'unknown'
+  if (after) return 'resumed'
+  if (!await pressKey(cfg, 126)) return 'unknown'
   await sleep(800)
-  return mediaPlaying(cfg) ? 'resumed' : 'failed'
+  const final = await mediaPlaying(cfg)
+  return final === null ? 'unknown' : final ? 'resumed' : 'failed'
 }
 
 export function apply(ctx, config) {
@@ -125,22 +125,20 @@ export function apply(ctx, config) {
   const reminded = new Set()
   // 这次暂停是不是「我们」按的。只有我们停的才由我们接着播——
   // 她自己手动停的东西，不许被我们偷偷打开。
-  let pausedByUs = false
-
-  /** 接着播：幂等，失败只记不抛。 */
-  const resumeIfPausedByUs = async () => {
-    if (!pausedByUs) return
-    pausedByUs = false
-    try {
-      await resumeMedia(cfg)
-    } catch {
-      /* 播不回来也不能卡住回合 */
-    }
+  let mediaOwner = null
+  let mediaQueue = Promise.resolve()
+  const serialMedia = fn => {
+    const pending = mediaQueue.then(fn)
+    mediaQueue = pending.catch(() => {})
+    return pending
   }
-
-  // 兜底：插话那一步之后如果直接结束了回合一（没有下一步），也要把播放接回去。
-  ctx.on('agent/turn-stopping', async () => {
-    await resumeIfPausedByUs()
+  const resumeIfPausedByUs = payload => serialMedia(async () => {
+    if (!mediaOwner || mediaOwner.agentId !== payload?.agent?.id || mediaOwner.turn !== payload?.turn) return
+    mediaOwner = null
+    await resumeMedia(cfg)
+  })
+  ctx.on('agent/turn-stopping', async payload => {
+    await resumeIfPausedByUs(payload)
   })
 
   ctx.on('agent/pre-step', async (payload, next) => {
@@ -151,7 +149,7 @@ export function apply(ctx, config) {
       const steers = msgs.filter(isSteer)
       if (!steers.length) {
         // 这一步没有新的插话 = 已经答完她、回到原来那件事了 → 接着播。
-        await resumeIfPausedByUs()
+        await resumeIfPausedByUs(payload)
         return downstream
       }
       const fresh = steers.filter((m) => m && m.id && !reminded.has(m.id))
@@ -172,14 +170,21 @@ export function apply(ctx, config) {
 
       // 插话的这一刻：把正在播的东西停住（她的要求，一定要停住）。
       let mediaNote = ''
-      if (cfg.pauseMediaOnInterrupt && !pausedByUs) {
-        const result = await pauseMedia(cfg)
+      if (cfg.pauseMediaOnInterrupt && payload?.agent?.id && Number.isInteger(payload?.turn)) {
+        const result = await serialMedia(async () => {
+          if (mediaOwner) return 'owned'
+          if (payload.signal?.aborted) return 'unknown'
+          const result = await pauseMedia(cfg)
+          if (result === 'paused') mediaOwner = { agentId: payload.agent.id, turn: payload.turn }
+          return result
+        })
         if (result === 'paused') {
-          pausedByUs = true
           mediaNote = '视频我已经按暂停了，先答她；答完这一轮会自动接着播。'
         } else if (result === 'idle') {
           mediaNote = '现在没有在播的东西，不用管播放。'
-        } else {
+        } else if (result === 'unknown') {
+          mediaNote = '设备播放状态未知，未确认暂停；先检查设备，不要盲按播放切换键。'
+        } else if (result !== 'owned') {
           mediaNote = '我试着按了暂停但设备还在播——你自己再用 android_interact 的 button 或者 keyevent 85 停一次，别让它边播边答题。'
         }
       }

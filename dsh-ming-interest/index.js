@@ -327,14 +327,20 @@ export function apply(ctx, config) {
     } finally {
       await fh.close()
     }
-    cursor = info.size
+    // 2026-11-08 17:2x astra：原来这里是 cursor = info.size —— 先推到末尾再解析。
+    // 最后一行要是还没写完（写盘抢读），那半行被吞掉就再也读不到了（下面的注释写着「下一轮会补上」，
+    // 其实补不上，因为游标已经越过它）。改成只推进到最后一个完整换行为止。
+    const cut = buffer.lastIndexOf(0x0a)
+    const usable = cut >= 0 ? buffer.subarray(0, cut + 1) : Buffer.alloc(0)
+    cursor += usable.length
+    if (usable.length === 0) return { lines: [], note: '只有半行，等它写完' }
     const lines = []
-    for (const raw of buffer.toString('utf8').split('\n')) {
+    for (const raw of usable.toString('utf8').split('\n')) {
       if (!raw.trim()) continue
       try {
         lines.push(JSON.parse(raw))
       } catch {
-        /* 半行（写盘抢读）就跳过，下一轮会补上 */
+        /* 写坏的整行跳过；游标已经越过它，不回头 */
       }
     }
     return { lines, note: `${lines.length} 条新事件` }

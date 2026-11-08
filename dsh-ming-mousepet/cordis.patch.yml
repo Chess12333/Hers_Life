@@ -22,4 +22,6 @@
 # 桌面陪伴：开了就自己开口（2026-11-08）
 # enabled  true = 插件自己定时判断、自己调模型说一句；关了就只剩手动调 pet say
 # provider / model  走宿主已配好的那条通道，不另外给 key
+#   ↑ 这两行只是默认值：面板「她的一生 → 桌宠 → 用哪个模型」里选过之后，
+#     以 settings.json 的 talkProvider / talkModel 为准（2026-11-08）。留空就回到这里。
 # workspace  子工作区；空 = 用进程当前目录，插件会在里面建 .mousepet/persona.md

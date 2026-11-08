@@ -1,8 +1,11 @@
 /**
- * build.mjs —— 把 src/theme.js + src/panel.js 拼成 client.js
+ * build.mjs —— 把主题 + src/panel.js 拼成 client.js
  *
  * client.js 是生成物，别手改。拼法照 dsh-ming-graph：一个 __ModuleLoader__ 工厂，
  * 把共用皮（theme）和面板塞进去，最后导出 Cordis 的 { inject, apply }。
+ *
+ * 2026-11-08：主题改成**直接读唯一源** `C:/dsh/dsh-ming-ui/src/theme.js`，
+ * 不再从 src/theme.js 那份拷贝读。拷贝没了，dsh-ming-ui/sync.mjs 也就没活儿干了。
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -11,7 +14,8 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const read = (p) => fs.readFile(path.join(here, p), 'utf8')
 
-const theme = await read('src/theme.js')
+const THEME_SRC = 'C:/dsh/dsh-ming-ui/src/theme.js'
+const theme = await fs.readFile(THEME_SRC, 'utf8')
 const panel = await read('src/panel.js')
 
 const out = `/**

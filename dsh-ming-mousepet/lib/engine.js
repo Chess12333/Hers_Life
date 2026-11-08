@@ -28,8 +28,10 @@ function resolvePowerShell() {
 }
 
 export class InputEngine {
-  constructor({ log = () => {}, cursorMode = 'companion', cursorHoldMs = 2600, cursorSize = 64, cursorState = 'pointer' } = {}) {
+  constructor({ log = () => {}, cursorMode = 'companion', cursorHoldMs = 2600, cursorSize = 64, cursorState = 'pointer', onTap = null } = {}) {
     this.log = log
+    // 2026-11-08 21:1x：桌宠被轻点时 sidecar 会抛一行 tap 事件；这里转给插件，让桌宠说一句。
+    this.onTap = typeof onTap === 'function' ? onTap : null
     this.cursorMode = cursorMode === 'clean' ? 'clean' : 'companion'
     this.cursorHoldMs = Number(cursorHoldMs) > 0 ? Number(cursorHoldMs) : 2600
     this.cursorSize = clampSize(cursorSize)
@@ -150,8 +152,19 @@ export class InputEngine {
         this.log(`[sidecar] 非 JSON 输出：${line.slice(0, 300)}`)
         continue
       }
+      if (message.event === 'tap') {
+        // 她轻点了一下桌宠。sidecar 只管报「被点了」，说什么由插件决定。
+        try { this.onTap?.(message) } catch (error) { this.log(`tap 事件处理失败：${error?.message || error}`) }
+        continue
+      }
       if (message.event === 'ready') {
         this.ready = true
+        // 2026-11-08：sidecar 一重启，overlay 就跟着进程一起没了，而没有人去叫它回来——
+        // 她看到的就是「桌宠又自己消失了」。companion 模式本来就该一直在，
+        // 新进程 ready 之后主动亮一次（位置沿用 sidecar 记的 LastX/LastY，没有就落主屏中间）。
+        if (this.cursorMode === 'companion') {
+          this.request('overlay', { show: true }, 5000).catch(() => {})
+        }
         continue
       }
       const pending = this.pending.get(message.id)

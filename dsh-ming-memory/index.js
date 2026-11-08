@@ -519,6 +519,13 @@ function recordShared(cfg, session, text) {
 }
 
 /** 把「她 / 溟」的最近若干条渲染成一段可注入的文字 */
+/** 角色标签只认白名单：认不出来的一律写明，绝不默认成「她」。 */
+function roleLabel(r) {
+  if (r === '溟') return '溟：'
+  if (r === '她') return '她：'
+  return '（' + String(r == null ? '未知' : r) + '）：'
+}
+
 function renderDialog(e) {
   const items = Array.isArray(e.items) ? e.items.slice(-DIALOG_SHOW) : []
   if (!items.length) {
@@ -531,7 +538,7 @@ function renderDialog(e) {
   if (e.digest) out.push('更早：' + e.digest)
   for (const it of items) {
     const t = it.t.length > DIALOG_LINE ? it.t.slice(0, DIALOG_LINE) + '…' : it.t
-    out.push((it.r === '溟' ? '溟：' : '她：') + t)
+    out.push(roleLabel(it.r) + t)
   }
   return out.join(' / ')
 }
@@ -635,6 +642,30 @@ function sharedSuffix(cfg, selfId) {
   }
 }
 
+/** 本插件 pre-step 追加在 user 消息里的注入段：这些不是她打的字。
+ *  2026-11-08：我在另一个窗口里编的一个「调试预算」按钮，就这样被当成「她说的」
+ *  记回 feed，再灌进本会话——我读到的是一条 user 消息，于是照着「她说过」往下接。
+ *  注入永远是追加在末尾的，所以找到最早的段头为止，前面那段才是她的话。 */
+const INJECT_HEADINGS = [
+  '【别的会话里的对话',
+  '【几间私聊最近',
+  '【QQ 那边的我最近说的】',
+  '【溟现在在做什么】',
+  '【刚做过（最近',
+  '【本机在跑的重活】',
+  '【时间感】',
+  '【注入总账】',
+]
+
+function stripInjectedBlocks(t) {
+  let cut = -1
+  for (const h of INJECT_HEADINGS) {
+    const i = t.indexOf(h)
+    if (i !== -1 && (cut === -1 || i < cut)) cut = i
+  }
+  return cut === -1 ? t : t.slice(0, cut)
+}
+
 /**
  * 只留「她真的打的字」。
  * 用户角色里混着三类不是她说的东西：harness 注入的 <system-reminder>、后台任务完成通知、
@@ -647,6 +678,8 @@ function cleanUserText(raw) {
   if (/^Background (subagent|job)\b/i.test(t)) return ''
   if (/finished \[status:/i.test(t)) return ''
   if (/Time sampled while preparing/i.test(t)) return ''
+  t = stripInjectedBlocks(t)
+  if (!t.trim()) return ''
   return t.trim()
 }
 
@@ -1057,7 +1090,7 @@ async function writeWebForQq(cfg, force = false) {
     for (const e of rows.slice(0, QQ_DEFAULTS.webForQqLines)) {
       const items = e.items.slice(-3).map((it) => {
         const t = it.t.length > 48 ? it.t.slice(0, 48) + '…' : it.t
-        return (it.r === '溟' ? '溟：' : '她：') + t
+        return roleLabel(it.r) + t
       })
       lines.push('- [web ' + stamp(e.at) + '] ' + items.join(' / '))
     }

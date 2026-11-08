@@ -143,13 +143,19 @@ node neuron-check.mjs out.json   # 指定落盘路径
 
 ```
 index.js          Host 端：路由、快照、定时重算
-neuron.js         建图（纯函数）+ 两个读盘函数
 client.js         前端入口
 src/neuron-view.js  画图
 neuron-check.mjs  自验
 people-merge.mjs  按号码合并人
 build.mjs         打包
 ```
+
+**读盘和建图不在这儿**（2026-11-08 搬的）：`readDsh/readQQ/readPeople/readDiaries/build`
+在 `../dsh-ming-memory/lib/model.mjs`，`buildNeuron/buildUnified` 在 `../dsh-ming-memory/lib/neuron.mjs`。
+理由：神经元、星图、「她的一生」三个视图吃的是同一批数据，那批数据的实现不该住在「展示」这个插件里。
+代价是**这个仓要跟 `dsh-ming-memory` 放在同一个父目录下**（默认 `C:\dsh\` 并排），
+借的是相对路径而不是包名——profile 的 node_modules 是按真路径加载的，包名在这里解析不到。
+单独把这个仓 clone 出去，Host 半边起不来。
 
 ## 开发约定：推送前过闸
 

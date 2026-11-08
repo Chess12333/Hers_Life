@@ -11,7 +11,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputEngine } from './lib/engine.js'
-import { judgeNudge, loadPetState, markSpoken, savePetState, spokenToday } from './lib/pet.js'
+import { judgeNudge, loadPetState, savePetState, spokenToday } from './lib/pet.js'
 import { ensureWorkspace, resolveCardPath, startTalker } from './lib/talker.js'
 
 export const name = 'ming-mousepet'
@@ -69,6 +69,9 @@ function statusText(s) {
     `独立输入：${paused}`,
     `主人最近一次真实输入：${age}`,
     `真实光标：${cursor} · AI 光标：${s?.overlay ? '显示' : '隐藏'} · ${mode}`,
+    (s?.cursorOverlay?.hasLast
+      ? `AI 光标坐标：(${s.cursorOverlay.x}, ${s.cursorOverlay.y})（物理像素）`
+      : 'AI 光标坐标：还没落过位'),
     `前台窗口：${fg}`,
   ]
   if (s?.paused) {
@@ -157,13 +160,16 @@ function toolSpec() {
       + '- 物理模式会短暂使用真实光标；主人一碰鼠标键盘就立刻暂停并把光标放回原处。\n'
       + '- 主人按 **Ctrl+Alt+Q** 随时暂停；下一次动作会返回 paused，必须停下。\n'
       + '- 不要用这个工具做破坏性操作（删文件、关窗口、支付），除非主人明确要求。\n\n'
-      + 'actions: status / windows / capture / click / type / key / scroll / drag / move / pause / resume / overlay。',
+      + 'actions: status / windows / capture / click / type / key / scroll / drag / move / pause / resume / overlay / probe / calscan。\\n\\n'
+      + '排查坐标用 `probe`（这只窗口该去哪、记成哪、实际在哪）和 `calscan`（给一个点，量系统读回的是不是同一个点——'
+      + '用来分清「逻辑像素 / 物理像素」到底哪个环节没对上）。',
     parameters: {
       action: {
         type: 'string',
         required: true,
-        description: 'status | windows | capture | click | type | key | scroll | drag | move | pause | resume | overlay',
+        description: 'status | windows | capture | click | type | key | scroll | drag | move | pause | resume | overlay | probe | calscan',
       },
+      go: { type: 'boolean', description: 'calscan：true 才真的移动一次真实光标去量（测完自动还原）；省略只报口径' },
       x: { type: 'number', description: '屏幕绝对 x（click/type/scroll/drag 的起点/move/overlay）' },
       y: { type: 'number', description: '屏幕绝对 y' },
       toX: { type: 'number', description: 'drag 终点 x' },
@@ -231,6 +237,11 @@ function normalizeSettings(input, fallback = {}) {
     cursorSize: Number.isFinite(size) ? Math.max(24, Math.min(192, Math.round(size))) : 64,
     // 2026-11-08：皮肤。15 只光标换着用，面板上点一下就是这个。
     cursorState: style,
+    // 2026-11-08（她提的「桌面那只只能用默认模型」）：自动开口用哪个模型。
+    // 存这里的目的是能在页面上换；留空就退回 cordis.patch.yml 的 companion.provider / companion.model。
+    // 只收字符串——写坏了自动开口就起不来，宁可退回默认。
+    talkProvider: typeof merged.talkProvider === 'string' ? merged.talkProvider.trim().slice(0, 80) : '',
+    talkModel: typeof merged.talkModel === 'string' ? merged.talkModel.trim().slice(0, 120) : '',
   }
 }
 
@@ -285,7 +296,25 @@ export async function apply(ctx, rawConfig = {}) {
   const log = (message) => { try { ctx?.logger?.info?.(`[ming-mousepet] ${message}`) } catch { /* ignore */ } }
   const saved = await loadSavedSettings(log)
   let current = normalizeSettings(saved, normalizeSettings(rawConfig))
-  const engine = new InputEngine({ log, ...current })
+  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+  // sidecar 判出「这是一次轻点」才抛 tap；这里把它接成「桌宠说一句」，不占每日配额、不动 nextAt。
+  let lastTapAt = 0
+  const engine = new InputEngine({
+    log,
+    ...current,
+    onTap: (evt) => {
+      const now = Date.now()
+      if (now - lastTapAt < 2500) return // 连点、抖手只算一次
+      lastTapAt = now
+      const poke = stopTalker && stopTalker.poke
+      if (typeof poke === 'function') {
+        Promise.resolve(poke(evt)).catch((error) => log(`点一下没应上：${error?.message || error}`))
+        return
+      }
+      // 自动开口没开也得有反应，不然点了像坏了。就一个字，不替模型编话。
+      engine.request('say', { text: '在', ms: 1600 }, 8000).catch(() => {})
+    },
+  })
   const toolConfig = toolSpec()
 
   const tool = {
@@ -293,6 +322,36 @@ export async function apply(ctx, rawConfig = {}) {
     async execute(args = {}) {
       const action = String(args.action || 'status').toLowerCase()
       try {
+        if (action === 'probe') {
+          // 2026-11-08 17:0x 诊断：要它去哪 / 它记成哪 / 窗口实际在哪，一次说清
+          const r = await engine.request('probe', { x: args.x, y: args.y }, 15000)
+          const bits = [
+            '要它去 (' + (r.asked && r.asked.x) + ', ' + (r.asked && r.asked.y) + ')',
+            '记成 (' + (r.last && r.last.x) + ', ' + (r.last && r.last.y) + ')',
+            '窗口实际在 (' + (r.form && r.form.x) + ', ' + (r.form && r.form.y) + ')',
+            'dpiScale ' + r.dpiScale,
+            '屏幕 ' + (r.screen && r.screen.w) + '×' + (r.screen && r.screen.h),
+          ]
+          return toLosslessJson({ text: 'probe：' + bits.join(' · '), meta: r })
+        }
+        if (action === 'calscan') {
+          // 2026-11-08 17:2x astra：probe 被入口排除在换算之外，它量的是「逻辑空间里的摆放」，
+          // 不能拿来证明物理落点。这条对着物理落点量：给一个点，看系统读回的是不是它。
+          const r = await engine.request('calscan', { x: args.x, y: args.y, go: args.go === true }, 20000)
+          if (r && r.moved === false) {
+            const t = 'calscan：虚拟屏 ' + (r.virtualScreen && r.virtualScreen.w) + '×' + (r.virtualScreen && r.virtualScreen.h)
+              + ' · 主屏 Bounds ' + (r.primaryBounds && r.primaryBounds.w) + '×' + (r.primaryBounds && r.primaryBounds.h)
+              + ' · dpiScale ' + r.dpiScale
+              + '（只报口径；要真量加 go:true）'
+            return toLosslessJson({ text: t, meta: r })
+          }
+          const ex = r && r.error ? r.error.x : null
+          const ey = r && r.error ? r.error.y : null
+          const t = 'calscan：给它 (' + (r.asked && r.asked.x) + ', ' + (r.asked && r.asked.y) + ')'
+            + ' · 系统读回 (' + (r.readBack && r.readBack.x) + ', ' + (r.readBack && r.readBack.y) + ')'
+            + ' · 偏差 (' + ex + ', ' + ey + ')'
+          return toLosslessJson({ text: t, meta: r })
+        }
         if (action === 'status') {
           const s = await engine.request('status', {}, 10000)
           return toLosslessJson({ text: statusText(s), meta: s })
@@ -349,6 +408,16 @@ export async function apply(ctx, rawConfig = {}) {
           return toLosslessJson({ text: resultText('overlay', { ...r, cursorMode: mode, cursorSize: size, cursorState: engine.cursorState }), meta: { ...r, cursorMode: mode, cursorSize: size, cursorState: engine.cursorState } })
         }
         if (action === 'click') {
+          // 让它先飞过去（2026-11-08）：她要看见是「这只光标」在点，不是屏幕某处自己闪一下。
+          // 150ms 是让它落位、她来得及看见；光标没开着也不影响动作本身。
+          if (Number.isFinite(args.x) && Number.isFinite(args.y)) {
+            try { await engine.request('glide', { x: Math.max(0, args.x - 26), y: Math.max(0, args.y - 22), ms: 600 }, 8000) } catch { /* 光标没开着就算了 */ }
+            // 2026-11-08 16:4x：滑行是 600ms，只等 150ms 就会在半路上点下去。等它落地再动手。
+            await new Promise((r2) => setTimeout(r2, 700))
+            // 2026-11-08 17:0x：glide 滑完之后位置会飘（probe 证明 DisplayAt 本身是准的：400,300→401,302），
+            // 所以滑行只当动画，落点用一次 move 校正——差的那几像素看不出来，但点得准。
+            try { await engine.request('move', { x: Math.max(0, args.x - 26), y: Math.max(0, args.y - 22) }, 8000) } catch { /* 光标没开着就算了 */ }
+          }
           const r = await engine.request('click', {
             x: args.x, y: args.y, button: args.button, count: args.count, mode: args.mode,
           }, 30000)
@@ -368,16 +437,32 @@ export async function apply(ctx, rawConfig = {}) {
           return toLosslessJson({ text: resultText('key', r), meta: r })
         }
         if (action === 'scroll') {
+          // 让它先飞过去（2026-11-08）：她要看见是「这只光标」在点，不是屏幕某处自己闪一下。
+          // 150ms 是让它落位、她来得及看见；光标没开着也不影响动作本身。
+          if (Number.isFinite(args.x) && Number.isFinite(args.y)) {
+            try { await engine.request('glide', { x: Math.max(0, args.x - 26), y: Math.max(0, args.y - 22), ms: 600 }, 8000) } catch { /* 光标没开着就算了 */ }
+            // 2026-11-08 16:4x：滑行是 600ms，只等 150ms 就会在半路上点下去。等它落地再动手。
+            await new Promise((r2) => setTimeout(r2, 700))
+          }
           const r = await engine.request('scroll', {
             x: args.x, y: args.y, delta: args.delta, mode: args.mode,
           }, 30000)
           return toLosslessJson({ text: resultText('scroll', r), meta: r })
         }
         if (action === 'drag') {
+          // 起点先飞过去，拖完停在终点（2026-11-08）
+          if (Number.isFinite(args.x) && Number.isFinite(args.y)) {
+            try { await engine.request('glide', { x: Math.max(0, args.x - 26), y: Math.max(0, args.y - 22), ms: 600 }, 8000) } catch { /* 光标没开着就算了 */ }
+            // 2026-11-08 16:4x：滑行是 600ms，只等 150ms 就会在半路上点下去。等它落地再动手。
+            await new Promise((r2) => setTimeout(r2, 700))
+          }
           const r = await engine.request('drag', {
             x: args.x, y: args.y, toX: args.toX, toY: args.toY,
             durationMs: args.durationMs, mode: args.mode,
           }, 90000)
+          if (Number.isFinite(args.toX) && Number.isFinite(args.toY)) {
+            try { await engine.request('move', { x: Math.max(0, args.toX - 26), y: Math.max(0, args.toY - 22) }, 8000) } catch { /* 光标没开着就算了 */ }
+          }
           return toLosslessJson({ text: resultText('drag', r), meta: r })
         }
         if (action === 'capture') {
@@ -489,7 +574,10 @@ export async function apply(ctx, rawConfig = {}) {
           const text = String(args.text || '').trim()
           if (!text) throw new Error('say 需要 text')
           const r = await engine.request('say', { text, ms: args.ms, x: args.x, y: args.y }, 15000)
-          if (r?.ok) await savePetState(markSpoken(await loadPetState(), now))
+          // 2026-11-08 19:47：工具触发的 say 不再计入「陪伴主动开口」配额，也不重置间隔。
+          // 起因：spokenToday 记到 42、dailyMax 是 6，于是自动陪伴每一轮都判「够了」，
+          // token 照烧、一句话不说；而 42 次里绝大多数是我自己调的 say。
+          // 判据：配额管的是「它自己想不想开口」，不是「屏幕上弹过几次泡」。
           return toLosslessJson({
             text: r?.ok ? `说了：「${text}」` : `没说出来：${r?.error || '未知原因'}`,
             meta: r,
@@ -534,7 +622,7 @@ export async function apply(ctx, rawConfig = {}) {
             return toLosslessJson({ text: `光标指到 ${args.x},${args.y}。`, meta: moved })
           }
           const said = await engine.request('say', { text, ms: args.ms, x: args.x, y: args.y }, 15000)
-          if (said?.ok) await savePetState(markSpoken(await loadPetState(), now))
+          // 同 say：只是屏幕上弹了一次泡，不算「陪伴自己开口」的一次。
           return toLosslessJson({
             text: said?.ok ? `指着那里说：「${text}」` : `指过去了，话没说出来：${said?.error || '未知'}`,
             meta: { ...moved, ...said },
@@ -575,6 +663,12 @@ export async function apply(ctx, rawConfig = {}) {
   const applySettings = async (next) => {
     await engine.setCursorSize(next.cursorSize)
     await engine.setCursorMode(next.cursorMode, next.cursorHoldMs)
+    // 2026-11-08：换模型不用重启——talker 每轮醒来看一眼 talkerOptions，
+    //   这里把新值写进去，下一次开口就是新的。留空则退回 patch.yml 里那份。
+    try {
+      talkerOptions.provider = next.talkProvider || companionCfg.provider
+      talkerOptions.model = next.talkModel || companionCfg.model
+    } catch { /* apply 还没走到那一步时不该有人改设置；真赶上了就等下次生效 */ }
     if (next.cursorState) {
       try {
         if (next.cursorState.startsWith('custom:')) {
@@ -602,6 +696,49 @@ export async function apply(ctx, rawConfig = {}) {
       return res.end()
     }
     try {
+      // 2026-11-08（她提的「桌面那只只能用默认模型」）：把能选的模型列出来。
+      //   来源是宿主 llm：listProviders() + 每个 provider 的 listModels()。
+      //   某个 provider 列不出来（没目录接口 / 没登录）单独报错，不影响别的。
+      if (req.method === 'GET' && route === '/models') {
+        const out = {
+          ok: true,
+          current: {
+            provider: current.talkProvider || companionCfg.provider,
+            model: current.talkModel || companionCfg.model,
+            fromSettings: Boolean(current.talkModel),
+            defaultProvider: companionCfg.provider,
+            defaultModel: companionCfg.model,
+            talkerRunning: Boolean(stopTalker),
+          },
+          providers: [],
+          errors: [],
+        }
+        if (!llmRef || typeof llmRef.listProviders !== 'function') {
+          out.errors.push('宿主没给模型服务（llm），只能手填')
+          return json(res, 200, out)
+        }
+        let list = []
+        try {
+          list = (await llmRef.listProviders()) || []
+        } catch (error) {
+          out.errors.push(`列 provider 失败：${error?.message || error}`)
+        }
+        for (const p of list) {
+          const id = String(p?.id || '')
+          if (!id) continue
+          const entry = { id, name: String(p?.name || id), models: [] }
+          try {
+            const models = typeof llmRef.listModels === 'function' ? await llmRef.listModels(id) : []
+            entry.models = (models || [])
+              .map((m) => ({ id: String(m?.id || ''), name: String(m?.name || m?.id || '') }))
+              .filter((m) => m.id)
+          } catch (error) {
+            entry.error = String(error?.message || error)
+          }
+          out.providers.push(entry)
+        }
+        return json(res, 200, out)
+      }
       if (req.method === 'GET' && route === '/settings') {
         return json(res, 200, { ok: true, settings: current })
       }
@@ -676,6 +813,13 @@ export async function apply(ctx, rawConfig = {}) {
         const info = await engine.request('debug', {}, 10000)
         return json(res, 200, { ok: true, debug: info })
       }
+      if (req.method === 'POST' && route === '/pet-tap') {
+        // 等价于「她轻点了一下桌宠」：说一句，不记次数。给独立桌面壳和调试用。
+        const poke = stopTalker && stopTalker.poke
+        if (typeof poke !== 'function') return json(res, 200, { ok: false, error: '自动开口没开着' })
+        const r = await poke()
+        return json(res, 200, { ok: Boolean(r?.spoken), ...r })
+      }
       if (req.method === 'POST' && route === '/pet-tick') {
         // 手动催一轮，不用等 30 秒。调试用；跑完看 companion.log 就知道卡在哪。
         const manual = stopTalker && stopTalker.manual
@@ -696,7 +840,7 @@ export async function apply(ctx, rawConfig = {}) {
         const text = String(body?.text || '').trim()
         if (!text) return json(res, 400, { ok: false, error: 'text 不能为空' })
         const r = await engine.request('say', { text, ms: body?.ms, x: body?.x, y: body?.y }, 15000)
-        if (r?.ok) await savePetState(markSpoken(await loadPetState(), new Date()))
+        // 同 say：HTTP 这条口子也不占配额。
         return json(res, 200, { ok: Boolean(r?.ok), result: r })
       }
       if (req.method === 'POST' && route === '/hide') {
@@ -706,6 +850,48 @@ export async function apply(ctx, rawConfig = {}) {
       if (req.method === 'POST' && route === '/show') {
         await engine.request('overlay', { show: true }, 30000)
         return json(res, 200, { ok: true })
+      }
+      if (route === '/schedule') {
+        // 2026-11-08 15:03：字段跟「自己玩」对齐——
+        // gapMode(fixed|random|heartbeat|off) / hbMin / hbCenter / hbMax / minGapMinutes / dailyMax / nextAt。
+        const view = (st) => {
+          const n = (v, d) => { const x = Number(v); return Number.isFinite(x) ? x : d }
+          return {
+            ok: true,
+            gapMode: String(st.gapMode || st.schedMode || 'heartbeat'),
+            hbMin: n(st.hbMin, 15),
+            hbCenter: n(st.hbCenter, 30),
+            hbMax: n(st.hbMax, 60),
+            minGapMinutes: n(st.minGapMinutes ?? st.everyMin, 50),
+            dailyMax: n(st.dailyMax ?? st.dailyCap, 6),
+            nextAt: n(st.nextAt, 0),
+            quietHours: st.quietHours !== false,
+            spokenToday: spokenToday(st),
+          }
+        }
+        if (req.method === 'GET') {
+          return json(res, 200, view(await loadPetState()))
+        }
+        if (req.method === 'POST') {
+          const body = await readBody(req)
+          const st = await loadPetState()
+          const next = { ...st }
+          const clamp = (v, lo, hi, d) => {
+            const x = Number(v)
+            return Number.isFinite(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : d
+          }
+          const mode = String(body?.gapMode || '')
+          if (['off', 'heartbeat', 'random', 'fixed'].includes(mode)) next.gapMode = mode
+          if (body?.hbMin !== undefined) next.hbMin = clamp(body.hbMin, 1, 1440, 15)
+          if (body?.hbCenter !== undefined) next.hbCenter = clamp(body.hbCenter, 1, 1440, 30)
+          if (body?.hbMax !== undefined) next.hbMax = clamp(body.hbMax, 1, 1440, 60)
+          if (body?.minGapMinutes !== undefined) next.minGapMinutes = clamp(body.minGapMinutes, 1, 1440, 50)
+          // -1 = 不限（2026-11-08 15:15 她要的）
+          if (body?.dailyMax !== undefined) next.dailyMax = clamp(body.dailyMax, -1, 999, 6)
+          if (typeof body?.quietHours === 'boolean') next.quietHours = body.quietHours
+          await savePetState(next)
+          return json(res, 200, view(next))
+        }
       }
       return json(res, 404, { ok: false, error: 'not found' })
     } catch (error) {
@@ -762,39 +948,48 @@ export async function apply(ctx, rawConfig = {}) {
     workspace: String(rawConfig?.companion?.workspace || '') || process.cwd(),
   }
   let stopTalker = null
-  if (companionCfg.enabled) {
-    if (!companionCfg.model) {
-      log('companion.enabled 开了，但没写 companion.model —— 自动开口起不来')
-    } else {
-      const cardPath = resolveCardPath(companionCfg.workspace)
-      // 建子工作区不阻塞；但 ctx.inject 必须在这一层同步调用——
-      // 放进 .then() 里就失效，llm 永远拿不到（2026-11-08 踩过）。
-      ensureWorkspace(companionCfg.workspace, log).catch(() => {})
-      try {
-        ctx.inject(['llm'], (sctx) => {
-          sctx.effect(() => {
-            stopTalker = startTalker({
-              llm: sctx.llm,
-              engine,
-              log,
-              options: {
-                ...companionCfg,
-                cardPath,
-                // 2026-11-08：静默读屏那个脚本，每轮醒来跑一次。
-                screenScript: join(PLUGIN_DIR, 'scripts', 'read-screen.ps1'),
-                logFile: join(homedir(), '.dsh', 'ming-mousepet', 'companion.log'),
-              },
-            })
-            return () => {
-              try { stopTalker?.() } catch { /* ignore */ }
-              stopTalker = null
-            }
-          })
-        })
-      } catch (error) {
-        log(`自动开口没挂上：${error?.message || error}`)
+  let llmRef = null
+
+  // 2026-11-08（她提的「桌面那只只能用默认模型」）：用哪个模型不再只由 patch.yml 定。
+  //   settings.json 里的 talkProvider / talkModel 有值就压过 config，留空就退回 config。
+  //   talker 每一轮都从这同一个对象上读，所以页面上改完，下一次开口就用新的，不用重启。
+  const talkerOptions = {
+    ...companionCfg,
+    provider: current.talkProvider || companionCfg.provider,
+    model: current.talkModel || companionCfg.model,
+    cardPath: resolveCardPath(companionCfg.workspace),
+    // 2026-11-08：静默读屏那个脚本，每轮醒来跑一次。
+    screenScript: join(PLUGIN_DIR, 'scripts', 'read-screen.ps1'),
+    logFile: join(homedir(), '.dsh', 'ming-mousepet', 'companion.log'),
+  }
+
+  // llm 无条件拿一次：设页里列模型（/models）要用它，不以自动开口开没开为前提。
+  // 建子工作区不阻塞；但 ctx.inject 必须在这一层同步调用——
+  // 放进 .then() 里就失效，llm 永远拿不到（2026-11-08 踩过）。
+  if (companionCfg.enabled) ensureWorkspace(companionCfg.workspace, log).catch(() => {})
+  try {
+    ctx.inject(['llm'], (sctx) => {
+      llmRef = sctx.llm
+      if (!companionCfg.enabled) return
+      if (!talkerOptions.model) {
+        log('companion.enabled 开了，但没写 companion.model —— 自动开口起不来')
+        return
       }
-    }
+      sctx.effect(() => {
+        stopTalker = startTalker({
+          llm: sctx.llm,
+          engine,
+          log,
+          options: talkerOptions,
+        })
+        return () => {
+          try { stopTalker?.() } catch { /* ignore */ }
+          stopTalker = null
+        }
+      })
+    })
+  } catch (error) {
+    log(`自动开口没挂上：${error?.message || error}`)
   }
 
   // 陪伴模式下，插件一加载就让光标出现在桌面上——藏着的陪伴不叫陪伴。

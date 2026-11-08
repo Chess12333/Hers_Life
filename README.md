@@ -14,7 +14,7 @@
 | `dsh-ming-mousepet` | 桌宠：截图、连拍、气泡说话（不抢焦点）、UIA/窗口消息动手 |
 | `dsh-ming-voice` | 文字转语音，落成 mp3 |
 | `dsh-ming-bilibili-account` | B 站：扫码登录、搜视频、字幕、评论、私信、历史、收藏 |
-| `dsh-ming-browse` | 「自己玩」：工作区闲够久时自己醒一轮，自己出去逛。点按、翻页、输入、点开内容都放开；只拦三类：花钱/续费按钮、社交平台上的点赞·评论·关注（名单里没有 B 站）、关机·重启·刷机 |
+| `dsh-ming-browse` | 「自己玩」：工作区闲够久时自己醒一轮，只读地看，点按被硬拦 |
 | `dsh-ming-interest` | 兴趣唤醒：被 @ 门控丢掉的消息里，只有命中在意的题材才叫醒 |
 | `dsh-ming-wake` | 定时唤醒：工具写 `dueAt`，插件扫描后调 `agents.resume` |
 | `dsh-ming-resume` | 插话之后记得回去：检测到 steer 插话，下一步追加「先答她、再回到原任务」 |
@@ -37,7 +37,7 @@
 `client.js` 是构建物。改 `src/` 之后要重建：
 
 ```bash
-cd dsh-ming-graph && node build.mjs        # 会先跑 sync-panels --check，漂了拒绝构建
+cd dsh-ming-graph && node build.mjs        # 从各插件的 src/panel.js 直接切，三道门都过才出产物
 cd dsh-ming-memory && node build.mjs
 ```
 
@@ -57,15 +57,9 @@ cd dsh-ming-memory && node build.mjs
 
 `dsh-ming-interest/cordis.patch.yml` 里的群号是空的，填你自己的。
 
-## 版本
-
-当前 **1.0.0b-bugfix1**（2026-11-08）
-
-- 九块面板换成同一套骨架：页头 + 带名字的分区，内容铺满宽度，不再是一堆没名字的卡
-- 「费用」页改成自己算：读用量账本的 sqlite、按自己的价目表折价，不再依赖 dsh-bottom-info-bar 的接口（它没给那个模型定价，接口返回不出数）
-- 主题只有一份源（dsh-ming-ui/src/theme.js），五个插件靠它同步
-
 ## 状态
+
+当前 **1.0.0b-bugfix2**（2026-11-08）：可靠性与面板一批修补，见提交记录。
 
 在一台机器上天天用，不是发布版。改动的理由和踩过的坑都写在代码注释里——那些注释是这个仓最有用的部分。
 

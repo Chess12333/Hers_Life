@@ -113,7 +113,7 @@ function VoicePanel() {
 }
 
 function VoiceIcon() {
-  return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
+  return h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
     h('path', { d: 'M4 10v4h3l4 3V7L7 10H4z' }),
     h('path', { d: 'M15 9a4 4 0 010 6M17.5 6.5a7.5 7.5 0 010 11' }),
   )

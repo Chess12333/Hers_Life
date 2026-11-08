@@ -13,7 +13,6 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { useState, useEffect, useCallback } = React
 
-// ⚠ 由 dsh-ming-ui/sync.mjs 生成，不要手改。改 C:\dsh\dsh-ming-ui\src\theme.js
 /**
  * dsh-ming-ui —— 我们自己那批插件的共用皮（2026-11-07 立）
  *

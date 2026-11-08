@@ -13,6 +13,7 @@ const { apply } = await import('./index.js');
 const handlers = {};
 const ctx = {
   on: (type, fn) => { handlers[type] = fn; },
+  inject() {},
 };
 
 const ROOT = process.env.MING_ROOT || (await import('./index.js')).loadLocalConfig().root

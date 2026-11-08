@@ -626,6 +626,10 @@ function PetPage() {
   const [note, setNote] = useState('')
   const [newName, setNewName] = useState('')
   const [sched, setSched] = useState(null)
+  // 2026-11-08（她提的「桌面那只只能用默认模型」）：模型选择器的数据源。
+  //   列表由 mousepet 那句 /models 从宿主 llm 现取；手填那一格是兜底。
+  const [models, setModels] = useState(null)
+  const [modelDraft, setModelDraft] = useState('')
   // 2026-11-08 16:0x 她说的「ai光标大小改成预设+左右拉条吧」：
   //   拉条拖动时只改本地 draft，松手才落盘——不然拖一次会发几十个 POST。
   const [sizeDraft, setSizeDraft] = useState(null)
@@ -647,6 +651,12 @@ function PetPage() {
     .then((d) => setSched(d && d.ok ? d : null))
     .catch(() => setSched(null)), [])
 
+  // 2026-11-08：能选哪些模型由宿主 llm 说了算，页面只负责显示和提交。
+  const loadModels = useCallback(() => fetch('/dsh-ming-mousepet/api/models', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((d) => setModels(d && d.ok ? d : null))
+    .catch(() => setModels(null)), [])
+
   // 2026-11-08：自动开口的节奏（关 / 心跳 / 随机 / 固定 + 基础间隔 + 每日上限）。
   // 存在 pet-state.json 里，改完下一轮就生效，不用重启 DSH。
   const saveSched = useCallback((patch) => {
@@ -660,7 +670,7 @@ function PetPage() {
       .catch(() => null)
   }, [])
 
-  useEffect(() => { loadSettings(); loadSkins(); loadSched() }, [loadSettings, loadSkins, loadSched])
+  useEffect(() => { loadSettings(); loadSkins(); loadSched(); loadModels() }, [loadSettings, loadSkins, loadSched, loadModels])
 
   const save = useCallback((patch) => {
     setBusy(true)
@@ -748,7 +758,7 @@ function PetPage() {
       h('div', { className: 'ming-sec' },
         h('div', { className: 'ming-sec-h' },
           h('span', { className: 'ming-sec-t' }, '光标'),
-          h('span', { className: 'ming-sec-n' }, '这只 AI 光标，不是你的真实鼠标'),
+          h('span', { className: 'ming-sec-n' }, '左键按住能拖走 · 右键有菜单（锁定 / 关掉）'),
         ),
         h('div', { className: 'ming-sec-b' },
           h('div', { className: 'mg-petrow' },
@@ -875,6 +885,76 @@ function PetPage() {
             : h('span', { className: 'mg-pop-sub' }, '读不到节奏设置'),
         ),
       ),
+      // ---- 2.5 用哪个模型（2026-11-08 她提的：桌面那只不能只能用默认模型）----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '用哪个模型'),
+          h('span', { className: 'ming-sec-n' }, models
+            ? (models.current.fromSettings ? '按这里选的 · 改完下一句就用新的' : '插件默认 · 还没在这里选过')
+            : '读不到模型列表'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          models
+            ? h('div', null,
+              h('div', { className: 'mg-petrow' },
+                h('b', null, '现在'),
+                h('span', { className: 'mg-pop-sub' }, models.current.provider + ' / ' + (models.current.model || '（没设）')),
+                models.current.talkerRunning ? null : h('span', { className: 'mg-pop-sub' }, '· 自动开口关着，选了也不开口'),
+              ),
+              h('div', { className: 'mg-petrow' },
+                h('select', {
+                  className: 'mg-input',
+                  style: { minWidth: 260, maxWidth: 420 },
+                  disabled: busy,
+                  value: models.current.provider + '||' + models.current.model,
+                  onChange: (e) => {
+                    const key = String(e.target.value || '')
+                    const at = key.indexOf('||')
+                    if (at < 0) return
+                    save({ talkProvider: key.slice(0, at), talkModel: key.slice(at + 2) })
+                  },
+                },
+                  h('option', { value: '' }, '插件默认（' + models.current.defaultProvider + ' / ' + (models.current.defaultModel || '未设') + '）'),
+                  models.providers.map((p) => (p.models && p.models.length
+                    ? h('optgroup', { key: 'p-' + p.id, label: p.name },
+                      p.models.map((m) => h('option', {
+                        key: p.id + '/' + m.id,
+                        value: p.id + '||' + m.id,
+                      }, m.name && m.name !== m.id ? m.name + '（' + m.id + '）' : m.id)))
+                    : h('option', {
+                      key: 'p-' + p.id,
+                      value: p.id + '||' + models.current.model,
+                      disabled: true,
+                    }, p.name + (p.error ? '（列不出来）' : '（没有模型目录）')))),
+                ),
+                h('button', { className: 'mg-btn', disabled: busy, onClick: () => loadModels() }, '刷新'),
+              ),
+              h('div', { className: 'mg-petrow' },
+                h('b', null, '手填'),
+                h('input', {
+                  className: 'mg-input',
+                  style: { minWidth: 200 },
+                  placeholder: '模型 id，比如 hy4-preview',
+                  value: modelDraft,
+                  disabled: busy,
+                  onChange: (e) => setModelDraft(e.target.value),
+                  onKeyDown: (e) => { if (e.key === 'Enter' && modelDraft.trim()) save({ talkProvider: models.current.provider, talkModel: modelDraft.trim() }) },
+                }),
+                h('button', {
+                  className: 'mg-btn',
+                  disabled: busy || !modelDraft.trim(),
+                  onClick: () => save({ talkProvider: models.current.provider, talkModel: modelDraft.trim() }),
+                }, '用这个'),
+                h('button', { className: 'mg-btn', disabled: busy, onClick: () => { setModelDraft(''); save({ talkProvider: '', talkModel: '' }) } }, '恢复默认'),
+              ),
+              (models.errors && models.errors.length)
+                ? h('div', { className: 'mg-pop-sub', style: { marginTop: 4 } }, models.errors.join(' · '))
+                : null,
+            )
+            : h('span', { className: 'mg-pop-sub' }, '读不到模型列表；可以在插件配置里改 companion.model，或者稍后点刷新'),
+        ),
+      ),
+
       // ---- 3. 默认皮肤 ----
       h('div', { className: 'ming-sec' },
         h('div', { className: 'ming-sec-h' },

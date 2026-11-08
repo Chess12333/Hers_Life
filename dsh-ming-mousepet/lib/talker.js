@@ -15,7 +15,7 @@ import { appendFileSync } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { judgeNudge, loadPetState, markSpoken, savePetState } from './pet.js'
+import { judgeNudge, loadPetState, markSpoken, savePetState, schedGapMs } from './pet.js'
 
 const DEFAULT_CARD = `# 桌面卡
 
@@ -159,18 +159,9 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
   let midTimer = null
   let lastScreenText = ''
 
-  async function once() {
-    const now = new Date()
-    const status = await engine.request('status', {}, 10000)
-    const state = await loadPetState()
-    const verdict = judgeNudge({ now, status, state })
-    if (!verdict.speak) return { spoken: false, why: verdict.why, quiet: true }
-
-    if (!llm || typeof llm.stream !== 'function') {
-      return { spoken: false, why: '宿主没给模型服务' }
-    }
-
-
+  // 「读卡 → 让模型说一句 → 把气泡摆到她看得见的地方」。
+  // 自动心跳和「她点了一下」共用这一段；区别只在前面那几行事实、以及说完记不记账。
+  async function compose(rows, status, opts = {}) {
     let card = ''
     try {
       card = await readFile(cardPath, 'utf8')
@@ -178,21 +169,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
       card = DEFAULT_CARD
     }
 
-    const c = verdict.context || {}
-    const rows = [
-      clockLine(now),
-      c.foreground ? `她屏幕上开着：${c.foreground}` : '',
-      Number.isFinite(c.idleMin) ? `她最近 ${c.idleMin} 分钟没动鼠标` : '',
-      `今天已经主动说过 ${c.spokenToday ?? 0} 次`,
-    ].filter(Boolean)
-
-    // 静默读一眼屏幕：这一屏上的字决定你这次说不说、说什么。
-    const screen = await readScreen(options.screenScript)
-    if (screen && screen.text) {
-      rows.push('她屏幕上这些字（从上往下）：')
-      rows.push(String(screen.text).slice(0, 700))
-    }
-    const facts = rows.join('\n')
+    const facts = rows.filter(Boolean).join('\n')
 
     let raw = ''
     let reasoning = ''
@@ -247,9 +224,15 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     const sayArgs = { text: line, ms: options.bubbleMs }
     let px = null
     let py = null
+    // 2026-11-08 21:2x：她点出来的那一次，位置就用她点的地方——她已经指给我看了，
+    // 不用再去猜前台窗口。也让「点了就有动静」这一步不必等定位。
+    if (opts.anchor && Number.isFinite(opts.anchor.x) && Number.isFinite(opts.anchor.y)) {
+      px = Math.round(opts.anchor.x)
+      py = Math.round(opts.anchor.y)
+    }
     try {
       const hwnd = status?.foreground?.hwnd
-      if (hwnd) {
+      if (px === null && hwnd) {
         const info = await engine.request('winInfo', { hwnd }, 5000)
         const r = info?.rect
         if (r && r.w > 240 && r.h > 240) {
@@ -263,10 +246,22 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     if (px === null) {
       try {
         const scr = await engine.request('status', {}, 5000)
-        const w = scr?.screen?.w || scr?.virtualScreen?.w || 1920
-        const h = scr?.screen?.h || scr?.virtualScreen?.h || 1080
-        px = Math.round(w * 0.82)
-        py = Math.round(h * 0.86)
+        const cur = scr?.cursor
+        if (cur && Number.isFinite(cur.x) && Number.isFinite(cur.y)) {
+          // 2026-11-08 她改的：闲置时自己开口，桌宠落在**她手上那只鼠标**的右下方。
+          // 偏移是 74/44（她调的：原来 24/24，再往右 50、往下 20）。
+          // 坐标全是物理像素——status.cursor 和 sidecar 画气泡用的是同一套，
+          // 别在这边再乘缩放比，也别拿逻辑宽度判越界。
+          px = Math.round(cur.x) + 74
+          py = Math.round(cur.y) + 44
+        } else {
+          const w = scr?.screen?.w || 1920
+          const h = scr?.screen?.h || 1080
+          const ox = scr?.screen?.x || 0
+          const oy = scr?.screen?.y || 0
+          px = ox + Math.round(w * 0.5)
+          py = oy + Math.round(h * 0.5)
+        }
       } catch {
         px = null
       }
@@ -275,10 +270,13 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
       sayArgs.x = px
       sayArgs.y = py
       // 2026-11-08 她要的节奏：缓动过去 → 停一下 → 换成「要点」的手形 → 再停一下 → 才开口。
-      await engine.request('glide', { x: px, y: py, ms: 750 }, 6000).catch(() => {})
-      await new Promise((r) => setTimeout(r, 780))
-      try { await engine.request('setCursorStyle', { style: 'link' }, 4000) } catch { /* 换样式失败不影响说话 */ }
-      await new Promise((r) => setTimeout(r, 220))
+      // 她点出来的那一次（opts.alreadyMoved）在 poke 里已经先动过了，这里不再重来一遍 1.75 秒。
+      if (!opts.alreadyMoved) {
+        await engine.request('glide', { x: px, y: py, ms: 750 }, 6000).catch(() => {})
+        await new Promise((r) => setTimeout(r, 780))
+        try { await engine.request('setCursorStyle', { style: 'link' }, 4000) } catch { /* 换样式失败不影响说话 */ }
+        await new Promise((r) => setTimeout(r, 220))
+      }
     }
 
     const said = await engine.request('say', sayArgs, 15000)
@@ -286,8 +284,89 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
       try { await engine.request('setCursorStyle', { style: 'pointer' }, 4000) } catch { /* ignore */ }
     }
     if (!said?.ok) return { spoken: false, why: `气泡没弹出来：${said?.error || '未知'}` }
-    await savePetState(markSpoken(await loadPetState(), now))
     return { spoken: true, line }
+  }
+
+  async function once() {
+    const now = new Date()
+    const status = await engine.request('status', {}, 10000)
+    const state = await loadPetState()
+    const verdict = judgeNudge({ now, status, state })
+    if (!verdict.speak) return { spoken: false, why: verdict.why, quiet: true }
+
+    if (!llm || typeof llm.stream !== 'function') {
+      return { spoken: false, why: '宿主没给模型服务' }
+    }
+
+    const c = verdict.context || {}
+    const rows = [
+      clockLine(now),
+      c.foreground ? `她屏幕上开着：${c.foreground}` : '',
+      Number.isFinite(c.idleMin) ? `她最近 ${c.idleMin} 分钟没动鼠标` : '',
+      `今天已经主动说过 ${c.spokenToday ?? 0} 次`,
+    ]
+
+    // 静默读一眼屏幕：这一屏上的字决定你这次说不说、说什么。
+    const screen = await readScreen(options.screenScript)
+    if (screen && screen.text) {
+      rows.push('她屏幕上这些字（从上往下）：')
+      rows.push(String(screen.text).slice(0, 700))
+    }
+
+    const r = await compose(rows, status)
+    // 只有「它自己主动开口」才记账——她点出来的那一次不算。
+    if (r.spoken) await savePetState(markSpoken(await loadPetState(), now))
+    return r
+  }
+
+  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动」。
+  // 她伸手点一下，就得有反应：不判 nudge（那是「该不该主动开口」）、不看宵禁、
+  // 不写 spokenToday、也不动 nextAt —— 点它一下不该打乱它自己的节奏。
+  async function poke(evt) {
+    if (running) return { spoken: false, why: '上一轮还没说完' }
+    if (!llm || typeof llm.stream !== 'function') return { spoken: false, why: '宿主没给模型服务' }
+    const t0 = Date.now()
+    const now = new Date()
+    // 2026-11-08 21:2x 她：「单击以后隔这么久才动」。
+    // 原来点完要先走 750ms 缓动 + 780ms 停顿 + 220ms 换手形，再等模型一两秒才出声，
+    // 点了跟没点一样。现在点下去先动：手形立刻换成「要点」，同时挪一小步到她点的地方；
+    // 话等模型回来再说，位置就用她点的那个点（她已经指给我看了，不用再猜前台窗口）。
+    // Keep the whole sprite above-left of the tap, not merely its window origin.
+    // Retain signed desktop coordinates for monitors left/above the primary.
+    const tapOffset = (Number.isFinite(engine.cursorSize) ? engine.cursorSize : 64) + 8
+    const anchor = evt && Number.isFinite(evt.x) && Number.isFinite(evt.y)
+      ? { x: Math.round(evt.x) - tapOffset, y: Math.round(evt.y) - tapOffset }
+      : null
+    const react = (async () => {
+      try { await engine.request('setCursorStyle', { style: 'link' }, 3000) } catch { /* 换样式失败不拦说话 */ }
+      if (anchor) {
+        try { await engine.request('glide', { x: anchor.x, y: anchor.y, ms: 150 }, 3000) } catch { /* 挪不过去也照说 */ }
+      }
+    })()
+
+    // 窗口标题只是让这句话贴题，不值得为它多等。0.8 秒拿不到就不带了。
+    let status = null
+    try {
+      status = await Promise.race([
+        engine.request('status', {}, 4000),
+        new Promise((r) => setTimeout(() => r(null), 800)),
+      ])
+    } catch { status = null }
+    const rows = [
+      clockLine(now),
+      status?.foreground?.title ? `她屏幕上开着：${status.foreground.title}` : '',
+      '她刚在桌面上点了你一下——不是到点，是她自己伸手。回一句。',
+    ]
+    let r
+    try {
+      r = await compose(rows, status, { anchor, alreadyMoved: true })
+    } catch (error) {
+      r = { spoken: false, why: error?.message || String(error) }
+    }
+    await react.catch(() => {})
+    const took = Date.now() - t0
+    say(r.spoken ? `被点了一下：${r.line}（${took}ms）` : `被点了一下，没说出来 — ${r.why}（${took}ms）`)
+    return r
   }
 
   async function tick() {
@@ -320,8 +399,27 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
   }
 
   let timer = null
-  const scheduleNext = () => {
-    const gap = fixedTick || nextGapMs()
+  const scheduleNext = async () => {
+    // 2026-11-08：间隔交给 pet.js 的 schedGapMs，按 state 里的
+    // schedMode（off/heartbeat/random/fixed）+ everyMin 算，改完下一轮就生效。
+    let gap = fixedTick
+    if (!gap) {
+      try {
+        const st = await loadPetState()
+        gap = schedGapMs(st)
+        // 2026-11-08：把这一轮排到什么时候写进 state，面板上「下次 ≈」就是它。
+        if (gap > 0) {
+          try { await savePetState({ ...(await loadPetState()), nextAt: Date.now() + gap }) } catch { /* 记不下来不拦 */ }
+        }
+      } catch { gap = nextGapMs() }
+    }
+    if (!gap || gap <= 0) {
+      // 关掉了：不排下一轮，只留一分钟的复查，她把模式改回来自动接着跑。
+      timer = setTimeout(() => { if (!stopped) scheduleNext() }, 60 * 1000)
+      if (typeof timer.unref === 'function') timer.unref()
+      if (midTimer) clearTimeout(midTimer)
+      return 0
+    }
     timer = setTimeout(async () => {
       await tick()
       if (!stopped) scheduleNext()
@@ -349,6 +447,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
   tick()
 
   const manual = () => tick()
+  // 桌宠被轻点：她点一下 = 叫它一次，不记次数（2026-11-08 她要的）。
 
   const stop = () => {
     stopped = true
@@ -356,5 +455,6 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     if (midTimer) clearTimeout(midTimer)
   }
   stop.manual = manual
+  stop.poke = poke
   return stop
 }
