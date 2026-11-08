@@ -3,7 +3,11 @@
  * 拼进 client.js 的 factory，能用外层的 h / React hooks。
  *
  * 2026-11-07 18:3x：从「只能看」变成「能按」——开关就是 live/interest-off 那个文件，
- * 面板只给它一个按钮；关键词还是改 live/interests.json。跳过原因拆开显示，不再是一整行字。
+ * 面板只给它一个按钮；关键词还是改 live/interests.json。
+ *
+ * 2026-11-08 15:5x：整页重排。她说的「至少要分清哪一块是哪一块」——
+ * 原来只有一行小标题，下面三块没名字的卡贴在一起。现在：页头说清这页是什么，
+ * 下面三块各有名字（频率 / 为什么不叫 / 盯着的话题）。
  */
 const INTEREST_API = '/_dsh/dsh-ming-interest'
 
@@ -53,62 +57,83 @@ function InterestPanel() {
   // 「跳过原因」拆成几条：她要知道是哪一条卡着，不是一句日志
   const why = String(st.skip || '').split(/[；;]\s*|\s{2,}/).map((x) => x.trim()).filter(Boolean)
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('span', { className: 'ming-title' }, '兴趣'),
-      h('span', { className: 'ming-pill', 'data-tone': tone }, label),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : topics.length + ' 个话题'),
-      h('button', {
-        className: 'ming-btn',
-        style: { marginLeft: 'auto' },
-        disabled: switching,
-        title: off ? '删掉 live/interest-off，恢复关键词叫醒' : '写 live/interest-off，先不叫醒',
-        onClick: toggle,
-      }, switching ? '切换中…' : (off ? '打开' : '关掉')),
-      h('button', { className: 'ming-btn', onClick: load }, '刷新'),
+  const kpi = (n, l) => h('div', { className: 'ming-kpi-c' },
+    h('span', { className: 'ming-kpi-n' }, n),
+    h('span', { className: 'ming-kpi-l' }, l))
+
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(InterestIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '兴趣'),
+        h('div', { className: 'ming-ph-d' }, '什么时候会因为这些词把我叫起来，什么时候不会'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill', 'data-tone': tone }, label),
+        h('button', {
+          className: 'ming-btn',
+          disabled: switching,
+          title: off ? '删掉 live/interest-off，恢复关键词叫醒' : '写 live/interest-off，先不叫醒',
+          onClick: toggle,
+        }, switching ? '切换中…' : (off ? '打开' : '关掉')),
+        h('button', { className: 'ming-btn', onClick: load }, busy ? '读取中…' : '刷新'),
+      ),
     ),
-    h('div', { className: 'ming-body ming-scroll' },
+
+    h('div', { className: 'ming-wrap ming-scroll' },
       err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      h('div', { className: 'ming-card', style: { display: 'flex', gap: 24 } },
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi' }, (st.wakesLastHour || 0) + '/' + (st.maxPerHour || '?')),
-          h('span', { className: 'ming-sub' }, '这一小时叫醒'),
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '现在的频率'),
+          h('span', { className: 'ming-sec-n' }, '每小时最多 ' + (st.maxPerHour || '?') + ' 次'),
         ),
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi', style: { fontSize: 15 } }, fmtAgo(st.sinceWakeMs)),
-          h('span', { className: 'ming-sub' }, '距上次'),
-        ),
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi', style: { fontSize: 15 } }, st.at ? st.at.slice(5, 16).replace('T', ' ') : '—'),
-          h('span', { className: 'ming-sub' }, '状态更新时间（UTC）'),
+        h('div', { className: 'ming-kpis' },
+          kpi((st.wakesLastHour || 0) + ' 次', '这一小时叫醒'),
+          kpi(fmtAgo(st.sinceWakeMs), '距上次'),
+          kpi(st.at ? st.at.slice(5, 16).replace('T', ' ') : '—', '状态更新（UTC）'),
         ),
       ),
 
       why.length
-        ? h('div', { className: 'ming-card' },
-          h('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 4 } }, '现在为什么不叫'),
-          h('div', null, why.map((w, i) => h('div', { key: i, className: 'ming-sub', style: { padding: '2px 0' } }, '· ' + w))),
-          off ? h('div', { className: 'ming-sub', style: { marginTop: 4 } }, '开关在 live/interest-off，点上面的「打开」就删掉它。') : null,
+        ? h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '现在为什么不叫'),
+            h('span', { className: 'ming-sec-n' }, why.length + ' 条原因'),
+          ),
+          h('div', { className: 'ming-sec-b' },
+            why.map((w, i) => h('div', { key: i, className: 'ming-note' }, '· ' + w)),
+            off ? h('div', { className: 'ming-note' }, '开关在 live/interest-off，点右上「打开」就删掉它。') : null,
+          ),
         )
         : null,
 
-      h('div', null, topics.map((t, i) => h('div', { key: i, className: 'ming-row', style: { alignItems: 'flex-start', flexDirection: 'column', gap: 4 } },
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', width: '100%' } },
-          h('span', { style: { fontWeight: 600 } }, t.name || '(无名)'),
-          h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, (t.keywords || []).length + ' 词'),
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '盯着的话题'),
+          h('span', { className: 'ming-sec-n' }, topics.length + ' 个 · 改 live/interests.json，下一轮生效'),
         ),
-        h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
-          (t.keywords || []).map((k, j) => h('span', { key: j, className: 'ming-pill' }, k)),
-          (t.mute || []).map((k, j) => h('span', { key: 'm' + j, className: 'ming-pill', 'data-tone': 'danger', title: '出现就整条不算' }, '✕ ' + k)),
+        h('div', { className: 'ming-sec-b flush' },
+          h('div', { className: 'ming-list' },
+            topics.map((t, i) => h('div', { key: i, className: 'ming-li', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4 } },
+              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', width: '100%' } },
+                h('span', { className: 'ming-li-t' }, t.name || '(无名)'),
+                h('span', { className: 'ming-note', style: { marginLeft: 'auto' } }, (t.keywords || []).length + ' 词'),
+              ),
+              h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
+                (t.keywords || []).map((k, j) => h('span', { key: j, className: 'ming-pill' }, k)),
+                (t.mute || []).map((k, j) => h('span', { key: 'm' + j, className: 'ming-pill', 'data-tone': 'danger', title: '出现就整条不算' }, '✕ ' + k)),
+              ),
+            )),
+          ),
         ),
-      ))),
-      h('div', { className: 'ming-sub' }, '要改词就改 live/interests.json，下一轮生效。'),
+      ),
     ),
   )
 }
 
 function InterestIcon() {
-  return h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
+  return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
     h('circle', { cx: 12, cy: 12, r: 3 }),
     h('path', { d: 'M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2' }),
   )

@@ -124,6 +124,65 @@ const MING_UI = (() => {
 .${p}-btn:hover { background: ${TOKENS.hover}; }
 .${p}-btn:active { background: ${TOKENS.active}; }
 .${p}-btn[data-primary="1"] { background: ${TOKENS.accent}; color: #fff; border-color: transparent; }
+/* ---- 2026-11-08：页面骨架（页头 + 分区） ----
+ * 起因：她说「把这些的 ui 都重新做一下，至少要分清哪一块是哪一块」。
+ * 当时每页只有一行小标题，下面全是没名字的卡片，看一眼不知道哪块在说什么。
+ * 这一层只加四样：页头（这是哪一页）、分区（这一块叫什么）、数字条、说明脚注。
+ * 老类（panel/head/body/card/row/stat/kpi/pill/btn）一个都不删——别的插件还在用。 */
+.${p}-page {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  background: ${TOKENS.bg}; color: ${TOKENS.text};
+  font-size: ${S.font.md}px; line-height: 1.6;
+}
+.${p}-ph {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: ${S.gap.md}px ${S.gap.lg}px; border-bottom: 1px solid ${TOKENS.separator};
+  flex: 0 0 auto; background: ${TOKENS.bg};
+}
+.${p}-ph-ic {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: ${TOKENS.surfaceAlt}; border: 1px solid ${TOKENS.borderSoft}; color: ${TOKENS.accent};
+}
+.${p}-ph-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.${p}-ph-t { font-size: 15.5px; font-weight: 650; letter-spacing: .01em; line-height: 1.35; }
+.${p}-ph-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.5; }
+.${p}-ph-a { display: flex; align-items: center; gap: ${S.gap.sm}px; flex: 0 0 auto; }
+.${p}-wrap {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  padding: ${S.gap.lg}px ${S.gap.lg}px ${S.gap.xl}px;
+  display: flex; flex-direction: column; gap: ${S.gap.lg}px;
+  width: 100%; box-sizing: border-box;
+}
+.${p}-sec {
+  border: 1px solid ${TOKENS.borderSoft}; border-radius: 12px;
+  background: ${TOKENS.surface}; overflow: hidden; flex: 0 0 auto;
+}
+.${p}-sec-h {
+  display: flex; align-items: center; gap: ${S.gap.sm}px;
+  padding: 8px 14px; background: ${TOKENS.surfaceAlt};
+  border-bottom: 1px solid ${TOKENS.borderSoft};
+}
+.${p}-sec-t { font-size: ${S.font.sm}px; font-weight: 600; letter-spacing: .03em; color: ${TOKENS.text}; }
+.${p}-sec-n { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; margin-left: auto; white-space: nowrap; }
+.${p}-sec-b { padding: ${S.gap.md}px 14px; display: flex; flex-direction: column; gap: ${S.gap.sm}px; }
+.${p}-sec-b.flush { padding: 0; gap: 0; }
+.${p}-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.${p}-kpi-c { padding: 12px 14px; border-left: 1px solid ${TOKENS.separator}; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.${p}-kpi-c:first-child { border-left: none; }
+.${p}-kpi-n { font-size: 20px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.${p}-kpi-l { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; }
+.${p}-note { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.65; }
+.${p}-list { display: flex; flex-direction: column; }
+.${p}-li {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: 9px 14px; border-top: 1px solid ${TOKENS.separator}; min-width: 0;
+}
+.${p}-li:first-child { border-top: none; }
+.${p}-li:hover { background: ${TOKENS.hover}; }
+.${p}-li-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.${p}-li-t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.${p}-li-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.6; }
 .${p}-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .${p}-scroll::-webkit-scrollbar-thumb { background: var(--dsw-alias-scrollbar-bg-l1); border-radius: 4px; }
 .${p}-scroll::-webkit-scrollbar-thumb:hover { background: var(--dsw-alias-scrollbar-hover-l1); }
@@ -1879,56 +1938,77 @@ function InterestPanel() {
   // 「跳过原因」拆成几条：她要知道是哪一条卡着，不是一句日志
   const why = String(st.skip || '').split(/[；;]\s*|\s{2,}/).map((x) => x.trim()).filter(Boolean)
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('span', { className: 'ming-title' }, '兴趣'),
-      h('span', { className: 'ming-pill', 'data-tone': tone }, label),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : topics.length + ' 个话题'),
-      h('button', {
-        className: 'ming-btn',
-        style: { marginLeft: 'auto' },
-        disabled: switching,
-        title: off ? '删掉 live/interest-off，恢复关键词叫醒' : '写 live/interest-off，先不叫醒',
-        onClick: toggle,
-      }, switching ? '切换中…' : (off ? '打开' : '关掉')),
-      h('button', { className: 'ming-btn', onClick: load }, '刷新'),
+  const kpi = (n, l) => h('div', { className: 'ming-kpi-c' },
+    h('span', { className: 'ming-kpi-n' }, n),
+    h('span', { className: 'ming-kpi-l' }, l))
+
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(InterestIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '兴趣'),
+        h('div', { className: 'ming-ph-d' }, '什么时候会因为这些词把我叫起来，什么时候不会'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill', 'data-tone': tone }, label),
+        h('button', {
+          className: 'ming-btn',
+          disabled: switching,
+          title: off ? '删掉 live/interest-off，恢复关键词叫醒' : '写 live/interest-off，先不叫醒',
+          onClick: toggle,
+        }, switching ? '切换中…' : (off ? '打开' : '关掉')),
+        h('button', { className: 'ming-btn', onClick: load }, busy ? '读取中…' : '刷新'),
+      ),
     ),
-    h('div', { className: 'ming-body ming-scroll' },
+
+    h('div', { className: 'ming-wrap ming-scroll' },
       err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      h('div', { className: 'ming-card', style: { display: 'flex', gap: 24 } },
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi' }, (st.wakesLastHour || 0) + '/' + (st.maxPerHour || '?')),
-          h('span', { className: 'ming-sub' }, '这一小时叫醒'),
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '现在的频率'),
+          h('span', { className: 'ming-sec-n' }, '每小时最多 ' + (st.maxPerHour || '?') + ' 次'),
         ),
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi', style: { fontSize: 15 } }, fmtAgo(st.sinceWakeMs)),
-          h('span', { className: 'ming-sub' }, '距上次'),
-        ),
-        h('div', { className: 'ming-stat' },
-          h('span', { className: 'ming-kpi', style: { fontSize: 15 } }, st.at ? st.at.slice(5, 16).replace('T', ' ') : '—'),
-          h('span', { className: 'ming-sub' }, '状态更新时间（UTC）'),
+        h('div', { className: 'ming-kpis' },
+          kpi((st.wakesLastHour || 0) + ' 次', '这一小时叫醒'),
+          kpi(fmtAgo(st.sinceWakeMs), '距上次'),
+          kpi(st.at ? st.at.slice(5, 16).replace('T', ' ') : '—', '状态更新（UTC）'),
         ),
       ),
 
       why.length
-        ? h('div', { className: 'ming-card' },
-          h('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 4 } }, '现在为什么不叫'),
-          h('div', null, why.map((w, i) => h('div', { key: i, className: 'ming-sub', style: { padding: '2px 0' } }, '· ' + w))),
-          off ? h('div', { className: 'ming-sub', style: { marginTop: 4 } }, '开关在 live/interest-off，点上面的「打开」就删掉它。') : null,
+        ? h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '现在为什么不叫'),
+            h('span', { className: 'ming-sec-n' }, why.length + ' 条原因'),
+          ),
+          h('div', { className: 'ming-sec-b' },
+            why.map((w, i) => h('div', { key: i, className: 'ming-note' }, '· ' + w)),
+            off ? h('div', { className: 'ming-note' }, '开关在 live/interest-off，点右上「打开」就删掉它。') : null,
+          ),
         )
         : null,
 
-      h('div', null, topics.map((t, i) => h('div', { key: i, className: 'ming-row', style: { alignItems: 'flex-start', flexDirection: 'column', gap: 4 } },
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', width: '100%' } },
-          h('span', { style: { fontWeight: 600 } }, t.name || '(无名)'),
-          h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, (t.keywords || []).length + ' 词'),
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '盯着的话题'),
+          h('span', { className: 'ming-sec-n' }, topics.length + ' 个 · 改 live/interests.json，下一轮生效'),
         ),
-        h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
-          (t.keywords || []).map((k, j) => h('span', { key: j, className: 'ming-pill' }, k)),
-          (t.mute || []).map((k, j) => h('span', { key: 'm' + j, className: 'ming-pill', 'data-tone': 'danger', title: '出现就整条不算' }, '✕ ' + k)),
+        h('div', { className: 'ming-sec-b flush' },
+          h('div', { className: 'ming-list' },
+            topics.map((t, i) => h('div', { key: i, className: 'ming-li', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4 } },
+              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', width: '100%' } },
+                h('span', { className: 'ming-li-t' }, t.name || '(无名)'),
+                h('span', { className: 'ming-note', style: { marginLeft: 'auto' } }, (t.keywords || []).length + ' 词'),
+              ),
+              h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
+                (t.keywords || []).map((k, j) => h('span', { key: j, className: 'ming-pill' }, k)),
+                (t.mute || []).map((k, j) => h('span', { key: 'm' + j, className: 'ming-pill', 'data-tone': 'danger', title: '出现就整条不算' }, '✕ ' + k)),
+              ),
+            )),
+          ),
         ),
-      ))),
-      h('div', { className: 'ming-sub' }, '要改词就改 live/interests.json，下一轮生效。'),
+      ),
     ),
   )
 }
@@ -1982,43 +2062,71 @@ function VoicePanel() {
   useEffect(() => { load() }, [load])
 
   const files = (data && data.files) || []
+  const kpi = (n, l) => h('div', { className: 'ming-kpi-c' },
+    h('span', { className: 'ming-kpi-n', style: { fontSize: 15 } }, n),
+    h('span', { className: 'ming-kpi-l' }, l))
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('span', { className: 'ming-title' }, '声音'),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : files.length + ' 个最近文件'),
-      h('button', { className: 'ming-btn', style: { marginLeft: 'auto' }, onClick: load }, '刷新'),
-    ),
-    h('div', { className: 'ming-body ming-scroll' },
-      err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      h('div', { className: 'ming-card', style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
-        h('span', { className: 'ming-pill' }, '引擎 ' + (data ? data.engine || '—' : '…')),
-        h('span', { className: 'ming-pill' }, '音色 ' + (data ? data.voice || '—' : '…')),
-        h('span', { className: 'ming-pill' }, '语速 ' + (data ? data.rate || '—' : '…')),
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(VoiceIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '声音'),
+        h('div', { className: 'ming-ph-d' }, '我合出来的 mp3，点 ▶ 就地试听'),
       ),
-      files.length === 0 && !err
-        ? h('div', { className: 'ming-empty' }, '还没有合成过语音')
-        : h('div', null, files.map((f, i) => h('div', { key: i, style: { padding: '4px 0', borderBottom: '1px solid var(--dsw-alias-separator-secondary)' } },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('button', {
-              className: 'ming-btn',
-              style: { padding: '1px 8px' },
-              title: playing === f.name ? '收起' : '试听',
-              onClick: () => setPlaying(playing === f.name ? '' : f.name),
-            }, playing === f.name ? '■' : '▶'),
-            h('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: f.name }, f.name),
-            h('span', { className: 'ming-sub' }, fmtSize(f.size)),
-            h('span', { className: 'ming-sub', style: { width: 76, textAlign: 'right' } }, fmtDay(f.mtime)),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill' }, files.length + ' 个'),
+        h('button', { className: 'ming-btn', onClick: load }, busy ? '读取中…' : '刷新'),
+      ),
+    ),
+
+    h('div', { className: 'ming-wrap ming-scroll' },
+      err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '拿什么合成'),
+          h('span', { className: 'ming-sec-n' }, '改参数在 voice_say 工具那边'),
+        ),
+        h('div', { className: 'ming-kpis' },
+          kpi(data ? data.engine || '—' : '…', '引擎'),
+          kpi(data ? data.voice || '—' : '…', '音色'),
+          kpi(data ? data.rate || '—' : '…', '语速'),
+        ),
+      ),
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '最近合出来的'),
+          h('span', { className: 'ming-sec-n' }, 'live/voice 下最新的那些'),
+        ),
+        files.length === 0 && !err
+          ? h('div', { className: 'ming-sec-b' }, h('div', { className: 'ming-empty' }, '还没有合成过语音'))
+          : h('div', { className: 'ming-sec-b flush' },
+            h('div', { className: 'ming-list' },
+              files.map((f, i) => h('div', { key: i, className: 'ming-li', style: { flexDirection: 'column', alignItems: 'stretch', gap: 0 } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                  h('button', {
+                    className: 'ming-btn',
+                    style: { padding: '1px 8px' },
+                    title: playing === f.name ? '收起' : '试听',
+                    onClick: () => setPlaying(playing === f.name ? '' : f.name),
+                  }, playing === f.name ? '■' : '▶'),
+                  h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 }  , title: f.name }, f.name),
+                  h('span', { className: 'ming-note' }, fmtSize(f.size)),
+                  h('span', { className: 'ming-note', style: { width: 76, textAlign: 'right' } }, fmtDay(f.mtime)),
+                ),
+                playing === f.name
+                  ? h('audio', {
+                    controls: true,
+                    autoPlay: true,
+                    style: { width: '100%', marginTop: 6 },
+                    src: VOICE_API + '/file?name=' + encodeURIComponent(f.name),
+                  })
+                  : null,
+              )),
+            ),
           ),
-          playing === f.name
-            ? h('audio', {
-              controls: true,
-              autoPlay: true,
-              style: { width: '100%', marginTop: 4 },
-              src: VOICE_API + '/file?name=' + encodeURIComponent(f.name),
-            })
-            : null,
-        ))),
+      ),
     ),
   )
 }
@@ -2334,153 +2442,169 @@ function BrowsePanel() {
     )
   }
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head', style: { flexWrap: 'wrap', gap: 8 } },
-      // 2026-11-07 21:55 她指着这行说「改成自己玩」——原来叫「刷过 / 看过 · v5」，
-      // 那个 v5 是内部版本号，不该出现在她眼前。后面的「在逛 / 165 条 · 19 天 / 第 1/6 轮」留着，信息不丢。
-      h('span', { className: 'ming-title' }, '自己玩'),
-      h('span', { className: 'ming-pill', 'data-tone': tone }, label),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : (total + ' 条 · ' + dayList.length + ' 天')),
-      sess.rounds || sess.perSession
-        ? h('span', { className: 'ming-pill' }, '第 ' + (sess.rounds || 0) + '/' + (sess.perSession || '?') + ' 轮')
-        : null,
-      // 2026-11-08 02:1x 她说的「把手动给鱼记见闻的功能删掉」：
-      // 见闻只走 scripts/sighting.mjs（那边数条数、满 20 开下一卷），面板不再插一手。
-      // 2026-11-08 02:3x（她说的「自由活动做个可以自己手动改的」）：
-      // 每日上限 / 间隔模式 / 间隔分钟，改完点「存」，写 live/browse-config.json，下一次调度就用新值。
-      data && data.sched
-        ? h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', fontSize: 12 } },
-          // 2026-11-08 02:1x 她说的「包括最大值/无限制」：
-          // 「不限」不是一个 999，而是写 live/browse-unlimited.json（跟 scripts/browse-quota.mjs 同一个文件）。
-          h('button', {
-            className: 'ming-btn',
-            title: '不限次数：写 live/browse-unlimited.json，到下一个本地 09:00 自己收回来',
-            disabled: !!(cfgDraft && cfgDraft.gapMode === 'heartbeat'),
-            style: cfgDraft && cfgDraft.unlimited
-              ? { background: 'var(--dsw-alias-bg-hover, rgba(127,127,127,.18))', color: 'var(--dsw-alias-label-primary)' }
-              : null,
-            onClick: () => setCfgDraft({ ...(cfgDraft || data.sched), unlimited: !(cfgDraft && cfgDraft.unlimited) }),
-          }, cfgDraft && cfgDraft.unlimited ? '不限 ✓' : '限额'),
-          h('span', { className: 'ming-sub' }, '每日'),
-          h('input', {
-            type: 'number', min: 0, max: 999,
-            disabled: !!(cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat')),
-            title: cfgDraft && cfgDraft.gapMode === 'heartbeat' ? '心跳模式不数次数'
-              : (cfgDraft && cfgDraft.unlimited ? '现在是不限；点左边「不限 ✓」切回限额' : '一天最多醒几次（0 = 不醒）'),
-            value: cfgDraft ? cfgDraft.dailyMax : '',
-            onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), dailyMax: Number(e.target.value) }),
-            style: { width: 54, fontSize: 12, padding: '1px 4px', opacity: cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat') ? 0.45 : 1 },
-          }),
-          h('span', { className: 'ming-sub' }, '次 · 间隔'),
-          h('select', {
-            value: cfgDraft ? cfgDraft.gapMode : 'fixed',
-            onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), gapMode: e.target.value }),
-            style: { fontSize: 12, padding: '1px 2px' },
-            title: '心跳 = 不按数字推我，什么时候醒由我自己排（在「下次醒」那一格）',
-          }, h('option', { value: 'fixed' }, '固定'), h('option', { value: 'random' }, '随机'),
-          h('option', { value: 'heartbeat' }, '心跳')),
-          // 2026-11-08 02:2x 她说的「要不可以自己设置心跳最低值/中位值/最大值？」：
-          // 三个数都摊在她眼前，改了按「存」写进 browse-config.json（hbMin / hbCenter / hbMax）。
-          cfgDraft && cfgDraft.gapMode === 'heartbeat'
-            ? (() => {
-              const hb = cfgDraft.hb || { min: 5, center: 30, max: 240 }
-              const setHb = (k, v) => setCfgDraft({ ...cfgDraft, hb: { ...hb, [k]: Number(v) } })
-              const box = (k, label, hint) => [
-                h('span', { key: k + 'l', className: 'ming-sub' }, label),
-                h('input', {
-                  key: k, type: 'number', min: 1, max: 1440, title: hint,
-                  value: hb[k],
-                  onChange: (e) => setHb(k, e.target.value),
-                  style: { width: 46, fontSize: 12, padding: '1px 4px' },
-                }),
-              ]
-              return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
-                box('min', '最低', '最短隔多久再醒（分钟）'),
-                box('center', '中位', '最常落在这个数上；离它越远越稀'),
-                box('max', '最高', '最长能睡多久（分钟）'),
-                h('span', { className: 'ming-sub', style: { marginRight: 4 } }, '分'),
-                data.sched && data.sched.heartbeat && data.sched.heartbeat.at
-                  ? h('span', { className: 'ming-sub', style: { whiteSpace: 'nowrap' }, title: '这一次抽到的是多少' },
-                    '下次 ≈ ' + new Date(data.sched.heartbeat.at).toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5))
-                  : null,
-              )
-            })()
-            : h('input', {
-              type: 'number', min: 1, max: 240,
-              value: cfgDraft ? cfgDraft.minGapMinutes : '',
-              onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), minGapMinutes: Number(e.target.value) }),
-              style: { width: 46, fontSize: 12, padding: '1px 4px' },
-            }),
-          cfgDraft && cfgDraft.gapMode === 'heartbeat' ? null : h('span', { className: 'ming-sub' }, '分'),
-          h('button', { className: 'ming-btn', onClick: saveCfg }, '存'),
-        )
-        : null,
-      h('button', {
-        className: 'ming-btn',
-        onClick: () => { load(); loadBrush() },
-      }, '刷新'),
+  return h('div', { className: 'ming-page' },
+    // ---- 页头：这一页是什么 ----
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(BrowseIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '自己玩'),
+        h('div', { className: 'ming-ph-d' }, '什么时候醒、去哪儿逛、留下了什么'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill', 'data-tone': tone }, label),
+        h('span', { className: 'ming-pill' }, total + ' 条 · ' + dayList.length + ' 天'),
+        sess.rounds || sess.perSession
+          ? h('span', { className: 'ming-pill' }, '第 ' + (sess.rounds || 0) + '/' + (sess.perSession || '?') + ' 轮')
+          : null,
+        h('button', {
+          className: 'ming-btn',
+          onClick: () => { load(); loadBrush() },
+        }, busy ? '读取中…' : '刷新'),
+      ),
     ),
 
-    h('div', { className: 'ming-body ming-scroll' },
+    h('div', { className: 'ming-wrap ming-scroll' },
       err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
 
-      // 2026-11-07 21:0x：她自己决定下次什么时候醒，兴趣命中会直接插进来一次。
-      h('div', { className: 'ming-card', style: { marginBottom: 10 } },
-        h('div', { style: { display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', fontSize: 12.5 } },
-          h('span', { style: { fontWeight: 600 } }, '下次醒'),
-          h('span', { style: sw.urgent ? { color: '#ff6b6b', fontWeight: 600 } : undefined }, sw.next
-            ? String(sw.next).replace('T', ' ').slice(0, 16)
-            : '还没排（闲够久会自己醒一次）'),
-          sw.urgent ? h('span', { style: { color: '#ff6b6b', fontWeight: 600 } }, '危机唤醒') : null,
-          sw.reason ? h('span', { className: 'ming-sub' }, '为「' + sw.reason + '」') : null,
-          h('span', { style: { width: 8 } }),
-          h('span', { style: { fontWeight: 600 } }, '兴趣'),
-          h('span', {}, it.wakesLastHour ? '这一小时叫醒 ' + it.wakesLastHour + ' 次' : '这一小时没叫过'),
-          it.skip ? h('span', { className: 'ming-sub' }, it.skip) : null,
+      // ---- 1. 下次什么时候醒 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '下次什么时候醒'),
+          h('span', { className: 'ming-sec-n' }, it.wakesLastHour ? '兴趣这一小时叫醒 ' + it.wakesLastHour + ' 次' : '兴趣这一小时没叫过'),
         ),
-        h('div', { className: 'ming-sub', style: { marginTop: 4 } },
-          '时间是我自己定的：这一轮想干什么、大概要多久，收尾时排下一次。兴趣命中不等排点，直接叫；连续叫太多次会被它自己限住。'),
-      ),
-      h('div', { className: 'ming-card' },
-        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 } },
-          h('span', { style: { fontWeight: 600, fontSize: 13 } }, '看过哪些天'),
-          h('span', { className: 'ming-sub' }, total ? '视频 ' + (kinds.video || 0) + ' / 网页 ' + ((kinds.web || 0) + (kinds.page || 0)) + ' / 书 ' + (kinds.book || 0) : '还没有记录'),
-          h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, '点格子看那天'),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { style: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' } },
+            h('span', { style: { fontSize: 17, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }, ...(sw.urgent ? { color: 'var(--dsw-alias-state-error-primary, #ff6b6b)' } : {}) },
+              sw.next ? String(sw.next).replace('T', ' ').slice(0, 16) : '还没排'),
+            sw.urgent ? h('span', { className: 'ming-pill', 'data-tone': 'danger' }, '危机唤醒') : null,
+            sw.reason ? h('span', { className: 'ming-note' }, '为「' + sw.reason + '」') : null,
+          ),
+          it.skip ? h('div', { className: 'ming-note' }, '兴趣现在不叫：' + it.skip) : null,
+          h('div', { className: 'ming-note' },
+            '还没排就是闲够久了会自己醒一次。时间是我自己定的：这一轮想干什么、大概要多久，收尾时排下一次；兴趣命中不等排点，直接叫，连续叫太多次会被它自己限住。'),
         ),
-        h('div', { style: { display: 'flex', gap: 3, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 4 } },
-          cal.map((col, ci) => h('div', { key: ci, style: { display: 'flex', flexDirection: 'column', gap: 3 } },
-            col.map((c) => h('div', {
-              key: c.key,
-              title: c.n >= 0 ? c.key + ' · ' + c.n + ' 条' : '',
-              onClick: () => { if (c.n > 0) setSelDay(c.key) },
-              style: {
-                width: 12, height: 12, borderRadius: 2,
-                background: dot(c.n),
-                cursor: c.n > 0 ? 'pointer' : 'default',
-                outline: c.key === activeDay ? '1.5px solid var(--dsw-alias-label-primary)' : 'none',
-                outlineOffset: 1,
-              },
-            })),
-          ))),
       ),
 
-      h('div', { className: 'ming-card', style: { marginTop: 10 } },
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 10 } },
-          h('span', { style: { fontWeight: 600, fontSize: 13 } }, activeDay === todayKey ? '今天' : activeDay),
-          h('span', { className: 'ming-sub' }, dayCards.length + ' 条'),
+      // ---- 2. 节奏（原样搬家，只是从页头挪进区块） ----
+      data && data.sched
+        ? h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '节奏'),
+            h('span', { className: 'ming-sec-n' }, '改完点「存」，下一次调度就用新值'),
+          ),
+          h('div', { className: 'ming-sec-b' },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5 } },
+              h('button', {
+                className: 'ming-btn',
+                title: '不限次数：写 live/browse-unlimited.json，到下一个本地 09:00 自己收回来',
+                disabled: !!(cfgDraft && cfgDraft.gapMode === 'heartbeat'),
+                style: cfgDraft && cfgDraft.unlimited
+                  ? { background: 'var(--dsw-alias-bg-hover, rgba(127,127,127,.18))', color: 'var(--dsw-alias-label-primary)' }
+                  : null,
+                onClick: () => setCfgDraft({ ...(cfgDraft || data.sched), unlimited: !(cfgDraft && cfgDraft.unlimited) }),
+              }, cfgDraft && cfgDraft.unlimited ? '不限 ✓' : '限额'),
+              h('span', { className: 'ming-note' }, '每日'),
+              h('input', {
+                type: 'number', min: 0, max: 999,
+                disabled: !!(cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat')),
+                title: cfgDraft && cfgDraft.gapMode === 'heartbeat' ? '心跳模式不数次数'
+                  : (cfgDraft && cfgDraft.unlimited ? '现在是不限；点左边「不限 ✓」切回限额' : '一天最多醒几次（0 = 不醒）'),
+                value: cfgDraft ? cfgDraft.dailyMax : '',
+                onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), dailyMax: Number(e.target.value) }),
+                style: { width: 54, fontSize: 12, padding: '1px 4px', opacity: cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat') ? 0.45 : 1 },
+              }),
+              h('span', { className: 'ming-note' }, '次 · 间隔'),
+              h('select', {
+                value: cfgDraft ? cfgDraft.gapMode : 'fixed',
+                onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), gapMode: e.target.value }),
+                style: { fontSize: 12, padding: '1px 2px' },
+                title: '心跳 = 不按数字推我，什么时候醒由我自己排（在「下次醒」那一格）',
+              }, h('option', { value: 'fixed' }, '固定'), h('option', { value: 'random' }, '随机'),
+              h('option', { value: 'heartbeat' }, '心跳')),
+              cfgDraft && cfgDraft.gapMode === 'heartbeat'
+                ? (() => {
+                  const hb = cfgDraft.hb || { min: 5, center: 30, max: 240 }
+                  const setHb = (k, v) => setCfgDraft({ ...cfgDraft, hb: { ...hb, [k]: Number(v) } })
+                  const box = (k, label, hint) => [
+                    h('span', { key: k + 'l', className: 'ming-note' }, label),
+                    h('input', {
+                      key: k, type: 'number', min: 1, max: 1440, title: hint,
+                      value: hb[k],
+                      onChange: (e) => setHb(k, e.target.value),
+                      style: { width: 46, fontSize: 12, padding: '1px 4px' },
+                    }),
+                  ]
+                  return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } },
+                    box('min', '最低', '最短隔多久再醒（分钟）'),
+                    box('center', '中位', '最常落在这个数上；离它越远越稀'),
+                    box('max', '最高', '最长能睡多久（分钟）'),
+                    h('span', { className: 'ming-note', style: { marginRight: 4 } }, '分'),
+                    data.sched && data.sched.heartbeat && data.sched.heartbeat.at
+                      ? h('span', { className: 'ming-note', style: { whiteSpace: 'nowrap' }, title: '这一次抽到的是多少' },
+                        '下次 ≈ ' + new Date(data.sched.heartbeat.at).toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5))
+                      : null,
+                  )
+                })()
+                : h('input', {
+                  type: 'number', min: 1, max: 240,
+                  value: cfgDraft ? cfgDraft.minGapMinutes : '',
+                  onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), minGapMinutes: Number(e.target.value) }),
+                  style: { width: 46, fontSize: 12, padding: '1px 4px' },
+                }),
+              cfgDraft && cfgDraft.gapMode === 'heartbeat' ? null : h('span', { className: 'ming-note' }, '分'),
+              h('button', { className: 'ming-btn', onClick: saveCfg }, '存'),
+            ),
+          ),
+        )
+        : null,
+
+      // ---- 3. 看过哪些天 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '看过哪些天'),
+          h('span', { className: 'ming-sec-n' },
+            total ? '视频 ' + (kinds.video || 0) + ' / 网页 ' + ((kinds.web || 0) + (kinds.page || 0)) + ' / 书 ' + (kinds.book || 0) : '还没有记录'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { style: { display: 'flex', gap: 3, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 4 } },
+            cal.map((col, ci) => h('div', { key: ci, style: { display: 'flex', flexDirection: 'column', gap: 3 } },
+              col.map((c) => h('div', {
+                key: c.key,
+                title: c.n >= 0 ? c.key + ' · ' + c.n + ' 条' : '',
+                onClick: () => { if (c.n > 0) setSelDay(c.key) },
+                style: {
+                  width: 12, height: 12, borderRadius: 2,
+                  background: dot(c.n),
+                  cursor: c.n > 0 ? 'pointer' : 'default',
+                  outline: c.key === activeDay ? '1.5px solid var(--dsw-alias-label-primary)' : 'none',
+                  outlineOffset: 1,
+                },
+              })),
+            )),
+          ),
+          h('div', { className: 'ming-note' }, '一格一天，点格子看那天。深 = 条数多。'),
+        ),
+      ),
+
+      // ---- 4. 某一天 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, activeDay === todayKey ? '今天' : activeDay),
+          h('span', { className: 'ming-sec-n' }, dayCards.length + ' 条'),
           activeDay !== todayKey
-            ? h('button', { className: 'ming-btn', style: { marginLeft: 'auto', fontSize: 11, padding: '1px 8px' }, onClick: () => setSelDay('') }, '回到今天')
+            ? h('button', { className: 'ming-btn', style: { marginLeft: 8, fontSize: 11, padding: '1px 8px' }, onClick: () => setSelDay('') }, '回到今天')
             : null,
         ),
-        dayCards.length
-          ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 14 } }, dayCards.map(card))
-          : h('div', { className: 'ming-empty', style: { padding: '10px 0' } }, '这天没记录'),
-
+        h('div', { className: 'ming-sec-b' },
+          dayCards.length
+            ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 14 } }, dayCards.map(card))
+            : h('div', { className: 'ming-empty', style: { padding: '10px 0' } }, '这天没记录'),
+        ),
       ),
 
       st.off
-        ? h('div', { className: 'ming-sub', style: { marginTop: 10 } }, '「以后都别看了」开着，得她说「以后都可以看了」才恢复。')
-        : (st.paused ? h('div', { className: 'ming-sub', style: { marginTop: 10 } }, '今天暂停' + (st.pauseDate ? '（' + st.pauseDate + '）' : '') + '，明天自己失效。') : null),
+        ? h('div', { className: 'ming-note' }, '「以后都别看了」开着，得她说「以后都可以看了」才恢复。')
+        : (st.paused ? h('div', { className: 'ming-note' }, '今天暂停' + (st.pauseDate ? '（' + st.pauseDate + '）' : '') + '，明天自己失效。') : null),
 
       fileView
         ? h('div', {
@@ -2517,6 +2641,7 @@ function BrowsePanel() {
         : null,
     ),
   )
+
 }
 
 function BrowseIcon() {
@@ -2558,32 +2683,63 @@ function ResumePanel() {
   const log = (data && data.log) || []
   const recent = (data && data.recent) || []
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('span', { className: 'ming-title' }, '记忆接续'),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : (data && data.resumePage ? '有重启交接页' : '没有交接页')),
-      h('button', { className: 'ming-btn', style: { marginLeft: 'auto' }, onClick: load }, '刷新'),
-    ),
-    h('div', { className: 'ming-body ming-scroll' },
-      err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      h('div', { className: 'ming-card' },
-        h('div', { className: 'ming-sub' }, '现在在做'),
-        h('div', { style: { paddingTop: 4, fontWeight: 600 } }, data ? (data.doing || '（status.json 里 doing 空着）') : '…'),
-        data && data.detail ? h('div', { className: 'ming-sub', style: { paddingTop: 2 } }, data.detail) : null,
+  // 2026-11-08 15:5x：页头 + 三块，各带名字。原来三张卡只差一个 marginTop，看不出边界。
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' },
+        h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
+          h('path', { d: 'M4 7h16M4 12h10M4 17h7' }),
+          h('path', { d: 'M17 15l3 3-3 3' }))),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '记忆接续'),
+        h('div', { className: 'ming-ph-d' }, '重启或被打断之后，靠什么接上刚才那件事'),
       ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill' }, data && data.resumePage ? '有交接页' : '没有交接页'),
+        h('button', { className: 'ming-btn', onClick: load }, busy ? '读取中…' : '刷新'),
+      ),
+    ),
+    h('div', { className: 'ming-wrap ming-scroll' },
+      err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '现在在做'),
+          h('span', { className: 'ming-sec-n' }, 'status.json 的 doing'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { style: { fontWeight: 600 } }, data ? (data.doing || '（doing 空着）') : '…'),
+          data && data.detail ? h('div', { className: 'ming-note' }, data.detail) : null,
+        ),
+      ),
+
       recent.length
-        ? h('div', { className: 'ming-card', style: { marginTop: 8 } },
-          h('div', { className: 'ming-sub' }, '刚做过'),
-          recent.map((t, i) => h('div', { key: i, style: { paddingTop: 3 } }, '· ' + String(t))))
+        ? h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '刚做过'),
+            h('span', { className: 'ming-sec-n' }, recent.length + ' 条'),
+          ),
+          h('div', { className: 'ming-sec-b' },
+            recent.map((t, i) => h('div', { key: i, className: 'ming-li-d', style: { padding: '2px 0' } }, '· ' + String(t))),
+          ),
+        )
         : null,
-      h('div', { className: 'ming-card', style: { marginTop: 8 } },
-        h('div', { className: 'ming-sub' }, '被打断过（最近 ' + log.length + ' 次）'),
+
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '被打断过'),
+          h('span', { className: 'ming-sec-n' }, '最近 ' + log.length + ' 次'),
+        ),
         log.length === 0
-          ? h('div', { className: 'ming-empty' }, '这版插件上线以来还没被插过话')
-          : log.map((e, i) => h('div', { key: 'l' + i, style: { paddingTop: 3, display: 'flex', gap: 8 } },
-            h('span', { className: 'ming-sub', style: { width: 96, flex: '0 0 auto' } }, fmtDay(Date.parse(e.at) || 0)),
-            h('span', { style: { flex: '1 1 auto', minWidth: 0 } }, e.doing || '（当时 status 是空的）'),
-          )),
+          ? h('div', { className: 'ming-sec-b' }, h('div', { className: 'ming-empty' }, '这版插件上线以来还没被插过话'))
+          : h('div', { className: 'ming-sec-b flush' },
+            h('div', { className: 'ming-list' },
+              log.map((e, i) => h('div', { key: 'l' + i, className: 'ming-li' },
+                h('span', { className: 'ming-note', style: { width: 96, flex: '0 0 auto' } }, fmtDay(Date.parse(e.at) || 0)),
+                h('span', { className: 'ming-li-main' }, e.doing || '（当时 status 是空的）'),
+              )),
+            ),
+          ),
       ),
     ),
   )
@@ -2637,18 +2793,43 @@ const PAGE_CSS = `
 .mg-holder{flex:1;min-height:420px;display:flex;flex-direction:column}
 .mg-msg{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dsw-alias-label-tertiary);font-size:13px;padding:20px;text-align:center;line-height:20px}
 .mg-msg.err{color:var(--dsw-alias-state-error-primary)}
+/* 2026-11-08 15:30 可读性：统一字号/行高/对比/点按反馈 */
+.mg-mount{font-size:13px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.mg-holder{color:var(--dsw-alias-label-primary)}
+.mg-msg{font-size:13px;line-height:1.7;color:var(--dsw-alias-label-secondary);padding:14px 16px}
+.mg-msg.err{color:var(--dsw-alias-state-error-primary,#ff6b6b)}
+.mg-pop-sec + .mg-pop-sec{margin-top:18px}
+.mg-pop-sub{font-size:11.5px;line-height:1.65;color:var(--dsw-alias-label-tertiary, #8d8d9c)}
+.mg-btn,.mg-chip{font-size:12.5px;padding:5px 12px;border-radius:8px;
+  transition:background .16s ease,color .16s ease,border-color .16s ease,transform .08s ease}
+.mg-btn:hover,.mg-chip:hover{background:rgba(127,127,127,.12);color:var(--dsw-alias-label-primary)}
+.mg-btn:active,.mg-chip:active{transform:translateY(1px)}
+.mg-input{font-size:12.5px;padding:6px 9px;border-radius:8px}
 .mg-bar{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--dsw-alias-separator-secondary);font-size:12px;color:var(--dsw-alias-label-tertiary)}
 .mg-bar .mg-meta{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mg-btn{appearance:none;border:1px solid var(--dsw-alias-separator-secondary);background:transparent;color:var(--dsw-alias-label-secondary);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer}
 .mg-btn:hover:not(:disabled){color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary)}
 .mg-btn:disabled{opacity:.5;cursor:default}
 /* ---- top 栏（2026-11-07） ---- */
-.mg-top{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 12px;border-bottom:1px solid var(--dsw-alias-separator-secondary)}
-.mg-brand{display:inline-flex;align-items:baseline;gap:7px;margin-right:8px;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--dsw-alias-label-primary);white-space:nowrap}
-.mg-brand i{font-style:normal;font-size:10px;font-weight:400;letter-spacing:.08em;color:var(--dsw-alias-label-secondary);opacity:.7}
-.mg-seg{display:inline-flex;border:1px solid var(--dsw-alias-separator-secondary);border-radius:6px;overflow:hidden}
-.mg-seg button{appearance:none;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;padding:3px 10px;cursor:pointer}
-.mg-seg button.on{background:var(--dsw-alias-bg-hover, rgba(127,127,127,.14));color:var(--dsw-alias-label-primary)}
+.mg-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 16px;min-height:34px}
+/* 2026-11-08 15:5x：工具条——搜索 + 关系筛选从 top 栏搬下来，独占一行 */
+.mg-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;
+  border-bottom:1px solid var(--dsw-alias-separator-secondary);background:var(--dsw-alias-bg-layer-2, rgba(127,127,127,.08))}
+.mg-tools .mg-input{flex:0 1 260px;min-width:140px}
+.mg-tools-l{font-size:11.5px;color:var(--dsw-alias-label-tertiary);margin-right:2px}
+.mg-meta{font-size:12.5px;color:var(--dsw-alias-label-secondary);line-height:1.6;letter-spacing:.01em}
+.mg-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 14px;background:var(--dsw-alias-bg-secondary, rgba(127,127,127,.07));border-bottom:1px solid var(--dsw-alias-separator-primary, rgba(150,150,170,.45));box-shadow:inset 0 -1px 0 rgba(0,0,0,.18);transition:background .18s ease}
+.mg-brand{display:inline-flex;align-items:baseline;gap:7px;margin-right:10px;font-size:16px;font-weight:700;letter-spacing:.01em;color:var(--dsw-alias-label-primary);white-space:nowrap}
+.mg-brand i{font-style:normal;font-size:10px;font-weight:400;letter-spacing:.08em;color:var(--dsw-alias-label-secondary);opacity:.55}
+.mg-seg{display:inline-flex;border:1px solid var(--dsw-alias-separator-primary, rgba(150,150,170,.42));border-radius:8px;overflow:hidden;background:var(--dsw-alias-bg-primary, rgba(0,0,0,.16))}
+.mg-seg button{appearance:none;border:0;background:transparent;color:var(--dsw-alias-label-secondary);
+  font-size:13px;font-weight:500;padding:6px 15px;cursor:pointer;letter-spacing:.01em;
+  transition:color .16s ease,background .16s ease,transform .08s ease;position:relative}
+.mg-seg button:hover{color:var(--dsw-alias-label-primary);background:rgba(127,127,127,.12)}
+.mg-seg button:active{transform:translateY(1px) scale(.985)}
+.mg-seg button.on:hover{background:var(--dsw-alias-brand-primary, #6aa9ff);color:#08111f}
+.mg-seg button.on{background:var(--dsw-alias-brand-primary, #6aa9ff);color:#08111f;font-weight:700;
+  box-shadow:0 0 0 1px rgba(106,169,255,.45),0 2px 8px rgba(106,169,255,.28)}
 .mg-input{appearance:none;border:1px solid var(--dsw-alias-separator-secondary);background:transparent;color:var(--dsw-alias-label-primary);
   border-radius:6px;padding:3px 9px;font-size:12px;min-width:180px;outline:none}
 .mg-input:focus{border-color:var(--dsw-alias-label-secondary)}
@@ -2864,16 +3045,21 @@ function MemoryView(props) {
 
   const opened = openId ? items.find((x) => x.id === openId) : null
   if (opened) {
-    return h('div', { className: 'ming-panel' },
-      h('div', { className: 'ming-head' },
-        h('button', { className: 'ming-btn', onClick: () => setOpenId('') }, '← 返回'),
-        h('span', { className: 'ming-title', style: { fontSize: 13 } }, opened.title),
+    // 2026-11-08 15:5x：壳已经给了页头，这里不再叠一层 head——直接是「返回 + 这一条的标题」。
+    return h('div', { className: 'ming-wrap ming-scroll' },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+        h('button', { className: 'mg-btn', onClick: () => setOpenId('') }, '← 返回'),
+        h('span', { style: { fontWeight: 600, fontSize: 14.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, opened.title),
         opened.chapter ? h('span', { className: 'ming-pill' }, '第' + opened.chapter + '章') : null,
-        h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, opened.date),
+        h('span', { className: 'ming-note', style: { marginLeft: 'auto' } }, opened.date),
       ),
-      h('div', { className: 'ming-body ming-scroll' },
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '正文'),
+          h('span', { className: 'ming-sec-n' }, opened.id),
+        ),
         h('div', {
-          className: 'ming-card',
+          className: 'ming-sec-b',
           style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.85, letterSpacing: '.01em' },
         }, opened.body || '（这条没有正文）'),
       ),
@@ -2882,79 +3068,107 @@ function MemoryView(props) {
 
   // 人的完整列表（2026-11-07 22:4x）：chips 只放得下十二个，这里能一眼看全
   if (peopleMode) {
-    return h('div', { className: 'ming-panel' },
-      h('div', { className: 'ming-head' },
-        h('button', { className: 'ming-btn', onClick: () => setPeopleMode(false) }, '← 记忆'),
-        h('span', { className: 'ming-title', style: { fontSize: 13 } }, '人'),
-        h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, people.length + ' 位'),
+    return h('div', { className: 'ming-wrap ming-scroll' },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        h('button', { className: 'mg-btn', onClick: () => setPeopleMode(false) }, '← 记忆'),
+        h('span', { style: { fontWeight: 600, fontSize: 14.5 } }, '人'),
+        h('span', { className: 'ming-note', style: { marginLeft: 'auto' } }, people.length + ' 位'),
       ),
-      h('div', { className: 'ming-body ming-scroll' },
-        people.length === 0 ? h('div', { className: 'ming-empty' }, busy ? '…' : '还没读出人来') : null,
-        people.map((p) => h('div', {
-          key: p.id,
-          className: 'ming-row',
-          style: { cursor: 'pointer' },
-          title: p.id,
-          onClick: () => { setWho(p.id); setPeopleMode(false); if (props.onSelect) props.onSelect(p.id) },
-        },
-          h('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, String(p.name)),
-          p.named ? null : h('span', { className: 'ming-pill' }, '没名字'),
-          h('span', { className: 'ming-sub' }, p.n + ' 条'),
-        )),
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '全部的人'),
+          h('span', { className: 'ming-sec-n' }, '点一位，看跟他有关的记忆'),
+        ),
+        people.length === 0
+          ? h('div', { className: 'ming-sec-b' }, h('div', { className: 'ming-empty' }, busy ? '…' : '还没读出人来'))
+          : h('div', { className: 'ming-sec-b flush' },
+            h('div', { className: 'ming-list' },
+              people.map((p) => h('div', {
+                key: p.id,
+                className: 'ming-li',
+                style: { cursor: 'pointer' },
+                title: p.id,
+                onClick: () => { setWho(p.id); setPeopleMode(false); if (props.onSelect) props.onSelect(p.id) },
+              },
+                h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 } }, String(p.name)),
+                p.named ? null : h('span', { className: 'ming-pill' }, '没名字'),
+                h('span', { className: 'ming-note' }, p.n + ' 条'),
+              )),
+            ),
+          ),
       ),
     )
   }
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : items.length + ' 条记忆'),
-      h('button', { className: 'ming-btn', style: { marginLeft: 'auto' }, onClick: load }, '刷新'),
-    ),
-    h('div', { className: 'ming-body ming-scroll' },
-      err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      // 按人筛（2026-11-07 22:3x）：记忆大半跟人绑着，这是「某人说过什么」的第一个入口
-      people.length ? h('div', { style: { display: 'flex', gap: 5, flexWrap: 'wrap', padding: '4px 0 6px', alignItems: 'center' } },
-        h('span', { className: 'ming-sub', style: { marginRight: 2 } }, '人'),
-        h('button', { className: 'mg-chip' + (who ? '' : ' on'), onClick: () => setWho('') }, '全部'),
-        people.slice(0, 12).map((p) => {
-          const nm = String(p.name)
-          return h('button', {
-            key: p.id,
-            className: 'mg-chip' + (who === p.id ? ' on' : ''),
-            title: nm,
-            onClick: () => { setWho(p.id); if (props.onSelect) props.onSelect(p.id) },
-          }, (nm.length > 8 ? nm.slice(0, 8) + '…' : nm) + ' ' + p.n)
-        }),
-        // 人多的时候 chips 装不下（现在 60+ 位），给一个完整列表的入口
-        people.length > 12 ? h('button', {
-          className: 'mg-chip',
-          onClick: () => setPeopleMode(true),
-        }, '全部 ' + people.length + ' 位 →') : null,
-      ) : null,
-      // 按章筛选：八章 + 未分章
-      items.length ? h('div', { style: { display: 'flex', gap: 5, flexWrap: 'wrap', padding: '2px 0 8px' } },
-        ['', '1', '2', '3', '4', '5', '6', '7', '8', 'none'].map((c) => {
-          const hit = items.find((x) => String(x.chapter) === c)
-          const label = c === '' ? '全部' : c === 'none' ? '未分章' : ((hit && hit.chapterName) || ('第' + c + '章'))
-          return h('button', {
-            key: c || 'all',
-            className: 'mg-chip' + (chap === c ? ' on' : ''),
-            onClick: () => setChap(c),
-          }, label)
-        }),
-      ) : null,
-      (!err && shown.length === 0) ? h('div', { className: 'ming-empty' }, busy ? '…' : '没有匹配的记忆') : null,
-      h('div', null, shown.map((it) => h('div', {
-        key: it.id,
-        className: 'ming-row',
-        style: { cursor: 'pointer' },
-        onClick: () => { setOpenId(it.id); if (props.onSelect) props.onSelect(it.id) },
-        title: it.id,
-      },
-        h('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.title),
-        it.chapter ? h('span', { className: 'ming-pill' }, '第' + it.chapter + '章') : null,
-        h('span', { className: 'ming-sub' }, it.date || ''),
-      ))),
+  // 2026-11-08 15:5x：分成两块——「筛」和「记忆」。原来筛选 chip 和列表贴在一起，
+  // 中间没有任何分隔，看不出哪一行是筛、哪一行是内容。
+  return h('div', { className: 'ming-wrap ming-scroll' },
+    err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
+
+    (people.length || items.length)
+      ? h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '筛'),
+          h('span', { className: 'ming-sec-n' },
+            (busy ? '读取中…' : items.length + ' 条记忆') +
+            (shown.length !== items.length ? ' · 现在显示 ' + shown.length : '')),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          people.length ? h('div', { style: { display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' } },
+            h('span', { className: 'ming-note', style: { marginRight: 2 } }, '人'),
+            h('button', { className: 'mg-chip' + (who ? '' : ' on'), onClick: () => setWho('') }, '全部'),
+            people.slice(0, 12).map((p) => {
+              const nm = String(p.name)
+              return h('button', {
+                key: p.id,
+                className: 'mg-chip' + (who === p.id ? ' on' : ''),
+                title: nm,
+                onClick: () => { setWho(p.id); if (props.onSelect) props.onSelect(p.id) },
+              }, (nm.length > 8 ? nm.slice(0, 8) + '…' : nm) + ' ' + p.n)
+            }),
+            people.length > 12 ? h('button', {
+              className: 'mg-chip',
+              onClick: () => setPeopleMode(true),
+            }, '全部 ' + people.length + ' 位 →') : null,
+          ) : null,
+          items.length ? h('div', { style: { display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' } },
+            h('span', { className: 'ming-note', style: { marginRight: 2 } }, '章'),
+            ['', '1', '2', '3', '4', '5', '6', '7', '8', 'none'].map((c) => {
+              const hit = items.find((x) => String(x.chapter) === c)
+              const label = c === '' ? '全部' : c === 'none' ? '未分章' : ((hit && hit.chapterName) || ('第' + c + '章'))
+              return h('button', {
+                key: c || 'all',
+                className: 'mg-chip' + (chap === c ? ' on' : ''),
+                onClick: () => setChap(c),
+              }, label)
+            }),
+          ) : null,
+        ),
+      )
+      : null,
+
+    h('div', { className: 'ming-sec' },
+      h('div', { className: 'ming-sec-h' },
+        h('span', { className: 'ming-sec-t' }, '记忆'),
+        h('span', { className: 'ming-sec-n' }, shown.length + ' 条 · 点一行看正文'),
+      ),
+      (!err && shown.length === 0)
+        ? h('div', { className: 'ming-sec-b' }, h('div', { className: 'ming-empty' }, busy ? '…' : '没有匹配的记忆'))
+        : h('div', { className: 'ming-sec-b flush' },
+          h('div', { className: 'ming-list' },
+            shown.map((it) => h('div', {
+              key: it.id,
+              className: 'ming-li',
+              style: { cursor: 'pointer' },
+              onClick: () => { setOpenId(it.id); if (props.onSelect) props.onSelect(it.id) },
+              title: it.id,
+            },
+              h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 } }, it.title),
+              it.chapter ? h('span', { className: 'ming-pill' }, '第' + it.chapter + '章') : null,
+              h('span', { className: 'ming-note' }, it.date || ''),
+            )),
+          ),
+        ),
     ),
   )
 }
@@ -3049,35 +3263,105 @@ function SkillsBody(props) {
   )
 }
 
-function CostBody(props) {
-  const c = props.data
-  if (props.err) {
-    return h('div', null,
-      h('div', { className: 'mg-pop-empty' }, '读不到费用：' + props.err),
-      h('div', { className: 'mg-pop-foot' }, '来源是 dsh-bottom-info-bar 的用量账本（它没装 / 没登录 / 模型还没解析时就是这个样子）。'),
-    )
-  }
-  if (!c) return h('div', { className: 'mg-pop-empty' }, '读账本中…')
-  const row = (k, v) => [h('span', { key: k }, k), h('b', { key: k + 'v' }, v)]
-  return h('div', null,
-    h('div', { className: 'mg-cost' },
-      row('本会话', c.currentSession ? fmtMoney(c.currentSession.cost) : '—'),
-      row('今日（北京）', fmtMoney(c.todaySpend)),
-      row('本月', fmtMoney(c.monthSpend)),
-      row('近 30 天', fmtMoney(c.last30dSpend)),
-      row('全部', fmtMoney(c.totalSpend)),
+// 2026-11-08 16:1x：费用页改成读我们自己的接口 /_dsh/dsh-ming-graph/cost
+// 原来读 dsh-bottom-info-bar 的 getUsageSummary，它返回不出数（账本有 token 没价）。
+// 现在口径由 cost-lib.mjs 定，页面只负责显示，并把口径原样印在下面。
+function MgCostPage(props) {
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' },
+        h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
+          h('path', { d: 'M4 19V5M4 19h16' }),
+          h('path', { d: 'M8 16v-5M12.5 16V8M17 16v-3' }))),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '费用'),
+        h('div', { className: 'ming-ph-d' }, '用量是账本里的实数；金额按官方价折算，不是实际扣款'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('button', { className: 'mg-btn', onClick: props.onReload }, '重读'),
+      ),
     ),
-    h('div', { className: 'mg-pop-foot' },
-      '人民币，来自 dsh-bottom-info-bar 的账本（按每条请求的 token × 模型价算，含缓存命中价）。' +
-      (c.persistence && c.persistence.state && c.persistence.state !== 'ok' ? '账本状态：' + c.persistence.state + '。' : '') +
-      '「本会话」要面板知道是哪个会话；这里没传，所以留空。'),
-    h('div', { className: 'mg-pop-line' },
-      h('span', { className: 'mg-gap' }),
-      h('button', { className: 'mg-btn', onClick: props.onReload }, '重读'),
-    ),
+    h('div', { className: 'ming-wrap ming-scroll' }, h(CostBody, props)),
   )
 }
 
+function SumTokens(x) {
+  return (x.input || 0) + (x.cacheRead || 0) + (x.output || 0)
+}
+
+function fmtTokens(n) {
+  if (!n) return '0'
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'
+  if (n >= 1e3) return Math.round(n / 1e3) + 'K'
+  return String(n)
+}
+
+function CostBody(props) {
+  const d = props.data
+  if (props.err) {
+    return h('div', { className: 'ming-sec' },
+      h('div', { className: 'ming-sec-b' },
+        h('div', { className: 'mg-pop-empty' }, '读不到账本：' + props.err),
+      ),
+    )
+  }
+  if (!d) return h('div', { className: 'ming-empty' }, '读账本中…')
+  if (d.ok === false) {
+    return h('div', { className: 'ming-sec' },
+      h('div', { className: 'ming-sec-b' },
+        h('div', { className: 'mg-pop-empty' }, '读不到账本：' + (d.error || '未知原因')),
+        h('div', { className: 'ming-note' }, '账本在 ~/.dsh/dsh-bottom-info-bar/usage-ledger.sqlite，由那个插件写；它没装或没跑起来时这里就是空的。'),
+      ),
+    )
+  }
+
+  const p = d.periods || {}
+  const cell = (label, x) => h('div', { className: 'ming-kpi-c' },
+    h('span', { className: 'ming-kpi-n' }, fmtMoney(x ? x.cost : 0)),
+    h('span', { className: 'ming-kpi-l' }, label + ' · ' + fmtTokens(x ? SumTokens(x) : 0) + ' tokens'))
+
+  const rows = (p.all && p.all.models) || []
+  return [
+    h('div', { key: 'sum', className: 'ming-sec' },
+      h('div', { className: 'ming-sec-h' },
+        h('span', { className: 'ming-sec-t' }, '花了多少'),
+        h('span', { className: 'ming-sec-n' }, '人民币 · 折算'),
+      ),
+      h('div', { className: 'ming-kpis' },
+        cell('今日（北京）', p.today),
+        cell('本月', p.month),
+        cell('近 30 天', p.d30),
+        cell('全部', p.all),
+      ),
+    ),
+
+    h('div', { key: 'models', className: 'ming-sec' },
+      h('div', { className: 'ming-sec-h' },
+        h('span', { className: 'ming-sec-t' }, '按模型'),
+        h('span', { className: 'ming-sec-n' }, rows.length + ' 个'),
+      ),
+      h('div', { className: 'ming-sec-b flush' },
+        h('div', { className: 'ming-list' },
+          rows.map((m) => h('div', { key: m.model, className: 'ming-li' },
+            h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 } }, m.model),
+            m.priced ? null : h('span', { className: 'ming-pill', 'data-tone': 'warn', title: '价目表里没有这个写法，金额按 0 计' }, '未定价'),
+            h('span', { className: 'ming-note', style: { width: 64, textAlign: 'right' } }, m.records + ' 次'),
+            h('span', { className: 'ming-note', style: { width: 120, textAlign: 'right' } }, fmtTokens(SumTokens(m)) + ' tok'),
+            h('span', { className: 'ming-li-t', style: { width: 84, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, fmtMoney(m.cost)),
+          )),
+        ),
+      ),
+    ),
+
+    h('div', { key: 'basis', className: 'ming-sec' },
+      h('div', { className: 'ming-sec-b' },
+        h('div', { className: 'ming-note' }, d.basis || ''),
+        h('div', { className: 'ming-note' }, '价目：' + (d.pricesSource || '内置') + '　账本：' + (d.ledger || '') + '　读于 ' + String(d.at || '').replace('T', ' ').slice(0, 16)),
+      ),
+    ),
+  ]
+}
 
 // ---------------------------------------------------------------------------
 // 桌宠整页（2026-11-08）
@@ -3090,6 +3374,12 @@ function PetPage() {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [newName, setNewName] = useState('')
+  const [sched, setSched] = useState(null)
+  // 2026-11-08 16:0x 她说的「ai光标大小改成预设+左右拉条吧」：
+  //   拉条拖动时只改本地 draft，松手才落盘——不然拖一次会发几十个 POST。
+  const [sizeDraft, setSizeDraft] = useState(null)
+  const sizeTimer = useRef(0)
+  useEffect(() => { setSizeDraft(s && typeof s.cursorSize === 'number' ? s.cursorSize : null) }, [s])
 
   const loadSettings = useCallback(() => fetch('/dsh-ming-mousepet/api/settings', { cache: 'no-store' })
     .then((r) => r.json())
@@ -3101,7 +3391,25 @@ function PetPage() {
     .then((d) => setSkins({ builtin: (d && d.builtin) || [], custom: (d && d.custom) || [] }))
     .catch(() => setSkins({ builtin: [], custom: [] })), [])
 
-  useEffect(() => { loadSettings(); loadSkins() }, [loadSettings, loadSkins])
+  const loadSched = useCallback(() => fetch('/dsh-ming-mousepet/api/schedule', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((d) => setSched(d && d.ok ? d : null))
+    .catch(() => setSched(null)), [])
+
+  // 2026-11-08：自动开口的节奏（关 / 心跳 / 随机 / 固定 + 基础间隔 + 每日上限）。
+  // 存在 pet-state.json 里，改完下一轮就生效，不用重启 DSH。
+  const saveSched = useCallback((patch) => {
+    setSched((cur) => (cur ? { ...cur, ...patch } : cur))
+    return fetch('/dsh-ming-mousepet/api/schedule', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+      body: JSON.stringify(patch),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (d && d.ok) setSched(d); return d })
+      .catch(() => null)
+  }, [])
+
+  useEffect(() => { loadSettings(); loadSkins(); loadSched() }, [loadSettings, loadSkins, loadSched])
 
   const save = useCallback((patch) => {
     setBusy(true)
@@ -3166,108 +3474,236 @@ function PetPage() {
   const cur = s ? s.cursorState : ''
   const hasSkinApi = skins.builtin && skins.builtin.length > 0
 
-  return h('div', { className: 'mg-petpage' },
-    h('div', { className: 'mg-pethead' },
-      h('h3', null, '桌宠'),
-      h('span', { className: 'mg-pop-sub' }, s ? '改完立刻生效，不用重启' : '鼠标插件没应——没装，或 sidecar 没起来'),
-    ),
-
-    h('div', { className: 'mg-petrow' },
-      h('b', null, '鼠标'),
-      h('button', { className: 'mg-btn', onClick: () => show(true) }, '亮出来'),
-      h('button', { className: 'mg-btn', onClick: () => show(false) }, '收起'),
-      h('span', { className: 'mg-pop-sub' }, '这是桌面上那只 AI 光标，不是你的真实鼠标'),
-    ),
-
-    h('div', { className: 'mg-petrow' },
-      h('b', null, '大小'),
-      [24, 48, 64, 96, 128].map((n) => h('button', {
-        key: 'sz' + n,
-        className: 'mg-chip' + (s && s.cursorSize === n ? ' on' : ''),
-        disabled: busy || !s,
-        onClick: () => save({ cursorSize: n }),
-      }, String(n))),
-    ),
-
-    h('div', { className: 'mg-petrow' },
-      h('b', null, '模式'),
-      [['companion', '陪伴（一直亮）'], ['clean', '整洁（用完就收）']].map(([k, label]) => h('button', {
-        key: 'md' + k,
-        className: 'mg-chip' + (s && s.cursorMode === k ? ' on' : ''),
-        disabled: busy || !s,
-        onClick: () => save({ cursorMode: k }),
-      }, label)),
-    ),
-
-    h('div', { className: 'mg-petsect' },
-      h('h4', null, '默认皮肤'),
-      h('span', { className: 'mg-pop-sub' }, '内置十五只，只读'),
-      h('div', { className: 'mg-skins' },
-        PET_SKINS.map(([k, label]) => h('button', {
-          key: 'b-' + k,
-          className: 'mg-skin' + (cur === k ? ' on' : ''),
-          disabled: busy || !s,
-          title: label,
-          onClick: () => applySkin(k),
-        },
-          h('img', { src: '/dsh-ming-mousepet/assets/' + k + '.png', alt: label }),
-          h('span', null, label),
-        )),
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' },
+        h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 },
+          h('path', { d: 'M5 3l6 9-3 .5 2.5 4.5-2 1-2.5-4.5L4 16z' }))),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '桌宠'),
+        h('div', { className: 'ming-ph-d' }, s
+          ? '桌面上那只 AI 光标：皮肤、大小、什么时候自己开口。改完立刻生效，不用重启'
+          : '鼠标插件没应——没装，或 sidecar 没起来'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('button', { className: 'ming-btn', onClick: () => show(true) }, '亮出来'),
+        h('button', { className: 'ming-btn', onClick: () => show(false) }, '收起'),
       ),
     ),
 
-    h('div', { className: 'mg-petsect' },
-      h('h4', null, '我自己的皮肤'),
-      h('span', { className: 'mg-pop-sub' }, '任意图片都行，会压成 64×64 用'),
-      h('div', { className: 'mg-skins' },
-        (skins.custom || []).map((k) => h('div', {
-          key: 'c-' + k,
-          className: 'mg-skinwrap' + (cur === 'custom:' + k ? ' on' : ''),
-        },
-          h('button', {
-            className: 'mg-skin',
-            disabled: busy,
-            title: k,
-            onClick: () => applySkin('custom:' + k),
-          },
-            h('img', { src: '/dsh-ming-mousepet/api/skin-image?name=' + encodeURIComponent(k), alt: k }),
-            h('span', null, k),
+    h('div', { className: 'ming-wrap ming-scroll' },
+
+      // ---- 1. 光标本身 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '光标'),
+          h('span', { className: 'ming-sec-n' }, '这只 AI 光标，不是你的真实鼠标'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { className: 'mg-petrow' },
+            h('b', null, '大小'),
+            [24, 48, 64, 96, 128].map((n) => h('button', {
+              key: 'sz' + n,
+              className: 'mg-chip' + (s && s.cursorSize === n ? ' on' : ''),
+              disabled: busy || !s,
+              onClick: () => { setSizeDraft(n); save({ cursorSize: n }) },
+            }, String(n))),
+            // 2026-11-08 16:1x 她说的「大小能不能实时同步」：拖的时候就跟着变。
+            //   只在手上停了 140ms 才落盘一次——曲线是连续的，请求不必也是。
+            h('input', {
+              type: 'range', min: 24, max: 192, step: 2,
+              value: sizeDraft == null ? 64 : sizeDraft,
+              disabled: busy || !s,
+              title: '拖到哪，桌面那只就变到哪',
+              onChange: (e) => {
+                const v = Number(e.target.value)
+                setSizeDraft(v)
+                clearTimeout(sizeTimer.current)
+                sizeTimer.current = setTimeout(() => save({ cursorSize: v }), 140)
+              },
+              style: { flex: '0 1 260px', minWidth: 140, accentColor: 'var(--dsw-alias-brand-primary)' },
+            }),
+            h('span', { className: 'ming-note', style: { minWidth: 48, fontVariantNumeric: 'tabular-nums' } },
+              (sizeDraft == null ? '—' : sizeDraft) + ' px'),
           ),
-          h('button', {
-            className: 'mg-skindel',
-            title: '删掉这张',
-            disabled: busy,
-            onClick: () => removeSkin(k),
-          }, '×'),
-        )),
-        hasSkinApi && (skins.custom || []).length === 0
-          ? h('div', { className: 'mg-pop-empty' }, '还没有。下面加一张，随便什么图都行。')
-          : null,
-      ),
-      h('div', { className: 'mg-petrow' },
-        h('input', {
-          className: 'mg-input',
-          placeholder: '给这张皮起个名字（字母数字，可留空）',
-          value: newName,
-          onChange: (e) => setNewName(e.target.value),
-        }),
-        h('label', { className: 'mg-btn', style: { cursor: 'pointer' } },
-          busy ? '处理中…' : '选图片',
-          h('input', {
-            type: 'file',
-            accept: 'image/*',
-            style: { display: 'none' },
-            disabled: busy,
-            onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) upload(f); e.target.value = '' },
-          }),
+          h('div', { className: 'mg-petrow' },
+            h('b', null, '模式'),
+            [['companion', '陪伴（一直亮）'], ['clean', '整洁（用完就收）']].map(([k, label]) => h('button', {
+              key: 'md' + k,
+              className: 'mg-chip' + (s && s.cursorMode === k ? ' on' : ''),
+              disabled: busy || !s,
+              onClick: () => save({ cursorMode: k }),
+            }, label)),
+          ),
         ),
       ),
-    ),
 
-    note ? h('div', { className: 'mg-pop-foot' }, note) : null,
-    h('div', { className: 'mg-pop-foot' },
-      '自动开口（自己会说话）在插件配置的 companion 里改，改完要重启 DSH。'),
+      // ---- 2. 自动开口的节奏 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '自动开口的节奏'),
+          h('span', { className: 'ming-sec-n' }, sched
+            ? '今天已经说了 ' + (sched.spokenToday || 0) + ' 句'
+            : '读不到节奏设置'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          sched
+            ? h('div', null,
+              h('div', { className: 'mg-petrow' },
+                h('button', {
+                  className: 'mg-btn',
+                  title: '关了就完全不自己开口；点回来恢复',
+                  style: sched.gapMode === 'off' ? { borderColor: '#ff6b6b', color: '#ff6b6b' } : null,
+                  onClick: () => saveSched({ gapMode: sched.gapMode === 'off' ? 'heartbeat' : 'off' }),
+                }, sched.gapMode === 'off' ? '关着 ✓' : '开'),
+                h('button', {
+                  className: 'mg-btn',
+                  title: '不限次数 / 每天限几次',
+                  style: sched.dailyMax < 0 ? { borderColor: '#6aa9ff', color: '#6aa9ff' } : null,
+                  onClick: () => saveSched({ dailyMax: sched.dailyMax < 0 ? 6 : -1 }),
+                }, sched.dailyMax < 0 ? '不限 ✓' : '限额'),
+                h('span', { className: 'mg-pop-sub' }, '每日'),
+                h('input', {
+                  className: 'mg-input', type: 'number', min: 0, max: 999, title: sched.dailyMax < 0 ? '现在是不限；点左边「不限 ✓」切回限额' : '一天最多说几句（0 = 不说）',
+                  disabled: sched.dailyMax < 0,
+                  style: sched.dailyMax < 0 ? { opacity: 0.45 } : null,
+                  value: sched.dailyMax < 0 ? '' : sched.dailyMax,
+                  onChange: (e) => setSched((cur) => ({ ...cur, dailyMax: Number(e.target.value) })),
+                  onBlur: (e) => saveSched({ dailyMax: Number(e.target.value) }),
+                }),
+                h('span', { className: 'mg-pop-sub' }, '次 · 间隔'),
+                h('select', {
+                  style: { fontSize: 12, padding: '1px 2px' },
+                  value: sched.gapMode,
+                  onChange: (e) => saveSched({ gapMode: e.target.value }),
+                },
+                  h('option', { value: 'fixed' }, '固定'),
+                  h('option', { value: 'random' }, '随机'),
+                  h('option', { value: 'heartbeat' }, '心跳'),
+                ),
+                sched.gapMode === 'heartbeat'
+                  ? h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } },
+                    h('span', { className: 'mg-pop-sub' }, '最低'),
+                    h('input', {
+                      className: 'mg-input', type: 'number', min: 1, max: 1440, title: '最短隔多久',
+                      value: sched.hbMin,
+                      onChange: (e) => setSched((cur) => ({ ...cur, hbMin: Number(e.target.value) })),
+                      onBlur: (e) => saveSched({ hbMin: Number(e.target.value) }),
+                    }),
+                    h('span', { className: 'mg-pop-sub' }, '中位'),
+                    h('input', {
+                      className: 'mg-input', type: 'number', min: 1, max: 1440, title: '最常落在这个数上',
+                      value: sched.hbCenter,
+                      onChange: (e) => setSched((cur) => ({ ...cur, hbCenter: Number(e.target.value) })),
+                      onBlur: (e) => saveSched({ hbCenter: Number(e.target.value) }),
+                    }),
+                    h('span', { className: 'mg-pop-sub' }, '最高'),
+                    h('input', {
+                      className: 'mg-input', type: 'number', min: 1, max: 1440, title: '最长隔多久',
+                      value: sched.hbMax,
+                      onChange: (e) => setSched((cur) => ({ ...cur, hbMax: Number(e.target.value) })),
+                      onBlur: (e) => saveSched({ hbMax: Number(e.target.value) }),
+                    }),
+                    h('span', { className: 'mg-pop-sub' }, '分'),
+                  )
+                  : h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+                    h('span', { className: 'mg-pop-sub' }, '间隔'),
+                    h('input', {
+                      className: 'mg-input', type: 'number', min: 1, max: 1440, title: '多少分钟一次（随机模式在这个数上浮动）',
+                      value: sched.minGapMinutes,
+                      onChange: (e) => setSched((cur) => ({ ...cur, minGapMinutes: Number(e.target.value) })),
+                      onBlur: (e) => saveSched({ minGapMinutes: Number(e.target.value) }),
+                    }),
+                    h('span', { className: 'mg-pop-sub' }, '分'),
+                  ),
+                sched.nextAt ? h('span', { className: 'mg-pop-sub', style: { whiteSpace: 'nowrap' } },
+                  '下次 ≈ ' + new Date(sched.nextAt).toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5)) : null,
+                h('button', { className: 'mg-btn', onClick: () => loadSched() }, '刷新'),
+              ),
+            )
+            : h('span', { className: 'mg-pop-sub' }, '读不到节奏设置'),
+        ),
+      ),
+      // ---- 3. 默认皮肤 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '默认皮肤'),
+          h('span', { className: 'ming-sec-n' }, '内置十五只，只读'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { className: 'mg-skins' },
+            PET_SKINS.map(([k, label]) => h('button', {
+              key: 'b-' + k,
+              className: 'mg-skin' + (cur === k ? ' on' : ''),
+              disabled: busy || !s,
+              title: label,
+              onClick: () => applySkin(k),
+            },
+              h('img', { src: '/dsh-ming-mousepet/assets/' + k + '.png', alt: label }),
+              h('span', null, label),
+            )),
+          ),
+        ),
+      ),
+
+      // ---- 4. 我自己的皮肤 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '我自己的皮肤'),
+          h('span', { className: 'ming-sec-n' }, '任意图片都行，会压成 64×64 用'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { className: 'mg-skins' },
+            (skins.custom || []).map((k) => h('div', {
+              key: 'c-' + k,
+              className: 'mg-skinwrap' + (cur === 'custom:' + k ? ' on' : ''),
+            },
+              h('button', {
+                className: 'mg-skin',
+                disabled: busy,
+                title: k,
+                onClick: () => applySkin('custom:' + k),
+              },
+                h('img', { src: '/dsh-ming-mousepet/api/skin-image?name=' + encodeURIComponent(k), alt: k }),
+                h('span', null, k),
+              ),
+              h('button', {
+                className: 'mg-skindel',
+                title: '删掉这张',
+                disabled: busy,
+                onClick: () => removeSkin(k),
+              }, '×'),
+            )),
+            hasSkinApi && (skins.custom || []).length === 0
+              ? h('div', { className: 'mg-pop-empty' }, '还没有。下面加一张，随便什么图都行。')
+              : null,
+          ),
+          h('div', { className: 'mg-petrow' },
+            h('input', {
+              className: 'mg-input',
+              placeholder: '给这张皮起个名字（字母数字，可留空）',
+              value: newName,
+              onChange: (e) => setNewName(e.target.value),
+            }),
+            h('label', { className: 'mg-btn', style: { cursor: 'pointer' } },
+              busy ? '处理中…' : '选图片',
+              h('input', {
+                type: 'file',
+                accept: 'image/*',
+                style: { display: 'none' },
+                disabled: busy,
+                onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) upload(f); e.target.value = '' },
+              }),
+            ),
+          ),
+          note ? h('div', { className: 'ming-note' }, note) : null,
+        ),
+      ),
+
+
+    ),
   )
+
 }
 
 function NeuronPanel() {
@@ -3344,10 +3780,11 @@ function NeuronPanel() {
   }, [])
 
   const loadCost = useCallback(() => {
-    // 账本是 dsh-bottom-info-bar 的：不自己算，不自己存价目表——
-    // 它已经在按条记 token×价了（含缓存命中价），抄一份只会两边对不上。
-    return fetch('/_dsh/dsh-bottom-info-bar/getUsageSummary', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store', body: '{}',
+    // 2026-11-08 16:1x：不再读那个插件的 getUsageSummary —— 它的账本有 token 没价
+    // （价目表里没有 deepseek-v4.1-flash 这个写法），返回不出数。改成读我们自己的 /cost，
+    // 价目表是 hers_workplace/live/cost-prices.json，算法在 cost-lib.mjs。
+    return fetch(API + '/cost', {
+      cache: 'no-store',
     })
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() })
       .then((d) => { setCost(d || null); setCostErr(d ? '' : '账本没给数（模型/账户还没解析出来）') })
@@ -3365,6 +3802,9 @@ function NeuronPanel() {
       .catch((e) => setSkills((s) => ({ ...(s || {}), ok: false, error: String((e && e.message) || e) })))
       .finally(() => setSkillBusy(''))
   }
+
+  // 2026-11-08 15:27：切到「费用」页就拉一次，别等两分钟轮询。
+  useEffect(() => { if (view === 'cost') loadCost() }, [view, loadCost])
 
   useEffect(() => {
     // 清单进面板就拉一次（很便宜：一次文件读 + 一次服务调用）；费用两分钟一次，
@@ -3518,31 +3958,16 @@ function NeuronPanel() {
       // tab 分两组：竖线左边是记下来的，右边是我干活用的。
       h('div', { className: 'mg-seg' },
         [['neuron', '神经元'], ['star', '星图'], ['memory', '记忆'], ['|'],
-          ['browse', '自己玩'], ['interest', '兴趣'], ['voice', '声音']]  // 2026-11-08 01:4x 她选 3：接续的 tab 从 top 栏拿掉（插件留着，插话接续照跑）
+          ['browse', '自己玩'], ['interest', '兴趣'], ['voice', '声音'],
+          // 2026-11-08 15:20 她：「把桌宠和费用都放到 tab 后面」
+          ['pet', '桌宠'], ['cost', '费用'], ['|']]  // 2026-11-08 01:4x 她选 3：接续的 tab 从 top 栏拿掉（插件留着，插话接续照跑）
           // 2026-11-08 03:4x：桌面 tab 一起去掉。它的数据来自 /_dsh/dsh-ming-desktop，
           //   那个插件 11-08 被 mousepet 取代后停用，接口实测 404，点开是一格空的。
           .map(([k, label]) => k === '|'
             ? h('span', { key: 'sep', style: { width: 1, height: 18, background: 'var(--dsw-alias-border-secondary, rgba(150,150,170,.28))', margin: '0 4px', alignSelf: 'center' } })
             : h('button', { key: k, className: view === k ? 'on' : '', onClick: () => setView(k) }, label)),
+        // 2026-11-08 15:27：费用改成独立页（view='cost'），不再是浮层。
       ),
-      // 2026-11-07 15:0x：搜索三个视图共用——神经元过滤节点、星图定位一颗星、记忆过滤列表。
-      h('input', {
-        className: 'mg-input',
-        placeholder: view === 'memory' ? '按 id / 标签 / 来源过滤' : (view === 'star' ? '找一颗星：标题或正文里的词'
-          : view === 'neuron' ? '搜标题 / 正文里的词' : '（这个视图不用搜）'),
-        disabled: view === 'browse' || view === 'interest' || view === 'voice' || view === 'resume' || view === 'pet',
-        value: q,
-        onChange: (e) => setQ(e.target.value),
-      }),
-      view === 'neuron' ? h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-        WAYS.map((t) => h('button', {
-          key: t,
-          className: 'mg-chip' + (ways.indexOf(t) >= 0 ? ' on' : ''),
-          disabled: status !== 'ready',
-          title: '关掉这一类边，节点不删',
-          onClick: () => toggleWay(t),
-        }, t)),
-      ) : null,
       h('span', { className: 'mg-gap' }),
       // 2026-11-08：skill 开关（关掉的不进系统提示词，按工作区生效）
       h('button', {
@@ -3552,47 +3977,75 @@ function NeuronPanel() {
       }, skills && skills.total
         ? 'skill ' + (skills.total - (skills.offCount || 0)) + '/' + skills.total
         : (skills && skills.ok === false ? 'skill 读不到' : 'skill')),
-      // 2026-11-08：费用（钱花在哪，一眼能看见）
-      h('button', {
-        className: 'mg-btn' + (pop === 'cost' ? ' on' : ''),
-        title: '今日 / 本月 / 全部花费（dsh-bottom-info-bar 的账本）',
-        onClick: () => { const next = pop === 'cost' ? '' : 'cost'; setPop(next); if (next) loadCost() },
-      }, cost ? '今日 ' + fmtMoney(cost.todaySpend) : '费用'),
-      h('button', {
-        className: 'mg-btn' + (view === 'pet' ? ' on' : ''),
-        title: '桌宠：桌面上那只光标、皮肤、它会晃会说话',
-        onClick: () => setView(view === 'pet' ? 'neuron' : 'pet'),
-      }, '桌宠'),
-      h('button', {
-        className: 'mg-btn',
-        disabled: view === 'neuron' ? status !== 'ready' : (view === 'star' ? starState !== 'ready' : false),
-        onClick: exportJson,
-        title: view === 'memory' ? '导出当前这份归档列表' : (view === 'star' ? '导出统一节点模型' : '把这整份图导出成 JSON'),
-      }, '导出'),
-      h('button', {
-        className: 'mg-btn',
-        disabled: busy,
-        title: '重读数据源（神经元顺带重新加载建图代码）',
-        onClick: refreshAll,
-      }, busy ? '刷新中…' : '刷新'),
     ),
 
-    // ---- 第二行：状态（切到星图时也用它报状态，免得"点了没反应"看不出是卡在哪） ----
-    h('div', { className: 'mg-bar' },
-      h('span', { className: 'mg-meta' },
-        view === 'pet' ? '桌宠 · 桌面那只光标长什么样、什么时候说话'
-          : view === 'browse' ? '自己玩 · 什么时候醒，看什么，记了什么'
-          : view === 'interest' ? '兴趣 · 叫不叫得醒，还有为什么'
-            : view === 'voice' ? '声音 · 合出来的 mp3，点 ▶ 试听'
-                : view === 'resume' ? '接续 · 现在在做哪件事，被打断过几次'
-              : view === 'memory'
-          ? '记忆库 · 只读，点一行看正文'
-          : view === 'neuron'
-            ? (status === 'ready' ? meta : '')
-            : (starState === 'error' ? '星图读不到：' + starErr
-              : starState === 'ready' ? ('星图 · ' + (starInfo || '已加载'))
-                : '星图 · 正在拼统一节点模型…')),
-    ),
+    // ---- 2026-11-08 15:5x：这三个视图自己画布、没有子页头，所以壳这边给一个 ----
+    // 她说的「至少要分清哪一块是哪一块」——原来这里只有一行灰色小字，跟下面的画布糊在一起。
+    // 自己玩/兴趣/声音/桌宠/费用/接续各自已经有页头了，这里不重复。
+    (view === 'neuron' || view === 'star' || view === 'memory')
+      ? h('div', { className: 'ming-ph' },
+        h('div', { className: 'ming-ph-ic' },
+          h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 },
+            view === 'neuron'
+              ? [h('circle', { key: 'a', cx: 6, cy: 7, r: 2 }), h('circle', { key: 'b', cx: 18, cy: 6, r: 2 }),
+                h('circle', { key: 'c', cx: 12, cy: 17, r: 2 }), h('path', { key: 'd', d: 'M8 8l8 2M7 9l4 6M17 8l-4 7' })]
+              : view === 'star'
+                ? [h('path', { key: 'a', d: 'M12 3l2.2 5.6L20 10l-5.8 1.4L12 17l-2.2-5.6L4 10l5.8-1.4z' }),
+                  h('path', { key: 'b', d: 'M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z' })]
+                : [h('rect', { key: 'a', x: 4, y: 3, width: 16, height: 18, rx: 2 }),
+                  h('path', { key: 'b', d: 'M8 7h8M8 11h8M8 15h5' })]),
+        ),
+        h('div', { className: 'ming-ph-tx' },
+          h('div', { className: 'ming-ph-t' },
+            view === 'neuron' ? '神经元' : view === 'star' ? '星图' : '记忆'),
+          h('div', { className: 'ming-ph-d' },
+            view === 'memory' ? '只读，点一行看正文'
+              : view === 'neuron' ? (status === 'ready' ? meta : '正在读两侧记忆库…（第一次要扫一遍文件，大约两秒）')
+                : (starState === 'error' ? '读不到：' + starErr
+                  : starState === 'ready' ? ('统一节点模型 · ' + (starInfo || '已加载'))
+                    : '正在拼统一节点模型…')),
+        ),
+        h('div', { className: 'ming-ph-a' },
+          h('button', {
+            className: 'mg-btn',
+            disabled: view === 'neuron' ? status !== 'ready' : (view === 'star' ? starState !== 'ready' : false),
+            onClick: exportJson,
+            title: view === 'memory' ? '导出当前这份归档列表' : (view === 'star' ? '导出统一节点模型' : '把这整份图导出成 JSON'),
+          }, '导出'),
+          h('button', {
+            className: 'mg-btn',
+            disabled: busy,
+            title: '重读数据源（神经元顺带重新加载建图代码）',
+            onClick: refreshAll,
+          }, busy ? '刷新中…' : '刷新'),
+        ),
+      )
+      : null,
+
+    // ---- 工具条：搜索三个视图共用（神经元过滤节点 / 星图找一颗星 / 记忆过滤列表）；
+    //      关系类型只有神经元用得上。从 top 栏搬下来，免得一屏里全是控件。 ----
+    (view === 'neuron' || view === 'star' || view === 'memory')
+      ? h('div', { className: 'mg-tools' },
+        h('input', {
+          className: 'mg-input',
+          placeholder: view === 'memory' ? '按 id / 标签 / 来源过滤' : (view === 'star' ? '找一颗星：标题或正文里的词' : '搜标题 / 正文里的词'),
+          value: q,
+          onChange: (e) => setQ(e.target.value),
+        }),
+        view === 'neuron'
+          ? h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
+            h('span', { className: 'mg-tools-l' }, '关系'),
+            WAYS.map((t) => h('button', {
+              key: t,
+              className: 'mg-chip' + (ways.indexOf(t) >= 0 ? ' on' : ''),
+              disabled: status !== 'ready',
+              title: '关掉这一类边，节点不删',
+              onClick: () => toggleWay(t),
+            }, t)),
+          )
+          : null,
+      )
+      : null,
 
     // 2026-11-07 12:37：报错 `Cannot set properties of null (setting 'innerHTML')`。
     // 根因：星图那个 div 是条件渲染的，effect 跑的那一瞬 ref 还是 null，mount 里 host.innerHTML 就炸在这。
@@ -3614,6 +4067,10 @@ function NeuronPanel() {
     // 2026-11-07 19:1x 她说「还是别合并了」：桌面和接续各留一格。
     h('div', { key: 'pet' + reloadTick, className: 'mg-holder', style: view === 'pet' ? null : { display: 'none' } },
       view === 'pet' ? h(PetPage) : null,
+    ),
+    // 2026-11-08 15:27 她：「费用也做成独立页而不是弹窗栏」。
+    h('div', { key: 'cost' + reloadTick, className: 'mg-holder', style: view === 'cost' ? null : { display: 'none' } },
+      view === 'cost' ? h(MgCostPage, { data: cost, err: costErr, onReload: loadCost }) : null,
     ),
     h('div', { key: 'resume' + reloadTick, className: 'mg-holder', style: view === 'resume' ? null : { display: 'none' } },
       view === 'resume' ? h(ResumePanel) : null,
@@ -3650,12 +4107,7 @@ function NeuronPanel() {
       onReload: () => loadSkills(true),
       onToggle: toggleSkill,
     })) : null,
-    pop === 'cost' ? h(MgPop, {
-      key: 'pop-cost',
-      title: '费用',
-      sub: cost ? new Date(cost.now || Date.now()).toLocaleTimeString('zh-CN', { hour12: false }) + ' 读的' : '',
-      onClose: () => setPop(''),
-    }, h(CostBody, { data: cost, err: costErr, onReload: loadCost })) : null,
+
   )
 }
 

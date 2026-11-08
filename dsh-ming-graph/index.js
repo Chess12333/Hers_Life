@@ -21,8 +21,13 @@ import { mergePeople } from './people-merge.mjs'
 // 2026-11-08：top 栏那个 skill 开关的服务端逻辑（清单 + 写 skills-off.json）。
 // 单独一个文件是为了能当场 `node skills-lib.test.mjs` 验——index.js 改一次要重启 DSH，重启归她。
 import { listSkills, toggleSkill } from './skills-lib.mjs'
+// 2026-11-08：费用页改成自己算（那个插件的账本有 token 没价，见 cost-lib.mjs 顶部）
+import { readCost } from './cost-lib.mjs'
 
 const NEURON_FILE = fileURLToPath(new URL('./neuron.js', import.meta.url))
+// 费用：读 sqlite 要扫七万多行，别每个请求都扫一遍
+let costCache = null
+let costCacheAt = 0
 let neuronImpl = null          // 热加载进来的 neuron.js（文件一改就换，不用重启 DSH）
 let neuronImplStamp = ''
 let neuronLoadError = ''
@@ -57,6 +62,8 @@ const DEFAULTS = {
   // offFile 留空就用 <skillsCwd>/skills-off.json，跟那边写的必须是同一个文件，否则开关写了也不生效。
   skillsCwd: process.env.MING_WORKSPACE || 'C:\\dsh\\hers_workplace',
   skillsOffFile: '',
+  // 费用价目表：我们自己维护，缺省在 <workspace>/live/cost-prices.json
+  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || 'C:\dsh\hers_workplace') + '\live\cost-prices.json'),
 }
 
 // ---------- 本地配置 ----------
@@ -624,6 +631,15 @@ export function apply(ctx, config) {
                 offFile: cfg.skillsOffFile,
                 service: skillsService,
               }))
+              return
+            }
+            if (method === 'cost' || method === 'cost/refresh') {
+              if (method.endsWith('/refresh')) costCache = null
+              if (!costCache || Date.now() - costCacheAt > 60000) {
+                costCache = readCost({ pricesFile: cfg.costPricesFile })
+                costCacheAt = Date.now()
+              }
+              respond(res, 200, costCache)
               return
             }
             respond(res, 404, { error: 'unknown method ' + method })

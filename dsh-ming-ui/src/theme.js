@@ -105,6 +105,65 @@ const MING_UI = (() => {
 .${p}-btn:hover { background: ${TOKENS.hover}; }
 .${p}-btn:active { background: ${TOKENS.active}; }
 .${p}-btn[data-primary="1"] { background: ${TOKENS.accent}; color: #fff; border-color: transparent; }
+/* ---- 2026-11-08：页面骨架（页头 + 分区） ----
+ * 起因：她说「把这些的 ui 都重新做一下，至少要分清哪一块是哪一块」。
+ * 当时每页只有一行小标题，下面全是没名字的卡片，看一眼不知道哪块在说什么。
+ * 这一层只加四样：页头（这是哪一页）、分区（这一块叫什么）、数字条、说明脚注。
+ * 老类（panel/head/body/card/row/stat/kpi/pill/btn）一个都不删——别的插件还在用。 */
+.${p}-page {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  background: ${TOKENS.bg}; color: ${TOKENS.text};
+  font-size: ${S.font.md}px; line-height: 1.6;
+}
+.${p}-ph {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: ${S.gap.md}px ${S.gap.lg}px; border-bottom: 1px solid ${TOKENS.separator};
+  flex: 0 0 auto; background: ${TOKENS.bg};
+}
+.${p}-ph-ic {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: ${TOKENS.surfaceAlt}; border: 1px solid ${TOKENS.borderSoft}; color: ${TOKENS.accent};
+}
+.${p}-ph-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.${p}-ph-t { font-size: 15.5px; font-weight: 650; letter-spacing: .01em; line-height: 1.35; }
+.${p}-ph-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.5; }
+.${p}-ph-a { display: flex; align-items: center; gap: ${S.gap.sm}px; flex: 0 0 auto; }
+.${p}-wrap {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  padding: ${S.gap.lg}px ${S.gap.lg}px ${S.gap.xl}px;
+  display: flex; flex-direction: column; gap: ${S.gap.lg}px;
+  width: 100%; box-sizing: border-box;
+}
+.${p}-sec {
+  border: 1px solid ${TOKENS.borderSoft}; border-radius: 12px;
+  background: ${TOKENS.surface}; overflow: hidden; flex: 0 0 auto;
+}
+.${p}-sec-h {
+  display: flex; align-items: center; gap: ${S.gap.sm}px;
+  padding: 8px 14px; background: ${TOKENS.surfaceAlt};
+  border-bottom: 1px solid ${TOKENS.borderSoft};
+}
+.${p}-sec-t { font-size: ${S.font.sm}px; font-weight: 600; letter-spacing: .03em; color: ${TOKENS.text}; }
+.${p}-sec-n { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; margin-left: auto; white-space: nowrap; }
+.${p}-sec-b { padding: ${S.gap.md}px 14px; display: flex; flex-direction: column; gap: ${S.gap.sm}px; }
+.${p}-sec-b.flush { padding: 0; gap: 0; }
+.${p}-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.${p}-kpi-c { padding: 12px 14px; border-left: 1px solid ${TOKENS.separator}; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.${p}-kpi-c:first-child { border-left: none; }
+.${p}-kpi-n { font-size: 20px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.${p}-kpi-l { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; }
+.${p}-note { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.65; }
+.${p}-list { display: flex; flex-direction: column; }
+.${p}-li {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: 9px 14px; border-top: 1px solid ${TOKENS.separator}; min-width: 0;
+}
+.${p}-li:first-child { border-top: none; }
+.${p}-li:hover { background: ${TOKENS.hover}; }
+.${p}-li-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.${p}-li-t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.${p}-li-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.6; }
 .${p}-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .${p}-scroll::-webkit-scrollbar-thumb { background: var(--dsw-alias-scrollbar-bg-l1); border-radius: 4px; }
 .${p}-scroll::-webkit-scrollbar-thumb:hover { background: var(--dsw-alias-scrollbar-hover-l1); }

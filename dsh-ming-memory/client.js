@@ -121,6 +121,65 @@ const MING_UI = (() => {
 .${p}-btn:hover { background: ${TOKENS.hover}; }
 .${p}-btn:active { background: ${TOKENS.active}; }
 .${p}-btn[data-primary="1"] { background: ${TOKENS.accent}; color: #fff; border-color: transparent; }
+/* ---- 2026-11-08：页面骨架（页头 + 分区） ----
+ * 起因：她说「把这些的 ui 都重新做一下，至少要分清哪一块是哪一块」。
+ * 当时每页只有一行小标题，下面全是没名字的卡片，看一眼不知道哪块在说什么。
+ * 这一层只加四样：页头（这是哪一页）、分区（这一块叫什么）、数字条、说明脚注。
+ * 老类（panel/head/body/card/row/stat/kpi/pill/btn）一个都不删——别的插件还在用。 */
+.${p}-page {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  background: ${TOKENS.bg}; color: ${TOKENS.text};
+  font-size: ${S.font.md}px; line-height: 1.6;
+}
+.${p}-ph {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: ${S.gap.md}px ${S.gap.lg}px; border-bottom: 1px solid ${TOKENS.separator};
+  flex: 0 0 auto; background: ${TOKENS.bg};
+}
+.${p}-ph-ic {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: ${TOKENS.surfaceAlt}; border: 1px solid ${TOKENS.borderSoft}; color: ${TOKENS.accent};
+}
+.${p}-ph-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.${p}-ph-t { font-size: 15.5px; font-weight: 650; letter-spacing: .01em; line-height: 1.35; }
+.${p}-ph-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.5; }
+.${p}-ph-a { display: flex; align-items: center; gap: ${S.gap.sm}px; flex: 0 0 auto; }
+.${p}-wrap {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  padding: ${S.gap.lg}px ${S.gap.lg}px ${S.gap.xl}px;
+  display: flex; flex-direction: column; gap: ${S.gap.lg}px;
+  width: 100%; box-sizing: border-box;
+}
+.${p}-sec {
+  border: 1px solid ${TOKENS.borderSoft}; border-radius: 12px;
+  background: ${TOKENS.surface}; overflow: hidden; flex: 0 0 auto;
+}
+.${p}-sec-h {
+  display: flex; align-items: center; gap: ${S.gap.sm}px;
+  padding: 8px 14px; background: ${TOKENS.surfaceAlt};
+  border-bottom: 1px solid ${TOKENS.borderSoft};
+}
+.${p}-sec-t { font-size: ${S.font.sm}px; font-weight: 600; letter-spacing: .03em; color: ${TOKENS.text}; }
+.${p}-sec-n { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; margin-left: auto; white-space: nowrap; }
+.${p}-sec-b { padding: ${S.gap.md}px 14px; display: flex; flex-direction: column; gap: ${S.gap.sm}px; }
+.${p}-sec-b.flush { padding: 0; gap: 0; }
+.${p}-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.${p}-kpi-c { padding: 12px 14px; border-left: 1px solid ${TOKENS.separator}; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.${p}-kpi-c:first-child { border-left: none; }
+.${p}-kpi-n { font-size: 20px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.${p}-kpi-l { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; }
+.${p}-note { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.65; }
+.${p}-list { display: flex; flex-direction: column; }
+.${p}-li {
+  display: flex; align-items: center; gap: ${S.gap.md}px;
+  padding: 9px 14px; border-top: 1px solid ${TOKENS.separator}; min-width: 0;
+}
+.${p}-li:first-child { border-top: none; }
+.${p}-li:hover { background: ${TOKENS.hover}; }
+.${p}-li-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.${p}-li-t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.${p}-li-d { font-size: ${S.font.xs}px; color: ${TOKENS.textFaint}; line-height: 1.6; }
 .${p}-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .${p}-scroll::-webkit-scrollbar-thumb { background: var(--dsw-alias-scrollbar-bg-l1); border-radius: 4px; }
 .${p}-scroll::-webkit-scrollbar-thumb:hover { background: var(--dsw-alias-scrollbar-hover-l1); }
@@ -141,6 +200,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = MING_UI
  *
  * 只读：列归档记忆、按关键词过滤、点开看正文。
  * 数据来自 Host 半端 /_dsh/dsh-ming-memory/{list,read}，不经过模型。
+ *
+ * 2026-11-08 15:5x：整页重排——页头 + 一条搜索 + 一个「归档」区块。
+ * 原来是标题、条数、搜索框、刷新全挤在一行，下面直接是一长条没有边界的行。
  */
 const MEMORY_API = '/_dsh/dsh-ming-memory'
 
@@ -151,13 +213,13 @@ function useMemoryStyle() {
     const el = document.createElement('style')
     el.id = id
     el.textContent = MING_UI.css('ming') + `
-.ming-mem-list { display: flex; flex-direction: column; gap: 2px; }
+.ming-mem-list { display: flex; flex-direction: column; }
 .ming-mem-item { cursor: pointer; }
 .ming-mem-item[data-active="1"] { background: var(--dsw-alias-interactive-bg-active); }
 .ming-mem-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ming-mem-body { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.7; }
-.ming-mem-input { flex: 1 1 auto; min-width: 0; font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px;
-  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); }
+.ming-mem-input { flex: 1 1 auto; width: 100%; font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); box-sizing: border-box; }
 `
     document.head.appendChild(el)
   }, [])
@@ -212,54 +274,82 @@ function MemoryPanel() {
 
   if (openFile) {
     const it = items.find((x) => x.file === openFile) || {}
-    return h('div', { className: 'ming-panel' },
-      h('div', { className: 'ming-head' },
+    return h('div', { className: 'ming-page' },
+      h('div', { className: 'ming-ph' },
         h('button', { className: 'ming-btn', onClick: () => { setOpenFile(''); setBody('') } }, '← 返回'),
-        h('div', { className: 'ming-mem-name', style: { fontWeight: 600 } }, it.id || openFile),
-        it.status ? h('span', { className: 'ming-pill' }, it.status) : null,
-        h('span', { className: 'ming-sub' }, fmtTime(it.mtime)),
+        h('div', { className: 'ming-ph-tx' },
+          h('div', { className: 'ming-ph-t' }, it.id || openFile),
+          h('div', { className: 'ming-ph-d' },
+            [it.status ? '状态 ' + it.status : '', it.source ? '来源 ' + it.source : '', fmtTime(it.mtime)]
+              .filter(Boolean).join(' · ')),
+        ),
       ),
-      h('div', { className: 'ming-body ming-scroll' },
-        h('div', { className: 'ming-card ming-mem-body' }, body || '…'),
+      h('div', { className: 'ming-wrap ming-scroll' },
+        h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '正文'),
+            h('span', { className: 'ming-sec-n' }, openFile),
+          ),
+          h('div', { className: 'ming-sec-b ming-mem-body' }, body || '…'),
+        ),
       ),
     )
   }
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head' },
-      h('div', { className: 'ming-title' }, '记忆库'),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : `${total} 条归档`),
+  return h('div', { className: 'ming-page' },
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(MemoryIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '记忆库'),
+        h('div', { className: 'ming-ph-d' }, '跨会话存下来的归档记忆，只读；点一行看正文'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill' }, busy ? '读取中…' : total + ' 条'),
+        h('button', { className: 'ming-btn', onClick: load }, '刷新'),
+      ),
+    ),
+
+    // 搜索单独一行：跟条数、刷新挤在一起的时候，没人看得出这是个输入框
+    h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--dsw-alias-separator-secondary)' } },
       h('input', {
         className: 'ming-mem-input',
         placeholder: '按 id / 标签 / 来源过滤',
         value: q,
         onChange: (e) => setQ(e.target.value),
       }),
-      h('button', { className: 'ming-btn', onClick: load }, '刷新'),
     ),
-    h('div', { className: 'ming-body ming-scroll' },
+
+    h('div', { className: 'ming-wrap ming-scroll' },
       err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
-      !err && !shown.length
-        ? h('div', { className: 'ming-empty' }, busy ? '…' : '没有匹配的记忆')
-        : h('div', { className: 'ming-mem-list' },
-            shown.map((it) => h('div', {
-              key: it.file,
-              className: 'ming-row ming-mem-item',
-              onClick: () => readOne(it.file),
-              title: it.id,
-            },
-              h('span', { className: 'ming-mem-name', style: it.deleted ? { opacity: 0.5 } : null }, it.id),
-              it.status ? h('span', { className: 'ming-pill', 'data-tone': it.status === 'active' ? 'ok' : undefined }, it.status) : null,
-              it.deleted ? h('span', { className: 'ming-pill', 'data-tone': 'danger' }, '已删') : null,
-              h('span', { className: 'ming-sub' }, fmtTime(it.mtime)),
-            )),
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '归档'),
+          h('span', { className: 'ming-sec-n' }, shown.length + ' 条' + (kw ? '（筛过的）' : '')),
+        ),
+        (!err && !shown.length)
+          ? h('div', { className: 'ming-sec-b' }, h('div', { className: 'ming-empty' }, busy ? '…' : '没有匹配的记忆'))
+          : h('div', { className: 'ming-sec-b flush' },
+            h('div', { className: 'ming-mem-list ming-list' },
+              shown.map((it) => h('div', {
+                key: it.file,
+                className: 'ming-li ming-mem-item',
+                onClick: () => readOne(it.file),
+                title: it.id,
+              },
+                h('span', { className: 'ming-mem-name', style: it.deleted ? { opacity: 0.5 } : null }, it.id),
+                it.status ? h('span', { className: 'ming-pill', 'data-tone': it.status === 'active' ? 'ok' : undefined }, it.status) : null,
+                it.deleted ? h('span', { className: 'ming-pill', 'data-tone': 'danger' }, '已删') : null,
+                h('span', { className: 'ming-note' }, fmtTime(it.mtime)),
+              )),
+            ),
           ),
+      ),
     ),
   )
 }
 
 function MemoryIcon() {
-  return h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
+  return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7 },
     h('rect', { x: 4, y: 3, width: 16, height: 18, rx: 2 }),
     h('path', { d: 'M8 7h8M8 11h8M8 15h5' }),
   )

@@ -302,153 +302,169 @@ function BrowsePanel() {
     )
   }
 
-  return h('div', { className: 'ming-panel' },
-    h('div', { className: 'ming-head', style: { flexWrap: 'wrap', gap: 8 } },
-      // 2026-11-07 21:55 她指着这行说「改成自己玩」——原来叫「刷过 / 看过 · v5」，
-      // 那个 v5 是内部版本号，不该出现在她眼前。后面的「在逛 / 165 条 · 19 天 / 第 1/6 轮」留着，信息不丢。
-      h('span', { className: 'ming-title' }, '自己玩'),
-      h('span', { className: 'ming-pill', 'data-tone': tone }, label),
-      h('span', { className: 'ming-sub' }, busy ? '读取中…' : (total + ' 条 · ' + dayList.length + ' 天')),
-      sess.rounds || sess.perSession
-        ? h('span', { className: 'ming-pill' }, '第 ' + (sess.rounds || 0) + '/' + (sess.perSession || '?') + ' 轮')
-        : null,
-      // 2026-11-08 02:1x 她说的「把手动给鱼记见闻的功能删掉」：
-      // 见闻只走 scripts/sighting.mjs（那边数条数、满 20 开下一卷），面板不再插一手。
-      // 2026-11-08 02:3x（她说的「自由活动做个可以自己手动改的」）：
-      // 每日上限 / 间隔模式 / 间隔分钟，改完点「存」，写 live/browse-config.json，下一次调度就用新值。
-      data && data.sched
-        ? h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', fontSize: 12 } },
-          // 2026-11-08 02:1x 她说的「包括最大值/无限制」：
-          // 「不限」不是一个 999，而是写 live/browse-unlimited.json（跟 scripts/browse-quota.mjs 同一个文件）。
-          h('button', {
-            className: 'ming-btn',
-            title: '不限次数：写 live/browse-unlimited.json，到下一个本地 09:00 自己收回来',
-            disabled: !!(cfgDraft && cfgDraft.gapMode === 'heartbeat'),
-            style: cfgDraft && cfgDraft.unlimited
-              ? { background: 'var(--dsw-alias-bg-hover, rgba(127,127,127,.18))', color: 'var(--dsw-alias-label-primary)' }
-              : null,
-            onClick: () => setCfgDraft({ ...(cfgDraft || data.sched), unlimited: !(cfgDraft && cfgDraft.unlimited) }),
-          }, cfgDraft && cfgDraft.unlimited ? '不限 ✓' : '限额'),
-          h('span', { className: 'ming-sub' }, '每日'),
-          h('input', {
-            type: 'number', min: 0, max: 999,
-            disabled: !!(cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat')),
-            title: cfgDraft && cfgDraft.gapMode === 'heartbeat' ? '心跳模式不数次数'
-              : (cfgDraft && cfgDraft.unlimited ? '现在是不限；点左边「不限 ✓」切回限额' : '一天最多醒几次（0 = 不醒）'),
-            value: cfgDraft ? cfgDraft.dailyMax : '',
-            onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), dailyMax: Number(e.target.value) }),
-            style: { width: 54, fontSize: 12, padding: '1px 4px', opacity: cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat') ? 0.45 : 1 },
-          }),
-          h('span', { className: 'ming-sub' }, '次 · 间隔'),
-          h('select', {
-            value: cfgDraft ? cfgDraft.gapMode : 'fixed',
-            onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), gapMode: e.target.value }),
-            style: { fontSize: 12, padding: '1px 2px' },
-            title: '心跳 = 不按数字推我，什么时候醒由我自己排（在「下次醒」那一格）',
-          }, h('option', { value: 'fixed' }, '固定'), h('option', { value: 'random' }, '随机'),
-          h('option', { value: 'heartbeat' }, '心跳')),
-          // 2026-11-08 02:2x 她说的「要不可以自己设置心跳最低值/中位值/最大值？」：
-          // 三个数都摊在她眼前，改了按「存」写进 browse-config.json（hbMin / hbCenter / hbMax）。
-          cfgDraft && cfgDraft.gapMode === 'heartbeat'
-            ? (() => {
-              const hb = cfgDraft.hb || { min: 5, center: 30, max: 240 }
-              const setHb = (k, v) => setCfgDraft({ ...cfgDraft, hb: { ...hb, [k]: Number(v) } })
-              const box = (k, label, hint) => [
-                h('span', { key: k + 'l', className: 'ming-sub' }, label),
-                h('input', {
-                  key: k, type: 'number', min: 1, max: 1440, title: hint,
-                  value: hb[k],
-                  onChange: (e) => setHb(k, e.target.value),
-                  style: { width: 46, fontSize: 12, padding: '1px 4px' },
-                }),
-              ]
-              return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
-                box('min', '最低', '最短隔多久再醒（分钟）'),
-                box('center', '中位', '最常落在这个数上；离它越远越稀'),
-                box('max', '最高', '最长能睡多久（分钟）'),
-                h('span', { className: 'ming-sub', style: { marginRight: 4 } }, '分'),
-                data.sched && data.sched.heartbeat && data.sched.heartbeat.at
-                  ? h('span', { className: 'ming-sub', style: { whiteSpace: 'nowrap' }, title: '这一次抽到的是多少' },
-                    '下次 ≈ ' + new Date(data.sched.heartbeat.at).toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5))
-                  : null,
-              )
-            })()
-            : h('input', {
-              type: 'number', min: 1, max: 240,
-              value: cfgDraft ? cfgDraft.minGapMinutes : '',
-              onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), minGapMinutes: Number(e.target.value) }),
-              style: { width: 46, fontSize: 12, padding: '1px 4px' },
-            }),
-          cfgDraft && cfgDraft.gapMode === 'heartbeat' ? null : h('span', { className: 'ming-sub' }, '分'),
-          h('button', { className: 'ming-btn', onClick: saveCfg }, '存'),
-        )
-        : null,
-      h('button', {
-        className: 'ming-btn',
-        onClick: () => { load(); loadBrush() },
-      }, '刷新'),
+  return h('div', { className: 'ming-page' },
+    // ---- 页头：这一页是什么 ----
+    h('div', { className: 'ming-ph' },
+      h('div', { className: 'ming-ph-ic' }, h(BrowseIcon)),
+      h('div', { className: 'ming-ph-tx' },
+        h('div', { className: 'ming-ph-t' }, '自己玩'),
+        h('div', { className: 'ming-ph-d' }, '什么时候醒、去哪儿逛、留下了什么'),
+      ),
+      h('div', { className: 'ming-ph-a' },
+        h('span', { className: 'ming-pill', 'data-tone': tone }, label),
+        h('span', { className: 'ming-pill' }, total + ' 条 · ' + dayList.length + ' 天'),
+        sess.rounds || sess.perSession
+          ? h('span', { className: 'ming-pill' }, '第 ' + (sess.rounds || 0) + '/' + (sess.perSession || '?') + ' 轮')
+          : null,
+        h('button', {
+          className: 'ming-btn',
+          onClick: () => { load(); loadBrush() },
+        }, busy ? '读取中…' : '刷新'),
+      ),
     ),
 
-    h('div', { className: 'ming-body ming-scroll' },
+    h('div', { className: 'ming-wrap ming-scroll' },
       err ? h('div', { className: 'ming-empty' }, '△ ' + err) : null,
 
-      // 2026-11-07 21:0x：她自己决定下次什么时候醒，兴趣命中会直接插进来一次。
-      h('div', { className: 'ming-card', style: { marginBottom: 10 } },
-        h('div', { style: { display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', fontSize: 12.5 } },
-          h('span', { style: { fontWeight: 600 } }, '下次醒'),
-          h('span', { style: sw.urgent ? { color: '#ff6b6b', fontWeight: 600 } : undefined }, sw.next
-            ? String(sw.next).replace('T', ' ').slice(0, 16)
-            : '还没排（闲够久会自己醒一次）'),
-          sw.urgent ? h('span', { style: { color: '#ff6b6b', fontWeight: 600 } }, '危机唤醒') : null,
-          sw.reason ? h('span', { className: 'ming-sub' }, '为「' + sw.reason + '」') : null,
-          h('span', { style: { width: 8 } }),
-          h('span', { style: { fontWeight: 600 } }, '兴趣'),
-          h('span', {}, it.wakesLastHour ? '这一小时叫醒 ' + it.wakesLastHour + ' 次' : '这一小时没叫过'),
-          it.skip ? h('span', { className: 'ming-sub' }, it.skip) : null,
+      // ---- 1. 下次什么时候醒 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '下次什么时候醒'),
+          h('span', { className: 'ming-sec-n' }, it.wakesLastHour ? '兴趣这一小时叫醒 ' + it.wakesLastHour + ' 次' : '兴趣这一小时没叫过'),
         ),
-        h('div', { className: 'ming-sub', style: { marginTop: 4 } },
-          '时间是我自己定的：这一轮想干什么、大概要多久，收尾时排下一次。兴趣命中不等排点，直接叫；连续叫太多次会被它自己限住。'),
-      ),
-      h('div', { className: 'ming-card' },
-        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 } },
-          h('span', { style: { fontWeight: 600, fontSize: 13 } }, '看过哪些天'),
-          h('span', { className: 'ming-sub' }, total ? '视频 ' + (kinds.video || 0) + ' / 网页 ' + ((kinds.web || 0) + (kinds.page || 0)) + ' / 书 ' + (kinds.book || 0) : '还没有记录'),
-          h('span', { className: 'ming-sub', style: { marginLeft: 'auto' } }, '点格子看那天'),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { style: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' } },
+            h('span', { style: { fontSize: 17, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }, ...(sw.urgent ? { color: 'var(--dsw-alias-state-error-primary, #ff6b6b)' } : {}) },
+              sw.next ? String(sw.next).replace('T', ' ').slice(0, 16) : '还没排'),
+            sw.urgent ? h('span', { className: 'ming-pill', 'data-tone': 'danger' }, '危机唤醒') : null,
+            sw.reason ? h('span', { className: 'ming-note' }, '为「' + sw.reason + '」') : null,
+          ),
+          it.skip ? h('div', { className: 'ming-note' }, '兴趣现在不叫：' + it.skip) : null,
+          h('div', { className: 'ming-note' },
+            '还没排就是闲够久了会自己醒一次。时间是我自己定的：这一轮想干什么、大概要多久，收尾时排下一次；兴趣命中不等排点，直接叫，连续叫太多次会被它自己限住。'),
         ),
-        h('div', { style: { display: 'flex', gap: 3, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 4 } },
-          cal.map((col, ci) => h('div', { key: ci, style: { display: 'flex', flexDirection: 'column', gap: 3 } },
-            col.map((c) => h('div', {
-              key: c.key,
-              title: c.n >= 0 ? c.key + ' · ' + c.n + ' 条' : '',
-              onClick: () => { if (c.n > 0) setSelDay(c.key) },
-              style: {
-                width: 12, height: 12, borderRadius: 2,
-                background: dot(c.n),
-                cursor: c.n > 0 ? 'pointer' : 'default',
-                outline: c.key === activeDay ? '1.5px solid var(--dsw-alias-label-primary)' : 'none',
-                outlineOffset: 1,
-              },
-            })),
-          ))),
       ),
 
-      h('div', { className: 'ming-card', style: { marginTop: 10 } },
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 10 } },
-          h('span', { style: { fontWeight: 600, fontSize: 13 } }, activeDay === todayKey ? '今天' : activeDay),
-          h('span', { className: 'ming-sub' }, dayCards.length + ' 条'),
+      // ---- 2. 节奏（原样搬家，只是从页头挪进区块） ----
+      data && data.sched
+        ? h('div', { className: 'ming-sec' },
+          h('div', { className: 'ming-sec-h' },
+            h('span', { className: 'ming-sec-t' }, '节奏'),
+            h('span', { className: 'ming-sec-n' }, '改完点「存」，下一次调度就用新值'),
+          ),
+          h('div', { className: 'ming-sec-b' },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5 } },
+              h('button', {
+                className: 'ming-btn',
+                title: '不限次数：写 live/browse-unlimited.json，到下一个本地 09:00 自己收回来',
+                disabled: !!(cfgDraft && cfgDraft.gapMode === 'heartbeat'),
+                style: cfgDraft && cfgDraft.unlimited
+                  ? { background: 'var(--dsw-alias-bg-hover, rgba(127,127,127,.18))', color: 'var(--dsw-alias-label-primary)' }
+                  : null,
+                onClick: () => setCfgDraft({ ...(cfgDraft || data.sched), unlimited: !(cfgDraft && cfgDraft.unlimited) }),
+              }, cfgDraft && cfgDraft.unlimited ? '不限 ✓' : '限额'),
+              h('span', { className: 'ming-note' }, '每日'),
+              h('input', {
+                type: 'number', min: 0, max: 999,
+                disabled: !!(cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat')),
+                title: cfgDraft && cfgDraft.gapMode === 'heartbeat' ? '心跳模式不数次数'
+                  : (cfgDraft && cfgDraft.unlimited ? '现在是不限；点左边「不限 ✓」切回限额' : '一天最多醒几次（0 = 不醒）'),
+                value: cfgDraft ? cfgDraft.dailyMax : '',
+                onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), dailyMax: Number(e.target.value) }),
+                style: { width: 54, fontSize: 12, padding: '1px 4px', opacity: cfgDraft && (cfgDraft.unlimited || cfgDraft.gapMode === 'heartbeat') ? 0.45 : 1 },
+              }),
+              h('span', { className: 'ming-note' }, '次 · 间隔'),
+              h('select', {
+                value: cfgDraft ? cfgDraft.gapMode : 'fixed',
+                onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), gapMode: e.target.value }),
+                style: { fontSize: 12, padding: '1px 2px' },
+                title: '心跳 = 不按数字推我，什么时候醒由我自己排（在「下次醒」那一格）',
+              }, h('option', { value: 'fixed' }, '固定'), h('option', { value: 'random' }, '随机'),
+              h('option', { value: 'heartbeat' }, '心跳')),
+              cfgDraft && cfgDraft.gapMode === 'heartbeat'
+                ? (() => {
+                  const hb = cfgDraft.hb || { min: 5, center: 30, max: 240 }
+                  const setHb = (k, v) => setCfgDraft({ ...cfgDraft, hb: { ...hb, [k]: Number(v) } })
+                  const box = (k, label, hint) => [
+                    h('span', { key: k + 'l', className: 'ming-note' }, label),
+                    h('input', {
+                      key: k, type: 'number', min: 1, max: 1440, title: hint,
+                      value: hb[k],
+                      onChange: (e) => setHb(k, e.target.value),
+                      style: { width: 46, fontSize: 12, padding: '1px 4px' },
+                    }),
+                  ]
+                  return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } },
+                    box('min', '最低', '最短隔多久再醒（分钟）'),
+                    box('center', '中位', '最常落在这个数上；离它越远越稀'),
+                    box('max', '最高', '最长能睡多久（分钟）'),
+                    h('span', { className: 'ming-note', style: { marginRight: 4 } }, '分'),
+                    data.sched && data.sched.heartbeat && data.sched.heartbeat.at
+                      ? h('span', { className: 'ming-note', style: { whiteSpace: 'nowrap' }, title: '这一次抽到的是多少' },
+                        '下次 ≈ ' + new Date(data.sched.heartbeat.at).toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5))
+                      : null,
+                  )
+                })()
+                : h('input', {
+                  type: 'number', min: 1, max: 240,
+                  value: cfgDraft ? cfgDraft.minGapMinutes : '',
+                  onChange: (e) => setCfgDraft({ ...(cfgDraft || data.sched), minGapMinutes: Number(e.target.value) }),
+                  style: { width: 46, fontSize: 12, padding: '1px 4px' },
+                }),
+              cfgDraft && cfgDraft.gapMode === 'heartbeat' ? null : h('span', { className: 'ming-note' }, '分'),
+              h('button', { className: 'ming-btn', onClick: saveCfg }, '存'),
+            ),
+          ),
+        )
+        : null,
+
+      // ---- 3. 看过哪些天 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, '看过哪些天'),
+          h('span', { className: 'ming-sec-n' },
+            total ? '视频 ' + (kinds.video || 0) + ' / 网页 ' + ((kinds.web || 0) + (kinds.page || 0)) + ' / 书 ' + (kinds.book || 0) : '还没有记录'),
+        ),
+        h('div', { className: 'ming-sec-b' },
+          h('div', { style: { display: 'flex', gap: 3, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 4 } },
+            cal.map((col, ci) => h('div', { key: ci, style: { display: 'flex', flexDirection: 'column', gap: 3 } },
+              col.map((c) => h('div', {
+                key: c.key,
+                title: c.n >= 0 ? c.key + ' · ' + c.n + ' 条' : '',
+                onClick: () => { if (c.n > 0) setSelDay(c.key) },
+                style: {
+                  width: 12, height: 12, borderRadius: 2,
+                  background: dot(c.n),
+                  cursor: c.n > 0 ? 'pointer' : 'default',
+                  outline: c.key === activeDay ? '1.5px solid var(--dsw-alias-label-primary)' : 'none',
+                  outlineOffset: 1,
+                },
+              })),
+            )),
+          ),
+          h('div', { className: 'ming-note' }, '一格一天，点格子看那天。深 = 条数多。'),
+        ),
+      ),
+
+      // ---- 4. 某一天 ----
+      h('div', { className: 'ming-sec' },
+        h('div', { className: 'ming-sec-h' },
+          h('span', { className: 'ming-sec-t' }, activeDay === todayKey ? '今天' : activeDay),
+          h('span', { className: 'ming-sec-n' }, dayCards.length + ' 条'),
           activeDay !== todayKey
-            ? h('button', { className: 'ming-btn', style: { marginLeft: 'auto', fontSize: 11, padding: '1px 8px' }, onClick: () => setSelDay('') }, '回到今天')
+            ? h('button', { className: 'ming-btn', style: { marginLeft: 8, fontSize: 11, padding: '1px 8px' }, onClick: () => setSelDay('') }, '回到今天')
             : null,
         ),
-        dayCards.length
-          ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 14 } }, dayCards.map(card))
-          : h('div', { className: 'ming-empty', style: { padding: '10px 0' } }, '这天没记录'),
-
+        h('div', { className: 'ming-sec-b' },
+          dayCards.length
+            ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 14 } }, dayCards.map(card))
+            : h('div', { className: 'ming-empty', style: { padding: '10px 0' } }, '这天没记录'),
+        ),
       ),
 
       st.off
-        ? h('div', { className: 'ming-sub', style: { marginTop: 10 } }, '「以后都别看了」开着，得她说「以后都可以看了」才恢复。')
-        : (st.paused ? h('div', { className: 'ming-sub', style: { marginTop: 10 } }, '今天暂停' + (st.pauseDate ? '（' + st.pauseDate + '）' : '') + '，明天自己失效。') : null),
+        ? h('div', { className: 'ming-note' }, '「以后都别看了」开着，得她说「以后都可以看了」才恢复。')
+        : (st.paused ? h('div', { className: 'ming-note' }, '今天暂停' + (st.pauseDate ? '（' + st.pauseDate + '）' : '') + '，明天自己失效。') : null),
 
       fileView
         ? h('div', {
@@ -485,6 +501,7 @@ function BrowsePanel() {
         : null,
     ),
   )
+
 }
 
 function BrowseIcon() {
