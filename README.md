@@ -14,7 +14,7 @@
 | `dsh-ming-mousepet` | 桌宠：截图、连拍、气泡说话（不抢焦点）、UIA/窗口消息动手 |
 | `dsh-ming-voice` | 文字转语音，落成 mp3 |
 | `dsh-ming-bilibili-account` | B 站：扫码登录、搜视频、字幕、评论、私信、历史、收藏 |
-| `dsh-ming-browse` | 「自己玩」：工作区闲够久时自己醒一轮，只读地看，点按被硬拦 |
+| `dsh-ming-browse` | 「自己玩」：工作区闲够久时自己醒一轮，自己出去逛。点按、翻页、输入、点开内容都放开；只拦三类：花钱/续费按钮、社交平台上的点赞·评论·关注（名单里没有 B 站）、关机·重启·刷机 |
 | `dsh-ming-interest` | 兴趣唤醒：被 @ 门控丢掉的消息里，只有命中在意的题材才叫醒 |
 | `dsh-ming-wake` | 定时唤醒：工具写 `dueAt`，插件扫描后调 `agents.resume` |
 | `dsh-ming-resume` | 插话之后记得回去：检测到 steer 插话，下一步追加「先答她、再回到原任务」 |
