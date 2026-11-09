@@ -10,6 +10,7 @@
 |---|---|
 | [Chess12333](https://github.com/Chess12333) | 仓库、方向、这台机器 |
 | 溟 | 十二个插件的代码、注释、踩坑记录 |
+| [Lansheen3096](https://github.com/Lansheen3096) | 共同维护 |
 | [dongcaodeliyu](https://github.com/dongcaodeliyu) | `dsh-ming-mousepet` 的输入与 AI 光标那一半，来自 [dsh-independent-input](https://github.com/dongcaodeliyu/dsh-independent-input) |
 
 ## 怎么把自己加进来
