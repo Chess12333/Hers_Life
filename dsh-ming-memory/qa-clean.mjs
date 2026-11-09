@@ -27,13 +27,13 @@ const cases = [
 ]
 for (const [text] of cases) m.user(s, text)
 m.user(s, '插件自己塞的话', 'plugin')
-m.assistant(s, '溟回了一句。')
+m.assistant(s, 'AI回了一句。')
 
 await sleep(1300)
 const entry = readFeed(ROOT)['web-1'] || {}
 const items = Array.isArray(entry.items) ? entry.items : []
 const said = items.filter((i) => i.r === '她').map((i) => i.t).join('\n')
-const mine = items.filter((i) => i.r === '溟').map((i) => i.t).join('\n')
+const mine = items.filter((i) => i.r === 'AI').map((i) => i.t).join('\n')
 
 check('保留正常消息', said.includes('正常的用户消息'))
 check('剥掉 QQ 外壳、留下正文', said.includes('我刚才在电脑上说了什么') && !said.includes('<user_message'))
@@ -42,7 +42,7 @@ check('不含 job 通知', !said.includes('finished [status'))
 check('不含 Background subagent', !said.includes('Background subagent'))
 check('不含 harness 的时间戳注脚', !said.includes('Time sampled'))
 check('插件自己注入的不算她说的', !said.includes('插件自己塞的话'))
-check('溟自己回的那句也记（她说不能连自己说的话都不记得）', mine.includes('溟回了一句'))
+check('AI自己回的那句也记（她说不能连自己说的话都不记得）', mine.includes('AI回了一句'))
 check('最近 20 条以内不折叠', items.length === 3 && (entry.digest || '') === '', `items=${items.length} digest=${JSON.stringify(entry.digest || '')}`)
 
 // ---------- 二、溢出的压进 digest ----------

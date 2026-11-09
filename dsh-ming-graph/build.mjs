@@ -100,6 +100,16 @@ const EXTRA = path.join(here, 'src/panels.js')
 push('壳 extras', EXTRA, read(EXTRA, '壳 extras（src/panels.js）'))
 
 // 主面板最后（它引用上面所有 Panel）
+// 2026-11-09：主面板按页拆了（原来 1459 行 / 79 KB 一个文件，改一处要滚半天）。
+// 顺序不能乱 —— common 里的 const 先定义，后面几片才用得上；拼起来跟拆之前逐字相同。
+for (const [label, rel] of [
+  ['主面板·公共', 'src/panels/common.js'],
+  ['主面板·记忆', 'src/panels/memory.js'],
+  ['主面板·费用技能', 'src/panels/cost.js'],
+  ['主面板·桌宠', 'src/panels/pet.js'],
+]) {
+  push(label, path.join(here, rel), read(path.join(here, rel), label + '（' + rel + '）'))
+}
 push('主面板', path.join(here, 'src/panel.js'), read(path.join(here, 'src/panel.js'), '主面板（src/panel.js）'))
 
 if (errors.length) {

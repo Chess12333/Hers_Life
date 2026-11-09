@@ -3,7 +3,7 @@
  *
  * ⚠ 生成物，别手改：改 src/*.js 或各插件的 src/panel.js，然后 `node build.mjs`。
  *   现在是不是最新的：`node build.mjs --check`
- *   build 408e5beec6a633c5
+ *   build 81ea746f36b013c8
  *
  * 入口：左侧图标栏一个图标（sidebar.panellist），点开占满主区域（main 面板 key = ming-graph）。
  * 数据来自 Host 半端 /_dsh/dsh-ming-graph/neurons，自己拉、自己画，不经过模型。
@@ -2982,6 +2982,7 @@ function fmtClock(ms) {
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
 }
 
+
 // 2026-11-07 19:0x：记忆 tab 改成吃**统一节点模型**（/_dsh/dsh-ming-graph/neurons/unified），
 // 不再依赖 dsh-ming-memory 的 /list——那个插件的 Host 半端一直没能加载（exports 里没有 "."），
 // 每次打开都是 △ HTTP 404。图这边本来就把 notes 全读进来了，章也在里面，不用再绕一圈。
@@ -3209,6 +3210,7 @@ class PanelBoundary extends React.Component {
   }
 }
 
+
 // ===== 2026-11-08：top 栏两个新入口 =====
 // 她说的：「再在她的一生的 top 栏中做一个 skill 开关的 top 选项，然后还有费用计费」。
 // 两个都做成浮层，不占一格 tab——它们不是「看什么」，是「现在花多少、模型能看见什么」。
@@ -3285,6 +3287,8 @@ function SkillsBody(props) {
 // 原来读 dsh-bottom-info-bar 的 getUsageSummary，它返回不出数（账本有 token 没价）。
 // 现在口径由 cost-lib.mjs 定，页面只负责显示，并把口径原样印在下面。
 function MgCostPage(props) {
+  const busy = !!props.indexing
+  const info = props.indexInfo
   return h('div', { className: 'ming-page' },
     h('div', { className: 'ming-ph' },
       h('div', { className: 'ming-ph-ic' },
@@ -3293,12 +3297,40 @@ function MgCostPage(props) {
           h('path', { d: 'M8 16v-5M12.5 16V8M17 16v-3' }))),
       h('div', { className: 'ming-ph-tx' },
         h('div', { className: 'ming-ph-t' }, '费用'),
-        h('div', { className: 'ming-ph-d' }, '用量是账本里的实数；金额按官方价折算，不是实际扣款'),
+        h('div', { className: 'ming-ph-d' }, '用量是账本里的实数；金额按价目折算，不是实际扣款'),
       ),
       h('div', { className: 'ming-ph-a' },
+        // 2026-11-10：她加的——没定价的模型，点一下去网上找价；找不到就借最相似的，标出公式
+        h('button', {
+          className: 'mg-btn',
+          disabled: busy,
+          title: '给账本里「未定价」的模型去网上搜一次价；找不到就借最相似的那个，并在名字后面标出用的是谁的公式',
+          onClick: props.onIndex,
+        }, busy ? '索引中…' : '索引费用'),
         h('button', { className: 'mg-btn', onClick: props.onReload }, '重读'),
       ),
     ),
+    info ? h('div', { className: 'ming-sec' },
+      h('div', { className: 'ming-sec-h' },
+        h('span', { className: 'ming-sec-t' }, '刚才那次索引'),
+        h('span', { className: 'ming-sec-n' }, info.ok === false ? '失败' : (info.message || ((info.summary && info.summary.total) || 0) + ' 个模型')),
+      ),
+      h('div', { className: 'ming-sec-b' },
+        info.ok === false
+          ? h('div', { className: 'mg-pop-empty' }, '索引失败：' + (info.error || '未知原因'))
+          : h('div', null,
+            h('div', { className: 'ming-note' },
+              '查到原价 ' + ((info.summary && (info.summary.exact + info.summary.search)) || 0) +
+              ' 个 · 借相近模型 ' + ((info.summary && info.summary.similar) || 0) +
+              ' 个 · 没找到 ' + ((info.summary && info.summary.none) || 0) + ' 个'),
+            (info.results || []).map((r) => h('div', { key: r.model, className: 'ming-note', style: { marginTop: 4 } },
+              r.model + ' → ',
+              r.from && r.from !== r.model ? ('公式：' + r.from) : (r.price ? '查到了自己的价' : '没找到'),
+              r.source ? '　⟵ ' + r.source : '',
+              r.note ? '　' + r.note : '')),
+          ),
+      ),
+    ) : null,
     h('div', { className: 'ming-wrap ming-scroll' }, h(CostBody, props)),
   )
 }
@@ -3362,11 +3394,20 @@ function CostBody(props) {
       h('div', { className: 'ming-sec-b flush' },
         h('div', { className: 'ming-list' },
           rows.map((m) => h('div', { key: m.model, className: 'ming-li' },
-            h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 } }, m.model),
-            m.priced ? null : h('span', { className: 'ming-pill', 'data-tone': 'warn', title: '价目表里没有这个写法，金额按 0 计' }, '未定价'),
-            h('span', { className: 'ming-note', style: { width: 64, textAlign: 'right' } }, m.records + ' 次'),
-            h('span', { className: 'ming-note', style: { width: 120, textAlign: 'right' } }, fmtTokens(SumTokens(m)) + ' tok'),
-            h('span', { className: 'ming-li-t', style: { width: 84, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, fmtMoney(m.cost)),
+            // 2026-11-10：这条价是拿谁的公式算的——找不到它的价就借最相似的，名字后面直接写出来
+            h('span', {
+              className: 'ming-li-t',
+              style: { flex: '1 1 auto', minWidth: 0, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+              title: m.source ? ('价从这儿来：' + m.source) : '',
+            },
+              m.model,
+              m.from && m.from !== m.model
+                ? h('span', { className: 'ming-note', style: { marginLeft: 6, opacity: 0.85, whiteSpace: 'nowrap' } }, '（公式：' + m.from + '）')
+                : null),
+            m.priced ? null : h('span', { className: 'ming-pill', style: { flex: '0 0 auto' }, 'data-tone': 'warn', title: '价目表里没有这个写法，金额按 0 计；点「索引费用」去网上找一个' }, '未定价'),
+            h('span', { className: 'ming-note', style: { flex: '0 0 auto', width: 64, textAlign: 'right', whiteSpace: 'nowrap' } }, m.records + ' 次'),
+            h('span', { className: 'ming-note', style: { flex: '0 0 auto', width: 120, textAlign: 'right', whiteSpace: 'nowrap' } }, fmtTokens(SumTokens(m)) + ' tok'),
+            h('span', { className: 'ming-li-t', style: { flex: '0 0 auto', width: 84, textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }, fmtMoney(m.cost)),
           )),
         ),
       ),
@@ -3375,13 +3416,19 @@ function CostBody(props) {
     h('div', { key: 'basis', className: 'ming-sec' },
       h('div', { className: 'ming-sec-b' },
         h('div', { className: 'ming-note' }, d.basis || ''),
-        h('div', { className: 'ming-note' }, '价目：' + (d.pricesSource || '内置') + '　账本：' + (d.ledger || '') + '　读于 ' + String(d.at || '').replace('T', ' ').slice(0, 16)),
+        h('div', { className: 'ming-note' },
+          '价目：内置' +
+          (d.pricesLayers && d.pricesLayers.auto ? ' + 索引出来的（cost-prices.auto.json）' : '') +
+          (d.pricesLayers && d.pricesLayers.manual ? ' + 人工（cost-prices.json，优先级最高）' : ''),
+          '　账本：' + (d.ledger || '') + '　读于 ' + String(d.at || '').replace('T', ' ').slice(0, 16)),
       ),
     ),
   ]
 }
 
 // ---------------------------------------------------------------------------
+
+
 // 桌宠整页（2026-11-08）
 // 她说的：「变成单独页，不是现在这种浮层；做皮肤切换器，可以自己添加删除皮肤，
 // 现在这十五只做默认皮肤。」——所以内置那批是只读的，用户自己加的在下面一格。
@@ -3804,6 +3851,50 @@ function PetPage() {
 
 }
 
+
+// ---- 外部页签宿主（2026-11-10 搬家）----
+// 原来建在面板的 useEffect 里：没打开过「她的一生」，宿主就不存在，想挂进来的插件只能退回设置页。
+// 现在建在模块级、由 apply 时安装，跟面板开没开无关。
+//   window.__MING_TAB_HOST = { add(desc), remove(id), list() }
+//   window.__MING_TABS_PENDING = []   ← 早到的先排队，install 时一起收
+//   desc = { id, label, order?, render }
+const MING_EXT_TABS = []
+const MING_EXT_SUBS = new Set()
+
+function mingExtEmit() {
+  const snap = MING_EXT_TABS.slice()
+  MING_EXT_SUBS.forEach((fn) => { try { fn(snap) } catch (e) { /* 一个订阅者坏了不影响别的 */ } })
+}
+
+function mingExtAdd(d) {
+  if (!d || !d.id) return
+  const i = MING_EXT_TABS.findIndex((x) => x.id === d.id)
+  if (i >= 0) MING_EXT_TABS[i] = d
+  else MING_EXT_TABS.push(d)
+  MING_EXT_TABS.sort((a, b) => (a.order || 100) - (b.order || 100))
+  mingExtEmit()
+}
+
+function mingExtRemove(id) {
+  const i = MING_EXT_TABS.findIndex((x) => x.id === id)
+  if (i < 0) return
+  MING_EXT_TABS.splice(i, 1)
+  mingExtEmit()
+}
+
+function mingExtSubscribe(fn) {
+  MING_EXT_SUBS.add(fn)
+  fn(MING_EXT_TABS.slice())
+  return () => { MING_EXT_SUBS.delete(fn) }
+}
+
+function mingExtInstall() {
+  if (typeof window === 'undefined') return
+  window.__MING_TAB_HOST = { add: mingExtAdd, remove: mingExtRemove, list: () => MING_EXT_TABS.slice() }
+  const q = window.__MING_TABS_PENDING
+  if (Array.isArray(q) && q.length) q.splice(0).forEach(mingExtAdd)
+}
+
 function NeuronPanel() {
   const holder = useRef(null)
   const viewRef = useRef(null)
@@ -3838,6 +3929,15 @@ function NeuronPanel() {
   const [skillBusy, setSkillBusy] = useState('')
   const [cost, setCost] = useState(null)
   const [costErr, setCostErr] = useState('')
+  // 2026-11-10：「索引费用」——点一下，没定价的模型去网上找价（Host 那边做，见 price-index.mjs）
+  const [costIdxBusy, setCostIdxBusy] = useState(false)
+  const [costIdxInfo, setCostIdxInfo] = useState(null)
+
+  // ---- 外部页签：订阅模块级的那份清单（2026-11-10 改）----
+  // 上一版把宿主建在这里的 useEffect 里，结果「没打开过她的一生」时它根本不存在，
+  // 想挂进来的插件只能退回设置页。现在宿主在插件 apply 时就建好（见文件末尾 mingExtInstall）。
+  const [extTabs, setExtTabs] = useState(() => MING_EXT_TABS.slice())
+  useEffect(() => mingExtSubscribe(setExtTabs), [])
 
   const loadSkills = useCallback((force) => {
     return fetch(API + '/skills' + (force ? '/refresh' : ''), { cache: 'no-store' })
@@ -3880,7 +3980,7 @@ function NeuronPanel() {
   const loadCost = useCallback(() => {
     // 2026-11-08 16:1x：不再读那个插件的 getUsageSummary —— 它的账本有 token 没价
     // （价目表里没有 deepseek-v4.1-flash 这个写法），返回不出数。改成读我们自己的 /cost，
-    // 价目表是 hers_workplace/live/cost-prices.json，算法在 cost-lib.mjs。
+    // 价目表是 workspace/live/cost-prices.json，算法在 cost-lib.mjs。
     return fetch(API + '/cost', {
       cache: 'no-store',
     })
@@ -3889,8 +3989,26 @@ function NeuronPanel() {
       .catch((e) => setCostErr(String((e && e.message) || e)))
   }, [])
 
-  function toggleSkill(name, on) {
-    setSkillBusy(name)
+  // 2026-11-10：点「索引费用」——Host 去给未定价的模型搜价，回来顺手把新账塞进 state，
+  // 不用再拉一次 /cost（那条要扫七万行 sqlite）。
+  const indexCost = useCallback(() => {
+    setCostIdxBusy(true)
+    setCostIdxInfo(null)
+    return fetch(API + '/cost/index', { method: 'POST', cache: 'no-store' })
+      .then((r) => {
+        if (r.status === 404) throw new Error('宿主还是旧版：cost/index 路由还没注册，重启 DSH 就有了')
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return r.json()
+      })
+      .then((d) => {
+        setCostIdxInfo(d && typeof d === 'object' ? d : { ok: false, error: '响应不是对象' })
+        if (d && d.cost) { setCost(d.cost); setCostErr('') }
+      })
+      .catch((e) => setCostIdxInfo({ ok: false, error: String((e && e.message) || e) }))
+      .finally(() => setCostIdxBusy(false))
+  }, [])
+
+  function toggleSkill(name, on) {    setSkillBusy(name)
     fetch(API + '/skills/toggle?name=' + encodeURIComponent(name) + '&on=' + (on ? '1' : '0'), { method: 'POST', cache: 'no-store' })
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() })
       .then((d) => {
@@ -4057,13 +4175,21 @@ function NeuronPanel() {
       h('div', { className: 'mg-seg' },
         [['neuron', '神经元'], ['star', '星图'], ['memory', '记忆'], ['|'],
           ['browse', '自己玩'], ['interest', '兴趣'], ['voice', '声音'],
-          // 2026-11-08 15:20 她：「把桌宠和费用都放到 tab 后面」
-          ['pet', '桌宠'], ['cost', '费用'], ['|']]  // 2026-11-08 01:4x 她选 3：接续的 tab 从 top 栏拿掉（插件留着，插话接续照跑）
+          // 2026-11-10 她定的：「桌宠也去掉吧，就保留光标就可以了」。
+          // 桌宠那页是本机专用的，光标页才是"谁装谁有"的那一个——自己用和发出去要同一套。
+          ['cost', '费用'], ['|']]
           // 2026-11-08 03:4x：桌面 tab 一起去掉。它的数据来自 /_dsh/dsh-ming-desktop，
           //   那个插件 11-08 被 mousepet 取代后停用，接口实测 404，点开是一格空的。
           .map(([k, label]) => k === '|'
             ? h('span', { key: 'sep', style: { width: 1, height: 18, background: 'var(--dsw-alias-border-secondary, rgba(150,150,170,.28))', margin: '0 4px', alignSelf: 'center' } })
-            : h('button', { key: k, className: view === k ? 'on' : '', onClick: () => setView(k) }, label)),
+            : h('button', { key: k, className: view === k ? 'on' : '', onClick: () => setView(k) }, label))
+          // 外部页签（2026-11-09）：别的插件挂进来的，接在内置 tab 之后，靠 order 排。
+          .concat(extTabs.map((t) => h('button', {
+            key: 'ext-' + t.id,
+            className: view === 'ext:' + t.id ? 'on' : '',
+            title: t.title || '',
+            onClick: () => setView('ext:' + t.id),
+          }, t.label || t.id))),
         // 2026-11-08 15:27：费用改成独立页（view='cost'），不再是浮层。
       ),
       h('span', { className: 'mg-gap' }),
@@ -4162,16 +4288,21 @@ function NeuronPanel() {
     h('div', { key: 'voice' + reloadTick, className: 'mg-holder', style: view === 'voice' ? null : { display: 'none' } },
       view === 'voice' ? h(VoicePanel) : null,
     ),
-    // 2026-11-07 19:1x 她说「还是别合并了」：桌面和接续各留一格。
-    h('div', { key: 'pet' + reloadTick, className: 'mg-holder', style: view === 'pet' ? null : { display: 'none' } },
-      view === 'pet' ? h(PetPage) : null,
-    ),
+    // 2026-11-10 她定的：桌宠页拿掉，功能并进「光标」页（外部插件挂进来的那个）。
+    // 这里保留 PetPage 的定义和 import，别删——并回去的时候不用从头写。
     // 2026-11-08 15:27 她：「费用也做成独立页而不是弹窗栏」。
     h('div', { key: 'cost' + reloadTick, className: 'mg-holder', style: view === 'cost' ? null : { display: 'none' } },
-      view === 'cost' ? h(MgCostPage, { data: cost, err: costErr, onReload: loadCost }) : null,
+      view === 'cost' ? h(MgCostPage, {
+        data: cost, err: costErr, onReload: loadCost,
+        onIndex: indexCost, indexing: costIdxBusy, indexInfo: costIdxInfo,
+      }) : null,
     ),
     h('div', { key: 'resume' + reloadTick, className: 'mg-holder', style: view === 'resume' ? null : { display: 'none' } },
       view === 'resume' ? h(ResumePanel) : null,
+    ),
+    // 外部页签（2026-11-09）：所有挂进来的共用一个 holder，只渲染当前那一个。
+    h('div', { key: 'ext' + reloadTick, className: 'mg-holder', style: String(view).indexOf('ext:') === 0 ? null : { display: 'none' } },
+      extTabs.map((t) => (view === 'ext:' + t.id && typeof t.render === 'function' ? h(t.render, { key: t.id }) : null)),
     ),
 
     h('div', {
@@ -4212,6 +4343,8 @@ function NeuronPanel() {
 return {
   inject: ['slots'],
   apply(ctx) {
+    // 宿主随插件一起来，不等面板被打开（2026-11-10）
+    mingExtInstall()
     ctx.slots.inject('main', () => ctx.slots.register({
       name: 'main',
       key: 'ming-graph',

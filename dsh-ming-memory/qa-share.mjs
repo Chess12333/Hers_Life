@@ -31,14 +31,14 @@ await m.created(webA.agent)
 await m.created(grpA.agent)
 
 m.user(qqS, '她在 QQ 说的第一句话。')
-m.assistant(qqS, '溟在 QQ 回的第一句。')
+m.assistant(qqS, 'AI在 QQ 回的第一句。')
 m.user(grpS, '群里别人说的话，不该进私聊视角。')
 m.user(otherS, '这句来自 trpg_web，绝对不该被记录')
 
 await m.preStep(webA.agent)
 const t1 = webA.text()
 check('Web 看得见 QQ 那边说了什么', t1.includes('别的会话里的对话') && t1.includes('她在 QQ 说的第一句话'))
-check('也看得见我在那边回的那句', t1.includes('溟在 QQ 回的第一句'))
+check('也看得见我在那边回的那句', t1.includes('AI在 QQ 回的第一句'))
 check('群 → 私聊单向：私聊视角看得见群里的话', t1.includes('群里别人说的话'))
 check('群里的话带群号标签', /群 123456789/.test(t1))
 check('别的工程目录一条不读', !t1.includes('trpg_web'))
@@ -58,7 +58,7 @@ const feed = readFeed(ROOT)
 const qqEntry = feed['onebot-private-10001'] || {}
 const qqItems = Array.isArray(qqEntry.items) ? qqEntry.items : []
 check('feed.json 落盘', !!feed['onebot-private-10001'])
-check('feed 里两边原话都在', qqItems.some((i) => i.r === '她') && qqItems.some((i) => i.r === '溟'))
+check('feed 里两边原话都在', qqItems.some((i) => i.r === '她') && qqItems.some((i) => i.r === 'AI'))
 check('别的工程目录没进 feed', !feed['trpg'])
 check('群是单独一间房（scope）', feed['onebot-group-123456789'] && feed['onebot-group-123456789'].scope === 'group:123456789',
   JSON.stringify(feed['onebot-group-123456789'] && feed['onebot-group-123456789'].scope))

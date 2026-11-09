@@ -45,7 +45,7 @@ const ctx = {
   tools: { register() {} },
 }
 
-apply(ctx, { skillsCwd: 'C:\\dsh\\hers_workplace', skillsOffFile: offFile })
+apply(ctx, { skillsCwd: 'C:\\dsh\\workspace', skillsOffFile: offFile })
 await new Promise((r) => setTimeout(r, 50))
 if (!handlers.length) { console.log('FAIL 没注册上 webServer 路由'); process.exit(1) }
 const { path: prefix, handler } = handlers[0]
@@ -86,6 +86,16 @@ ok(r5.ok === true && r5.total >= 2, '/skills/refresh 也通')
 
 const r6 = await call(prefix + '/nope')
 ok(/unknown method/.test(r6.error || ''), '不认识的方法照旧 404')
+
+// 2026-11-10：索引费用
+// GET 不行（写动作）；POST 在「没有未定价模型」时要早退，别去联网。
+// 注：这里读的是真账本 + 真 live/cost-prices.auto.json。哪天账本里冒出新的未定价模型，
+// 这条会真的去网上搜（慢十几秒）——那也算它该做的事，只是别当成卡死。
+const r7 = await call(prefix + '/cost/index', 'GET')
+ok(/POST/.test(r7.error || ''), 'GET 打 cost/index 会被挡')
+const r8 = await call(prefix + '/cost/index', 'POST')
+ok(r8.ok === true, 'POST cost/index 返回 ok（' + (r8.message || ('索引 ' + ((r8.summary && r8.summary.total) || 0) + ' 个')) + '）')
+ok(!r8.cost || typeof r8.cost.periods === 'object' || r8.message, '回来时带着刷新后的账（或说明没有可索引的）')
 
 try { fs.unlinkSync(offFile) } catch {}
 console.log('\n' + (bad ? bad + ' 项没过' : '全部通过') + '\n注：ctx.skills 真服务接不接得上要重启后才算数。')

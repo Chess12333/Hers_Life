@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "溟的网页取文",
+  "name": "AI的网页取文",
   "version": "0.3.0",
-  "description": "右键「溟：指一段」，光标指到哪块就高亮哪块，点一下交给本机桌宠（只发到 127.0.0.1）。",
+  "description": "右键「AI：指一段」，光标指到哪块就高亮哪块，点一下交给本机桌宠（只发到 127.0.0.1）。",
   "permissions": [
     "activeTab",
     "contextMenus"

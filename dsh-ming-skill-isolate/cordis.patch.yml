@@ -2,4 +2,4 @@
     - id: ming-skill-isolate
       name: 'dsh-ming-skill-isolate'
       config:
-        root: 'C:\dsh\hers_workplace'
+        root: '<DSH>\workspace'

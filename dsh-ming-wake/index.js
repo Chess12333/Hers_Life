@@ -14,10 +14,10 @@ export const name = 'ming-wake'
 
 // 正斜杠：Windows 的路径 API 认，而且不用数转义。
 // 原来这里写成单反斜杠 '\d'、'\h'、'\w' 都不是有效转义，JS 会把反斜杠吞掉，
-// 这个常量实际是 'C:dshhers_workplace'（19 字符）——一个不存在的路径。
+// 这个常量实际是 'C:workspace'（19 字符）——一个不存在的路径。
 // 2026-11-08 安菲（卡米安菲家的工程师）把它单独 eval 了一遍抓出来的；
 // 三个兄弟包（voice / browse / skill-isolate）写的都是双反斜杠，只有这里漏了。
-const DEFAULT_ROOT = 'C:/dsh/hers_workplace'
+const DEFAULT_ROOT = 'C:/dsh/workspace'
 const TICK_MS = 15_000
 
 function norm(cfg) {

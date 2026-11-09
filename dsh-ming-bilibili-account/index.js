@@ -1,5 +1,5 @@
 /**
- * dsh-ming-bilibili-account —— 溟的 B 站账号工具（登录 / 查身份 / 改名）
+ * dsh-ming-bilibili-account —— AI的 B 站账号工具（登录 / 查身份 / 改名）
  *
  * 为什么要单独写：现成的 dsh-plugin-bilibili 是匿名只读的，没有登录态，也做不了
  * 「我是谁」这类操作。这里只补这一块，不碰它的搜索/视频工具。

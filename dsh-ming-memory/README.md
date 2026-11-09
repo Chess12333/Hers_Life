@@ -1,3 +1,6 @@
+> **这个仓已并入 [Hers_Life](https://github.com/Chess12333/Hers_Life)，后续更新只在那边。**
+> 这里保留历史版本，不再单独发版；装完整版请用 Hers_Life。
+
 # dsh-ming-memory
 
 一个 DSH 插件：**会话开在指定目录时，把 persona 文件和日记里最近几篇拼进系统提示词。**
@@ -35,7 +38,7 @@ lib/neuron.mjs   readDshNotes / readQqObservations / buildNeuron / buildUnified 
 现在反过来——memory 负责读、负责算，graph 只负责画。
 
 代价（写在这儿，免得下次踩）：graph 是按**相对路径** `../dsh-ming-memory/lib/…` 找到它的，
-两个仓必须并排放在同一个父目录下（默认 `C:\dsh\`）。profile 的 node_modules 是按真路径加载的，
+两个仓必须并排放在同一个父目录下（默认 `<DSH>\`）。profile 的 node_modules 是按真路径加载的，
 包名在那个位置解析不到。接线断没断跑 `node ../dsh-ming-graph/wiring-check.mjs`，它也挂在 `scripts/health.mjs` 里。
 
 ## 和 graph 的边界

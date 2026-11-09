@@ -2,7 +2,7 @@
  * dsh-ming-skill-isolate —— 按工作区隔离 skill
  *
  * 想解决的问题：这台机器的 skill 目录是全局的，几十个 skill 里有一大半跟
- * 「溟的档案夹」这个工作区无关（CAD、WPS、云服务器、游戏引擎……）。它们不占
+ * 「AI的档案夹」这个工作区无关（CAD、WPS、云服务器、游戏引擎……）。它们不占
  * 磁盘也不花钱，但每一次会话开场都要把名字和描述塞进系统提示词，而且会稀释
  * 「这次该用哪个」的判断。
  *
@@ -31,7 +31,7 @@ const SHADOW_RANK = 1
 const PROVIDER = 'ming-skill-isolate'
 
 const DEFAULTS = {
-  root: 'C:\\dsh\\hers_workplace',
+  root: 'C:\\dsh\\workspace',
   stateFile: '',
 }
 
@@ -88,7 +88,7 @@ export function apply(ctx, config) {
       const state = await readState(cfg.stateFile)
       return state.off.map((skillName) => ({
         name: skillName,
-        description: '（本工作区已隔离——溟关掉的，模型不可见）',
+        description: '（本工作区已隔离——AI关掉的，模型不可见）',
         invocation: { modelInvocable: false, userInvocable: false },
         source: 'custom',
         provider: PROVIDER,
@@ -137,7 +137,7 @@ export function apply(ctx, config) {
     try { console.warn('[ming-skill-isolate] 全局注册失败：' + String((e && e.message) || e)) } catch { /* 无视 */ }
   }
 
-  // ---- 给溟一个能自己开关的工具 ----
+  // ---- 给AI一个能自己开关的工具 ----
   ctx.tools.register({
     name: 'skill_isolate',
     description:

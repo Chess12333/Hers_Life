@@ -13,7 +13,7 @@
  * 它做的事很少：
  *   1. 盯着这个工作区的活动。所有会话都 idle 超过 N 分钟，就 wake。
  *   2. wake = 在自己那个固定会话（ming-browse）里塞一条 prompt，让我自己挑一件事做。
- *      想找她就用 `node C:\dsh\qq-zone\qq-send.mjs "…"` 发出去。
+ *      想找她就用 `node <DSH>\qq-zone\qq-send.mjs "…"` 发出去。
  *   3. 保留两条硬边界：花钱按钮不点、别把手机整个关掉；另外社交平台写操作照旧只读。
  *
  * 三条硬边界（不靠自觉，靠代码）：
@@ -47,7 +47,7 @@ const BROWSE_SESSION_ID = 'ming-browse'
 
 const DEFAULTS = {
   enabled: true,
-  workspacePath: 'C:\\dsh\\hers_workplace',
+  workspacePath: 'C:\\dsh\\workspace',
   /**
    * 只在 live/browse-state.json 里报个数。
    * 2026-10-23 她改的：不再当闸用——她说可以一边聊天一边逛，不用等安静。
@@ -1464,7 +1464,7 @@ export function apply(ctx, config) {
     let seen = ''
     try {
       const raw = await readFile(path.join(cfg.workspacePath, 'live', 'watched.json'), 'utf8')
-      // 2026-10-30（溟）：原来 slice(-20) 只给最近 20 条，账本却有 63 条——
+      // 2026-10-30（AI）：原来 slice(-20) 只给最近 20 条，账本却有 63 条——
       // 照着列表选片，三分之一会踩重（当晚真踩了一次：BV1c5411V7pP 10-23 看过）。
       // 改成「全部 BV 号、不带标题」：同样的字数（60 条 × 13 字符 ≈ 20 条带标题），
       // 覆盖是全部。标题真需要时去 live/watched.json 查。
@@ -1482,7 +1482,7 @@ export function apply(ctx, config) {
     let qzone = ''
     try {
       const raw = await readFile(path.join(cfg.workspacePath, 'live', 'qzone-log.jsonl'), 'utf8')
-      // 2026-10-23（溟）：at 写的是 UTC，本地凌晨发的那条会被算成「昨天」，于是每轮都提醒「还没发」。
+      // 2026-10-23（AI）：at 写的是 UTC，本地凌晨发的那条会被算成「昨天」，于是每轮都提醒「还没发」。
       // 优先认 qzone.mjs 写的 day（本地日期），旧行再用 at 转本地日期回退。
       const key = dayKey(now)
       const postedToday = raw.split('\n').some((l) => {

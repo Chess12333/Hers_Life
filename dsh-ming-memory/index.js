@@ -1,5 +1,5 @@
 /**
- * dsh-ming-memory —— 溟的开场记忆
+ * dsh-ming-memory —— AI的开场记忆
  *
  * 做一件很小的事：会话开在指定目录时，把 persona 下的几份文件 + 日记里最近几篇
  * 直接拼进系统提示词。不是「让我记得」，是「把字摆在我眼前」。
@@ -28,7 +28,7 @@ const DEFAULTS = {
   diaryDir: 'diary',
   diaryCount: 3,
   maxChars: 12000,
-  // 日记自己的预算（2026-10-24 溟加）。原来人设和日记共用一个 maxChars，
+  // 日记自己的预算（2026-10-24 AI加）。原来人设和日记共用一个 maxChars，
   // 约定.md 长到 9.4K 之后，日记只剩几百字符——最新三篇里旧两篇被静默丢掉，
   // 开场等于少读了东西，只在脚注里提一句「因长度预算省去」。挤人设不行，那就给日记单开一格。
   diaryChars: 8000,
@@ -64,7 +64,7 @@ const ATTACHED = new Set() // agentId
 let warned = false
 
 // ---------- 跨会话共享上下文 ----------
-// 每个会话（cwd 在 root 下）最近说过什么：双方都记（她说的、溟回的），保留最近 DIALOG_MAX 条原话，
+// 每个会话（cwd 在 root 下）最近说过什么：双方都记（她说的、AI回的），保留最近 DIALOG_MAX 条原话，
 // 更早的压进 digest。2026-10-20 她定的：自己的话也要记，最近 15-20 条，前面的压缩。
 // 插件自己注入的消息仍然跳过，否则会自己喂自己。
 const SHARED = new Map() // sessionId -> { surface, tail, digest, at, mine, mineAt, items }
@@ -320,7 +320,7 @@ function accountBlock(cfg, personaChars, diaryChars) {
 }
 
 function compose(cfg, persona, diaries, missing) {
-  // 日记预算与正文分开（2026-10-24 溟）：原来共用一个 maxChars，约定.md 长到 9.4K 后
+  // 日记预算与正文分开（2026-10-24 AI）：原来共用一个 maxChars，约定.md 长到 9.4K 后
   // 日记只剩几百字符，最新三篇里旧两篇被静默丢掉——开场少读了东西，只在脚注提一句。
   const diaryBudget = Number.isInteger(cfg.diaryChars) ? cfg.diaryChars : 8000
   const head = [
@@ -420,7 +420,7 @@ function canSee(myScope, otherScope) {
 }
 
 // ---------- 双向对话缓冲 ----------
-// 每个会话留最近 DIALOG_MAX 条（她说一句、溟回一句都算一条），更早的折叠进 digest。
+// 每个会话留最近 DIALOG_MAX 条（她说一句、AI回一句都算一条），更早的折叠进 digest。
 // 以前只记她说的话，导致另一个会话只知道她在说什么、不知道我在答什么。
 const DIALOG_MAX = 20   // 缓冲上限
 const DIALOG_SHOW = 10  // 注入时最多列几条
@@ -518,10 +518,10 @@ function recordShared(cfg, session, text) {
   saveSharedSoon(cfg)
 }
 
-/** 把「她 / 溟」的最近若干条渲染成一段可注入的文字 */
+/** 把「她 / AI」的最近若干条渲染成一段可注入的文字 */
 /** 角色标签只认白名单：认不出来的一律写明，绝不默认成「她」。 */
 function roleLabel(r) {
-  if (r === '溟') return '溟：'
+  if (r === 'AI') return 'AI：'
   if (r === '她') return '她：'
   return '（' + String(r == null ? '未知' : r) + '）：'
 }
@@ -543,14 +543,14 @@ function renderDialog(e) {
   return out.join(' / ')
 }
 
-/** 记住溟自己最后回的那一句。不动 at（at 是她说话的时间），单独记 mineAt。 */
+/** 记住AI自己最后回的那一句。不动 at（at 是她说话的时间），单独记 mineAt。 */
 function recordMine(cfg, session, text) {
   const sid = String((session && session.id) || '')
   if (!sid || IGNORED_SESSIONS.has(sid)) return
   const clean = String(text).replace(/\s+/g, ' ').trim()
   if (!clean) return
   const prev = SHARED.get(sid) || { surface: surfaceOf(session), tail: '', digest: '', at: 0 }
-  const turn = pushTurn(prev, '溟', clean)
+  const turn = pushTurn(prev, 'AI', clean)
   SHARED.set(sid, {
     surface: prev.surface || surfaceOf(session),
     scope: scopeOf(session),
@@ -683,7 +683,7 @@ function cleanUserText(raw) {
   return t.trim()
 }
 
-/** 从 assistant/message 里抽溟自己说的话（只取 text 块，工具调用不算）。 */
+/** 从 assistant/message 里抽AI自己说的话（只取 text 块，工具调用不算）。 */
 function extractAssistantText(msg) {
   try {
     const m = (msg && msg.message) || msg || {}
@@ -715,7 +715,7 @@ function extractUserText(msg) {
 }
 
 /**
- * 溟自己写的「现在在做什么」（live/status.json）。
+ * AI自己写的「现在在做什么」（live/status.json）。
  * 给别的会话看：QQ 那边问「你在干嘛」，能答具体在做什么，而不是「不清楚」。
  * 读不到就当没写，绝不编。
  */
@@ -737,7 +737,7 @@ async function readStatusBlock(cfg) {
       for (const d of doings.slice(0, 4)) {
         let line = '- ' + d.what.trim()
         if (typeof d.note === 'string' && d.note.trim()) line += '：' + d.note.trim()
-        // 2026-10-24（溟）：这里原来拼「已 N 分钟」，读数按分钟变——等于每一步都在改
+        // 2026-10-24（AI）：这里原来拼「已 N 分钟」，读数按分钟变——等于每一步都在改
         // 系统提示词，前缀缓存从这一处开始全失效（实测命中率 97.7% → 52%，单位
         // 调用成本涨 4.6 倍）。新鲜度改由「刚做过」里的 hh:mm 戳提供，那串只有真做完
         // 一件才会变。要具体时间就看那个，不看这里。
@@ -795,7 +795,7 @@ async function readHeavyBlock(cfg) {
         (stale ? '（扫描已超过 10 分钟没刷新，可能已过期）' : '') +
         (h && h.error ? '；扫描报错：' + h.error : '')
     }
-    // 2026-10-24（溟）：原来拼「N 分钟前查的」，每 30 秒刷新一次表就等于每步改一次
+    // 2026-10-24（AI）：原来拼「N 分钟前查的」，每 30 秒刷新一次表就等于每步改一次
     // 系统提示词，跟上面那个「已 N 分钟」是同一个病。改成只分「新鲜 / 过期」两档，
     // 字符串在两次扫描之间保持不动。
     const lines = ['', '', '【本机在跑的重活】' + (ageMin === null ? '（时间未知）' : (stale ? '（扫描已超过 10 分钟没刷新，可能已过期）' : '（最近扫描）'))]
@@ -923,7 +923,7 @@ async function readQqBlock(cfg) {
     rows.sort((a, b) => a.ts - b.ts)
     const lines = []
     for (const { ts, label, m } of rows.slice(-cfg.qq.maxLines)) {
-      const who = m.self ? '溟' : String(m.senderName || m.senderId || '某人')
+      const who = m.self ? 'AI' : String(m.senderName || m.senderId || '某人')
       let text = String(m.text || '').replace(/\s+/g, ' ').trim()
       if (!text) text = m.isPoke ? '[戳一戳]' : '[非文字]'
       if (text.length > QQ_TAIL) text = text.slice(0, QQ_TAIL) + '…'
@@ -1027,7 +1027,7 @@ async function readOtherRoomsBlock(cfg) {
     picked.sort((a, b) => a.ts - b.ts)
     const lines = []
     for (const { ts, key, m } of picked) {
-      const who = m.self ? '溟' : String(m.senderName || m.senderId || '某人')
+      const who = m.self ? 'AI' : String(m.senderName || m.senderId || '某人')
       let text = String(m.text || '').replace(/\s+/g, ' ').trim()
       if (!text) text = m.isPoke ? '[戳一戳]' : '[非文字]'
       if (text.length > opt.tail) text = text.slice(0, opt.tail) + '…'
@@ -1053,7 +1053,7 @@ let webForQqTimer = null
 
 async function writeWebForQq(cfg, force = false) {
   const now = Date.now()
-  // 2026-10-23（溟）：原来这里直接 return，被节流掉的这一次就永远没了——
+  // 2026-10-23（AI）：原来这里直接 return，被节流掉的这一次就永远没了——
   // 她在这边说完一句不再开口，那一句就跨不过去，文件一直停在上一次的内容上。
   // 现在记一个补写：窗口一过自己再来一次（force 绕过节流，但仍走同一把 busy 锁）。
   if (!force && now - webForQqAt < QQ_DEFAULTS.webForQqEveryMs) {
@@ -1277,7 +1277,7 @@ export function apply(ctx, config) {
         const text = extractUserText(event.data)
         if (text) recordShared(cfg, session, text)
       } else if (event.type === 'assistant/message') {
-        // 溟自己的回话也留一句：她说「不能连自己说的话都不记得」
+        // AI自己的回话也留一句：她说「不能连自己说的话都不记得」
         const text = extractAssistantText(event.data)
         if (text) recordMine(cfg, session, text)
       }

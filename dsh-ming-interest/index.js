@@ -34,7 +34,7 @@ export const inject = ['agents', 'timer']
 
 const DEFAULTS = {
   enabled: true,
-  workspacePath: 'C:\\dsh\\hers_workplace',
+  workspacePath: 'C:\\dsh\\workspace',
   /** onebot 的入站录制文件（recordInbound: true 才存在）。 */
   inboxPath: (process.env.USERPROFILE || '') + '\\.dsh\\media\\onebot\\qq-inbox.jsonl',
   /** onebot 的 chatId → sessionId 映射，用来找「群自己的那个会话」。 */

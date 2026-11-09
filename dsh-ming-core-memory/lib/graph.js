@@ -17,7 +17,7 @@
  */
 
 const IDENTIFIERS = [
-  /[A-Za-z]:\\[^\s"'`,;)\]]+/g, // C:\dsh\x.mjs
+  /[A-Za-z]:\\[^\s"'`,;)\]]+/g, // <DSH>\x.mjs
   /(?:^|[\s(`"'])((?:\/[A-Za-z0-9_.-]+){2,})/g, // /a/b/c
   /\b[a-z0-9][\w.-]*\.(?:mjs|js|cjs|ts|py|ps1|json|ya?ml|md|bat|cmd|sh|exe)\b/gi, // 文件名
   /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/gi, // snake_case（工具名、字段名）

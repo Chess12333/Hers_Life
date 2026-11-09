@@ -32,7 +32,7 @@ const call = (h, url) => new Promise((res) => {
   h(req, r).catch((e) => res({ threw: String(e.message) }))
 })
 
-const h1 = boot('C:/dsh/hers_workplace')
+const h1 = boot('C:/dsh/workspace')
 await new Promise((r) => setTimeout(r, 30))
 const b = await call(h1, '/_dsh/dsh-ming-browse/brush')
 console.log('[brush] total=' + b.total + ' 天数=' + (b.days || []).length + ' 最新=' + (b.days || [])[0])

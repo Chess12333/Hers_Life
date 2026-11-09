@@ -36,7 +36,7 @@ const view = await fs.readFile(path.join(here, 'src', 'neuron-view.js'), 'utf8')
 const html = `<!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
-<title>记忆神经元 · 溟</title>
+<title>记忆神经元 · AI</title>
 <style>
 :root{--dsw-alias-label-primary:#e6e8ee;--dsw-alias-label-secondary:#a8adba;--dsw-alias-label-tertiary:#767c8c;
 --dsw-alias-bg-layer-1:#171a21;--dsw-alias-bg-layer-2:#1f232c;--dsw-alias-border-l2:#2a2f3a;--dsw-alias-border-l3:#3a414f;

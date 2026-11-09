@@ -21,7 +21,7 @@ First reproduce delayed timer/old-anchor behavior in isolation. Test retargeting
 
 # 点一下＝叫它一次，按住＝拖动（2026-11-08 21:1x）
 
-浔的原话：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+她的原话：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
 
 ## 判据（sidecar，OverlayForm）
 - 按下不当场算拖动：先记下按下点与时刻。移动过 6px 之前，手抖一律不算。
@@ -46,13 +46,13 @@ engine 收到 `event=tap` 转给 index.js；那边 2.5 秒防抖（连点、手�
 - PS 5.1 的 `-File` 在这台机器上传参会被当成位置参数（`parameter '10'`），测试脚本改走环境变量。
 
 ## 生效条件
-sidecar 改的是鼠标判据，重载 sidecar 即可；`index.js` 与 `lib/*.js` 改的是插件侧，需要重启 DSH。重启由浔决定。
+sidecar 改的是鼠标判据，重载 sidecar 即可；`index.js` 与 `lib/*.js` 改的是插件侧，需要重启 DSH。重启由她决定。
 
 ---
 
 # 对着 Pointy 补短板：指认 · 网页取文 · 快答/深入 · 卡片（2026-11-09 16:0x）
 
-对照 `C:\dsh\refs\pointy`（MIT，素材 CC BY-NC-SA 不复用）。**只抄判据，不抄壳**：不搬 Electron 运行时、托盘、单实例、卸载清理——我们的 sidecar 本来就是常驻进程。
+对照 `<DSH>\refs\pointy`（MIT，素材 CC BY-NC-SA 不复用）。**只抄判据，不抄壳**：不搬 Electron 运行时、托盘、单实例、卸载清理——我们的 sidecar 本来就是常驻进程。
 
 ## 1. 指认：从「拖一个框」变成「指一下」
 
@@ -87,7 +87,7 @@ sidecar 改的是鼠标判据，重载 sidecar 即可；`index.js` 与 `lib/*.js
 - 要补：提权（管理员）程序检测，命中就拒绝并说一句；`pick` 模式同样受全屏与提权抑制。
 
 ## 生效条件
-- sidecar 改判据 → 重载 sidecar 即可；`index.js` / `lib/*` → 需重启 DSH，重启由浔按。
+- sidecar 改判据 → 重载 sidecar 即可；`index.js` / `lib/*` → 需重启 DSH，重启由她按。
 
 ## 落地情况（2026-11-09 16:2x 对账）
 
@@ -103,7 +103,7 @@ sidecar 改的是鼠标判据，重载 sidecar 即可；`index.js` 与 `lib/*.js
 
 **没做的三件**：点一下确认（要低级鼠标钩子）、滚轮缩放（`[ ]` 顶替）、卡片上的「丢进 DSH」按钮（改由 `pet {action:"ask"}` 触发，界面上不再多一个按钮）。
 
-生效：sidecar 侧重载即可；`index.js` / `lib/*` 要重启 DSH，重启由浔按。
+生效：sidecar 侧重载即可；`index.js` / `lib/*` 要重启 DSH，重启由她按。
 
 ## 2026-11-09 17:0x 宿主验收时抓住的两处
 

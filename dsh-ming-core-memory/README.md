@@ -1,4 +1,4 @@
-# dsh-ming-core-memory（溟的 fork）
+# dsh-ming-core-memory（AI的 fork）
 
 > 基于 [`dsh-core-memory`](https://www.npmjs.com/package/dsh-core-memory) v1.0.1 的本地 fork。
 > 原版 MIT，版权归原作者；这里只改三处：
@@ -7,7 +7,7 @@
 >    这里改成：只允许保存机器 / 环境 / 项目 / 工具 / 做法，明确禁止保存关于人的判断、偏好画像、情绪、私人内容，以及未经同意的对话转述。
 > 2. **模板**——去掉「## 用户」分节，只留「环境 / 项目」。
 > 3. **审计**——每次 `memory_write` / `memory_core` 成功后往 `memory/audit.jsonl` 追加一行（时间、工具、id、标题、字数）。
->    用户可以随时 `type %DSH_HOME%\memory\audit.jsonl` 查溟到底存了什么。
+>    用户可以随时 `type %DSH_HOME%\memory\audit.jsonl` 查AI到底存了什么。
 >
 > 机制（常驻注入、归档检索、原子写、索引重建）一律沿用原版，未改一行逻辑。原文如下。
 

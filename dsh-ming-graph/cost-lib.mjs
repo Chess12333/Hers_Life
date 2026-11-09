@@ -8,7 +8,7 @@
  * getUsageSummary 就返回不出数——不是没数，是没价。
  *
  * 这一份只读它的 sqlite，按我们自己的价目表算；价目表放
- * `hers_workplace/live/cost-prices.json`（`{ "models": { 模型名: {peak:[命中,未命中,输出], offpeak:[...] } } }`），
+ * `workspace/live/cost-prices.json`（`{ "models": { 模型名: {peak:[命中,未命中,输出], offpeak:[...] } } }`），
  * 缺省用这里内置的官方价。
  *
  * 口径写在返回值里（basis），别让它变成第二个"看起来有数"的地方。
@@ -29,15 +29,40 @@ export const BUILTIN_PRICES = {
 
 export const DEFAULT_LEDGER = path.join(os.homedir(), '.dsh', 'dsh-bottom-info-bar', 'usage-ledger.sqlite')
 
-function loadPrices(pricesFile) {
-  let extra = {}
-  if (pricesFile) {
-    try {
-      const j = JSON.parse(fs.readFileSync(pricesFile, 'utf8'))
-      extra = (j && j.models) || {}
-    } catch { /* 没有就用内置的 */ }
+/**
+ * 价目表的三层（2026-11-10 加第二层）：
+ *   内置 BUILTIN_PRICES  <  live/cost-prices.auto.json（「索引费用」按钮写的）  <  live/cost-prices.json（人工）
+ * 人工永远压过自动——按钮搜错了，手改一句就盖住，不用去动那个文件。
+ *
+ * 每一条可以带 from / kind / source：from 是「这条价其实是拿谁的价格算的」
+ * （找不到 gpt-6o 就借 gpt-6-astra 的，面板上写成「gpt-6o（公式：gpt-6-astra）」）。
+ */
+function readJsonModels(file) {
+  if (!file) return {}
+  try {
+    const j = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return (j && j.models) || {}
+  } catch { return {} }
+}
+
+function loadPrices(pricesFile, autoFile) {
+  const auto = readJsonModels(autoFile)
+  const extra = readJsonModels(pricesFile)
+  const prices = { ...BUILTIN_PRICES, ...auto, ...extra }
+  // from/kind/source 这些元数据只对 auto 层有意义，人工层没写就当自己
+  for (const [k, v] of Object.entries(prices)) {
+    if (v && typeof v === 'object' && !v.from) prices[k] = { ...v, from: k, kind: 'manual' }
   }
-  return { ...BUILTIN_PRICES, ...extra }
+  let rate = 7.2
+  for (const f of [autoFile, pricesFile]) {
+    if (!f) continue
+    try {
+      const j = JSON.parse(fs.readFileSync(f, 'utf8'))
+      const r = j && j.rates && Number(j.rates.usdCny)
+      if (r > 0) rate = r
+    } catch { /* 没有就默认 */ }
+  }
+  return { prices, rate }
 }
 
 /** 北京时间；工作日 09:00–12:00 / 14:00–18:00 算高峰。节假日没单算（会略微高估）。 */
@@ -58,7 +83,15 @@ function tally(rows, prices) {
   const byModel = new Map()
   for (const r of rows) {
     const p = prices[r.model]
-    const b = byModel.get(r.model) || { model: r.model, records: 0, input: 0, cacheRead: 0, output: 0, cost: 0, priced: !!p }
+    const b = byModel.get(r.model) || {
+      model: r.model, records: 0, input: 0, cacheRead: 0, output: 0, cost: 0, priced: !!p,
+      // 这条价怎么来的：from = 实际用的公式，kind = manual/auto/reference/search/similar
+      from: (p && p.from) || r.model,
+      kind: (p && p.kind) || '',
+      source: (p && p.source) || '',
+      price: (p && p.price) || null,
+      currency: (p && p.currency) || 'CNY',
+    }
     b.records += 1
     b.input += r.input
     b.cacheRead += r.cacheRead
@@ -93,6 +126,7 @@ function tally(rows, prices) {
 export function readCost(opts = {}) {
   const ledger = opts.ledger || DEFAULT_LEDGER
   const pricesFile = opts.pricesFile || ''
+  const autoFile = opts.autoFile || ''
   const now = opts.now || Date.now()
 
   if (!fs.existsSync(ledger)) {
@@ -108,7 +142,7 @@ export function readCost(opts = {}) {
         coalesce(json_extract(payload,'$.cacheWrite'),0) as cacheWrite,
         coalesce(json_extract(payload,'$.output'),0) as output
       from records order by ts desc`).all()
-    const prices = loadPrices(pricesFile)
+    const { prices, rate } = loadPrices(pricesFile, autoFile)
     const today = dayKey(now)
     const month = today.slice(0, 7)
     const d30 = now - 30 * 86400e3
@@ -120,12 +154,17 @@ export function readCost(opts = {}) {
     }
     const periods = {}
     for (const k of Object.keys(pick)) periods[k] = tally(pick[k], prices)
+    const hasManual = !!(pricesFile && fs.existsSync(pricesFile))
+    const hasAuto = !!(autoFile && fs.existsSync(autoFile))
     return {
       ok: true,
       at: new Date().toISOString(),
       ledger,
-      pricesSource: pricesFile && fs.existsSync(pricesFile) ? pricesFile : '内置价目',
-      basis: '按 DeepSeek 官方价折算（CNY/百万 tokens，工作日 9-12、14-18 走高峰价，节假日未单算）——不是实际扣款：我们走的是 wb-proxy 额度。',
+      autoFile: hasAuto ? autoFile : '',
+      pricesSource: hasManual ? pricesFile : '内置价目',
+      pricesLayers: { builtin: true, auto: hasAuto ? autoFile : '', manual: hasManual ? pricesFile : '' },
+      usdCny: rate,
+      basis: '按各家官方价折算（CNY/百万 tokens，工作日 9-12、14-18 走高峰价，节假日未单算；美元价按 ' + rate + ' 折人民币）——不是实际扣款：我们走的是 wb-proxy 额度。',
       periods,
     }
   } catch (err) {

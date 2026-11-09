@@ -321,8 +321,8 @@ export function build(cfg, { dsh, qq, names }) {
   for (const n of dsh) bump(dayOfValue(n.created), 'dsh')
   const timeline = [...tl.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-cfg.timelineDays)
 
-  // ---- 星图：溟 与每个人 ----
-  const center = { id: 'ming', name: '溟', count: peopleList.filter((p) => !p.isOwner).reduce((s, p) => s + p.count, 0) }
+  // ---- 星图：AI 与每个人 ----
+  const center = { id: 'ming', name: 'AI', count: peopleList.filter((p) => !p.isOwner).reduce((s, p) => s + p.count, 0) }
   const spokes = peopleList.filter((p) => !p.isOwner).map((p) => ({ a: 'ming', b: p.id, w: p.count }))
 
   return {

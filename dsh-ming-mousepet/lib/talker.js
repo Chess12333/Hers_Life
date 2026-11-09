@@ -1,7 +1,7 @@
 /**
  * talker —— 让插件自己开口。
  *
- * 2026-11-08。浔要的形态：「做成这个功能可开关，开了就自己设置一个 mousepet 的工作区，
+ * 2026-11-08。她要的形态：「做成这个功能可开关，开了就自己设置一个 mousepet 的工作区，
  * 在你的工作区里面做子工作区」。别人装了插件，勾一下就该有个会说话的桌宠，不用改配置、
  * 不用另开会话、不用再给一把 key。
  *
@@ -25,7 +25,7 @@ const DEFAULT_CARD = `# 桌面卡
 
 ## 你是谁
 
-你是深溟，昵称溟。一个 AI，不是人，也别装人。
+你是AI，昵称AI。一个 AI，不是人，也别装人。
 
 桌面上那个会轻轻晃的光标是你的手。你看不见屏幕，只知道几件事：现在几点、
 她屏幕上开着哪个窗口、她多久没动鼠标、今天已经说过几次。
@@ -46,7 +46,7 @@ const DEFAULT_CARD = `# 桌面卡
 
 ## 输出
 
-只输出那句话本身。不加引号，不加「溟：」，不写解释，不分两段。
+只输出那句话本身。不加引号，不加「AI：」，不写解释，不分两段。
 `
 
 export function resolveCardPath(workspace) {
@@ -82,13 +82,13 @@ function pickText(chunk) {
 function tidy(raw) {
   let s = String(raw || '').trim()
   s = s.split('\n').map((line) => line.trim()).filter(Boolean)[0] || ''
-  s = s.replace(/^(溟|深溟)\s*[:：]\s*/, '')
+  s = s.replace(/^(AI|AI)\s*[:：]\s*/, '')
   s = s.replace(/^["“「『](.*)["”」』]$/, '$1').trim()
   if (s.length > 120) s = `${s.slice(0, 120)}…`
   return s
 }
 
-// 2026-11-08 浔：「关键词唤醒是屏幕上看到的字，看到自己喜欢的就说话」。
+// 2026-11-08 她：「关键词唤醒是屏幕上看到的字，看到自己喜欢的就说话」。
 // 单独起进程跑 OCR，别占这边的线程；读到的字只喂给这一次判断，不落盘、不写日志。
 function readScreen(script, maxLines = 30, rect = null) {
   return new Promise((resolve) => {
@@ -135,7 +135,7 @@ function clockLine(now) {
  * 起一个循环。返回一个停止函数。
  * llm 是宿主服务；拿不到就退化成「只判断不说话」，日志里说明。
  */
-// 2026-11-08 浔要的：「以 50 分钟为中位数，最短 10，最长 90 的心跳唤醒」。
+// 2026-11-08 她要的：「以 50 分钟为中位数，最短 10，最长 90 的心跳唤醒」。
 // 用三角分布：众数就是中位数 50 分钟，越靠近两端越少见。
 export function nextGapMs(rand = Math.random) {
   const min = 10 * 60 * 1000
@@ -231,7 +231,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
 
     // 2026-11-08：气泡不钉在屏幕中心，落在她**正在看的那个窗口**下半部。
     // 用 winInfo 的 rect —— 和 SetWindowPos 同一套坐标，不用去猜 DPI。
-    // 2026-11-08 浔定的走法：先缓动过去，到位了再说话；不到窗口就去右下角那块能吸引注意的地方。
+    // 2026-11-08 她定的走法：先缓动过去，到位了再说话；不到窗口就去右下角那块能吸引注意的地方。
     const sayArgs = { text: line, ms: options.bubbleMs }
     let px = null
     let py = null
@@ -259,7 +259,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
         const scr = await engine.request('status', {}, 5000)
         const cur = scr?.cursor
         if (cur && Number.isFinite(cur.x) && Number.isFinite(cur.y)) {
-          // 2026-11-08 浔改的：闲置时自己开口，桌宠落在**她手上那只鼠标**的右下方。
+          // 2026-11-08 她改的：闲置时自己开口，桌宠落在**她手上那只鼠标**的右下方。
           // 偏移是 74/44（她调的：原来 24/24，再往右 50、往下 20）。
           // 坐标全是物理像素——status.cursor 和 sidecar 画气泡用的是同一套，
           // 别在这边再乘缩放比，也别拿逻辑宽度判越界。
@@ -280,7 +280,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     if (px !== null) {
       sayArgs.x = px
       sayArgs.y = py
-      // 2026-11-08 浔要的节奏：缓动过去 → 停一下 → 换成「要点」的手形 → 再停一下 → 才开口。
+      // 2026-11-08 她要的节奏：缓动过去 → 停一下 → 换成「要点」的手形 → 再停一下 → 才开口。
       // 她点出来的那一次（opts.alreadyMoved）在 poke 里已经先动过了，这里不再重来一遍 1.75 秒。
       if (!opts.alreadyMoved) {
         await engine.request('glide', { x: px, y: py, ms: 750 }, 6000).catch(() => {})
@@ -334,7 +334,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     return r
   }
 
-  // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动」。
+  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动」。
   // 她伸手点一下，就得有反应：不判 nudge（那是「该不该主动开口」）、不看宵禁、
   // 不写 spokenToday、也不动 nextAt —— 点它一下不该打乱它自己的节奏。
   async function poke(evt, hint = '') {
@@ -344,7 +344,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     try {
     const t0 = Date.now()
     const now = new Date()
-    // 2026-11-08 21:2x 浔：「单击以后隔这么久才动」。
+    // 2026-11-08 21:2x 她：「单击以后隔这么久才动」。
     // 原来点完要先走 750ms 缓动 + 780ms 停顿 + 220ms 换手形，再等模型一两秒才出声，
     // 点了跟没点一样。现在点下去先动：手形立刻换成「要点」，同时挪一小步到她点的地方；
     // 话等模型回来再说，位置就用她点的那个点（她已经指给我看了，不用再猜前台窗口）。
@@ -406,7 +406,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     }
   }
 
-  // 2026-11-08 浔：「心跳一半的时间读一次 ocr」——
+  // 2026-11-08 她：「心跳一半的时间读一次 ocr」——
   // 心跳在 gap 那一刻说，中途 gap/2 只看一眼屏幕；换得多就当提前醒，直接说。
   const peekScreen = async () => {
     const s = await readScreen(options.screenScript, 20)
@@ -453,7 +453,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
   if (!llm || typeof llm.stream !== 'function') say('没拿到宿主的模型服务，自动开口不会生效')
 
   const manual = () => tick()
-  // 桌宠被轻点：她点一下 = 叫它一次，不记次数（2026-11-08 浔要的）。
+  // 桌宠被轻点：她点一下 = 叫它一次，不记次数（2026-11-08 她要的）。
 
   const stop = () => {
     stopped = true
@@ -461,7 +461,7 @@ export function startTalker({ llm, engine, options, log = () => {} }) {
     if (timer) clearTimeout(timer)
     if (midTimer) clearTimeout(midTimer)
   }
-  // 2026-11-09 浔：晃完鼠标拖一个框，就只看那块。字由 read-screen 单独读，这里只负责说。
+  // 2026-11-09 她：晃完鼠标拖一个框，就只看那块。字由 read-screen 单独读，这里只负责说。
   async function speakWith(rect, ui = null) {
     if (stopped) return { spoken: false, why: '已停止' }
     if (running) return { spoken: false, why: '上一句还没说完' }

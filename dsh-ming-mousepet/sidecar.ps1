@@ -858,7 +858,7 @@ public static class DshInput
             SendMouseRaw(MOUSEEVENTF_LEFTDOWN, 0, 0, 0);
             leftDown = true;
             DragLog("down at " + CurPos());
-            // 2026-11-09 浔：「拖动功能需要先按住，再进行拖动」。
+            // 2026-11-09 她：「拖动功能需要先按住，再进行拖动」。
             // Android 桌面/启动器要长按（约 400-600ms）才进入拖拽态，按完立刻移动会被当成滑动。
             if (holdMs <= 0) { holdMs = DragCfgHold(800); }
             Thread.Sleep(holdMs);
@@ -1166,7 +1166,7 @@ public static class DshOverlay
     public static int LastX = 0;
     public static int LastY = 0;
     public static bool HasLast = false;
-    // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+    // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
     // 轻点 → 往 stdout 抛一行事件，Node 侧收到就叫桌宠说一句（不占自动开口配额）。
     // 写管道和主循环写响应会撞车，统一走这把锁。
     static readonly object outLock = new object();
@@ -1297,11 +1297,11 @@ public static class DshOverlay
         Run(delegate() { form.Paused = paused; }, 400);
     }
 
-    // 2026-11-08 16:3x 浔：「让光标自己去点、右键、拖动」
+    // 2026-11-08 16:3x 她：「让光标自己去点、右键、拖动」
     // 光标先飞到目标旁边（右下 24,22 —— 别挡住自己要点的地方），再发真实鼠标事件，
     // 完了停在动作结束的位置。真实光标由 Physical* 自己保存/恢复，这里不插手。
 
-        // 2026-11-08 21:2x 浔：「不要飘到右下，飘到左上吧。」
+        // 2026-11-08 21:2x 她：「不要飘到右下，飘到左上吧。」
         //   素材热点是 (0,0)：箭头尖 = 摆放点，所以往左上让 24,22。
         //   靠近屏幕边缘时夹回工作区，免得整支箭头滑出去看不见。
         static Point ParkUpperLeft(int x, int y)
@@ -1371,7 +1371,7 @@ public static class DshOverlay
         if (m == AnswerMode) return;
         AnswerMode = m;
         try { EmitLine("{\"event\":\"menu\",\"action\":\"answer\",\"mode\":\"" + m + "\"}"); } catch { }
-    }   // 2026-11-08 浔：「别跟随，自己晃就可以了」
+    }   // 2026-11-08 她：「别跟随，自己晃就可以了」
 
     // 2026-11-08：关掉之后得告诉她怎么再打开。提示窗在光标那边自己弹，不靠插件。
     public static void Tip(string text)
@@ -1599,7 +1599,7 @@ public static class DshOverlay
             get
             {
                 CreateParams cp = base.CreateParams;
-                // 2026-11-08：去掉 WS_EX_TRANSPARENT —— 浔要能左键拖动、右键锁定，
+                // 2026-11-08：去掉 WS_EX_TRANSPARENT —— 她要能左键拖动、右键锁定，
                 // 穿透的窗口收不到鼠标事件。代价是这 64×64 会挡住底下的点击。
                 cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
                 cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
@@ -1726,7 +1726,7 @@ public static class DshOverlay
         }
 
         // ---- 2026-11-08 鼠标交互：轻点＝叫它一次（不记次数），按住＝拖动，右键锁定 ----
-        // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+        // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
         // 按下不再立刻进入拖动：先当「可能是点击」，等到按久了、或手真的移开了，才转成拖动。
         bool pressing = false;
         bool dragging = false;
@@ -1765,7 +1765,7 @@ public static class DshOverlay
                 {
                     DshOverlay.locked = !DshOverlay.locked;
                 });
-                // 2026-11-09 21:1x 浔：做成二级栏——晃一下鼠标管开/关，下面再管回答走气泡还是卡片。
+                // 2026-11-09 21:1x 她：做成二级栏——晃一下鼠标管开/关，下面再管回答走气泡还是卡片。
                 ToolStripMenuItem shakeMenu = new ToolStripMenuItem(DshShake.Enabled ? "晃动检测 ✓" : "晃动检测");
                 ToolStripMenuItem shakeOn = new ToolStripMenuItem("开");
                 shakeOn.Checked = DshShake.Enabled;
@@ -1905,7 +1905,7 @@ public static class DshOverlay
             PlaceAt(baseX + dx, baseY + dy);
         }
 
-        // 2026-11-08 16:1x 浔：「突然出现差点吓到我了」——出现时淡入，移动时先淡一下再回来。
+        // 2026-11-08 16:1x 她：「突然出现差点吓到我了」——出现时淡入，移动时先淡一下再回来。
         // 用绘制层的 alpha（ColorMatrix），不动窗口的透明属性：那会重建 region，挖好的边会变方。
         float paintAlpha = 1f;
         System.Windows.Forms.Timer fadeTimer;
@@ -1986,7 +1986,7 @@ public static class DshOverlay
 
 
     // ---------------------------------------------------------------- 晃一下鼠标
-    // 2026-11-09 浔的想法：晃鼠标 → 溟的光标飞过来 → 气泡说一句。
+    // 2026-11-09 她的想法：晃鼠标 → AI的光标飞过来 → 气泡说一句。
     // 只读光标位置，不装钩子、不记轨迹；鼠标按着的时候不计（那是拖动/框选）。
     // 检测到就抛一行 {"event":"shake",x,y}，跟 tap 走同一条出口。
     public static class DshShake
@@ -2145,7 +2145,7 @@ public static class DshOverlay
     {
         // 异步：另起一个 STA 线程弹窗口，主循环不被卡住（框选期间还要能 say）。
         // 结果用事件抛回去：select-done / select-none。
-        // 2026-11-09 浔：晃两次会叠两个框，上面那个关了下面那个还在等，看着像「框了没反应」。
+        // 2026-11-09 她：晃两次会叠两个框，上面那个关了下面那个还在等，看着像「框了没反应」。
         // 同一时间只许一个。
         static volatile bool active = false;
         public static bool Busy { get { return active; } }
@@ -2216,7 +2216,7 @@ public static class DshOverlay
 
             // 穿透：WS_EX_TRANSPARENT 让鼠标事件漏到底下的窗口（DSH、模拟器）
             // WS_EX_NOACTIVATE 不抢焦点；这样她拖的时候，下面那个程序照常收。
-            // 2026-11-09 浔：「框选过程中会选择文本/拖动」——穿透会让拖动漏到底下的程序。
+            // 2026-11-09 她：「框选过程中会选择文本/拖动」——穿透会让拖动漏到底下的程序。
             // 改成不穿透：窗口自己吃下拖动，下面收不到。但必须强制置顶+激活，
             // 否则 DSH 这种置顶窗口会压在上面（第一版就是这么失败的）。
             protected override CreateParams CreateParams
@@ -2291,7 +2291,7 @@ public static class DshOverlay
             void Finish()
             {
                 Rectangle r = Current();
-                // 2026-11-09 浔：「框歪了就歪了，不用重新拖」——松开就是最终结果。
+                // 2026-11-09 她：「框歪了就歪了，不用重新拖」——松开就是最终结果。
                 if (r.Width >= 12 && r.Height >= 12)
                     Result = r.X + "," + r.Y + "," + r.Width + "," + r.Height;
                 if (poll != null) poll.Stop();
@@ -2565,7 +2565,7 @@ public static class DshCard
 
         public CardForm(string title, int x, int y)
         {
-            Text = "溟";
+            Text = "AI";
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
@@ -2578,7 +2578,7 @@ public static class DshCard
             head = new Label();
             head.Dock = DockStyle.Top;
             head.Height = 30;
-            head.Text = "  " + (string.IsNullOrEmpty(title) ? "溟" : title);
+            head.Text = "  " + (string.IsNullOrEmpty(title) ? "AI" : title);
             head.ForeColor = Color.FromArgb(143, 182, 217);
             head.BackColor = Color.FromArgb(28, 34, 46);
             head.Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
@@ -3432,7 +3432,7 @@ public static class DshBubble
         {
             if (paintCount < 1) { paintCount++; DshBubble.Trace("paint " + ClientSize.Width + "x" + ClientSize.Height); }
             e.Graphics.Clear(BackColor);
-            // 2026-11-08 浔：「边框不好看，要不不要了」——去掉，只留圆角底。
+            // 2026-11-08 她：「边框不好看，要不不要了」——去掉，只留圆角底。
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             TextRenderer.DrawText(e.Graphics, msg, font,
                 new Rectangle(Pad, Pad, ClientSize.Width - Pad * 2, ClientSize.Height - Pad * 2),
@@ -3717,7 +3717,7 @@ function Show-StateAt([string]$state, [int]$x, [int]$y) {
 # 2026-11-08：物理动作结束后把 AI 光标亮回来。
 # 以前物理分支 Hide 完就不管（怕两套光标叠着闪），结果是「她一动，我就消失」。
 # 现在放回真实光标旁边、错开 24px：看得见，也不叠着闪。
-# 2026-11-08 21:5x 浔：「点了以后那个光标会往右下去。」
+# 2026-11-08 21:5x 她：「点了以后那个光标会往右下去。」
 #   原因：点完调 Show-StateAt 用的是点击点本身，而点击前飞过去停在 (x-26,y-22)，
 #   一按就把光标从左上弹回右下 —— 看起来就是「往右下去」。
 #   这个函数让「点亮在目标左上」，和飞过去的位置同口径，点完不再弹。
@@ -3730,7 +3730,7 @@ function Show-NearTarget([string]$state, [int]$x, [int]$y) {
 function Restore-AiCursor {
   if ($script:cursorMode -eq 'clean') { return }
   $pos = [System.Windows.Forms.Cursor]::Position
-  # 2026-11-08 21:4x 浔：「不要飘到右下，飘到左上吧。」——错开到左上，靠边夹回 0。
+  # 2026-11-08 21:4x 她：「不要飘到右下，飘到左上吧。」——错开到左上，靠边夹回 0。
   $d = NearOffset
   $ax = [Math]::Max(0, $pos.X - $d)
   $ay = [Math]::Max(0, $pos.Y - $d)
@@ -3900,7 +3900,7 @@ function Invoke-Request($req) {
       $ms = if ($null -ne $req.ms) { [int]$req.ms } else { 3200 }
       if ($ms -lt 600) { $ms = 600 }
       if ($ms -gt 20000) { $ms = 20000 }
-      # 2026-11-08 浔说「它在我的鼠标上说了，不是在你的鼠标上」——
+      # 2026-11-08 她说「它在我的鼠标上说了，不是在你的鼠标上」——
       # 没给坐标时该贴 AI 光标，不该借用真实光标。
       $bx = -1
       $by = -1
@@ -3912,7 +3912,7 @@ function Invoke-Request($req) {
       } elseif ($null -eq $req.x -or $null -eq $req.y) {
         # 2026-11-08：没给坐标 = 「到我鼠标这边说」。
         # 现读真实光标，落在它右下方 24px——外面先读再发请求会晚一两秒，她手一动就偏。
-        # 2026-11-08 浔调的偏移：右 74、下 44（原 24/24 再各加 50 / 20）。
+        # 2026-11-08 她调的偏移：右 74、下 44（原 24/24 再各加 50 / 20）。
         $c = [DshInput]::CursorPos()
         $bx = [int]$c[0] + 74
         $by = [int]$c[1] + 44
@@ -3945,11 +3945,11 @@ function Invoke-Request($req) {
           Show-StateAt 'pointer' $bx $by
         }
       }
-      # 2026-11-08 14:29 浔定的：气泡直接绑死在桌宠身上，按它的坐标偏移。
+      # 2026-11-08 14:29 她定的：气泡直接绑死在桌宠身上，按它的坐标偏移。
       # 给了坐标就先把桌宠挪过去；然后再统一以桌宠**当前**位置为基准画泡——
       # 传进来的点可能是几步之前的，信它就会泡在这儿、我站那儿。
       if ($true) {
-        # 2026-11-08 浔：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
+        # 2026-11-08 她：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
         # 改成真滑过去（ease-out 520ms）：先确保它已经在屏幕上，滑完再按落点画泡。
         $script:cursorStyle = 'pointer'
         if (-not [DshOverlay]::VisibleNow() -and [DshOverlay]::HasLast) {

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.bak
+*.bak-*
+*.log
+.DS_Store
+
+# 本地预览产物（内嵌整张图的数据：群号/群友号），不入库
+*-preview*.html
+memory-neuron.html
+preview.html
+
+# 本地截图（屏幕内容），不入库
+shot-*.png
+*.png
+!icon.png

@@ -1,7 +1,7 @@
 {
   "name": "dsh-ming-core-memory",
-  "version": "1.0.0",
-  "description": "dsh-core-memory 1.0.1 的本地 fork（溟改）：使用政策只允许保存机器/环境/项目事实，禁止保存关于人的判断；每次写入落一行审计。核心记忆常驻注入 + 归档记忆检索，机制与原版一致。",
+  "version": "1.0.1-ming.1",
+  "description": "dsh-core-memory 1.0.1 的本地 fork（AI改）：使用政策只允许保存机器/环境/项目事实，禁止保存关于人的判断；每次写入落一行审计。核心记忆常驻注入 + 归档记忆检索，机制与原版一致。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

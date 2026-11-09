@@ -26,6 +26,8 @@ import { mergePeople } from './people-merge.mjs'
 import { listSkills, toggleSkill } from './skills-lib.mjs'
 // 2026-11-08：费用页改成自己算（那个插件的账本有 token 没价，见 cost-lib.mjs 顶部）
 import { readCost } from './cost-lib.mjs'
+// 2026-11-10：「索引费用」——给没定价的模型去网上找价（找不到就借最相似的，并标注公式）
+import { indexModels } from './price-index.mjs'
 import { fingerprint, singleFlight, sourceLoader, graphDependencies, neuronDependencies, unifiedDependencies } from './fingerprint-cache.mjs'
 
 // 热重载认的是 memory 里那份（两个仓并排放在 C:/dsh 下，按目录关系找；
@@ -36,6 +38,8 @@ const NEURON_FILE = fileURLToPath(NEURON_URL)
 let costCache = null
 let costCacheAt = 0
 let neuronLoadError = ''
+// 「索引费用」同时在跑就复用同一个 promise，别点两下抓两遍网
+let costIndexing = null
 
 export const name = 'dsh-ming-graph'
 
@@ -46,10 +50,12 @@ const DEFAULTS = {
   syncSeconds: 120,
   // 2026-11-08：skill 开关。cwd 决定「按哪个工作区遮」——跟 dsh-ming-skill-isolate 的 root 是同一个意思；
   // offFile 留空就用 <skillsCwd>/skills-off.json，跟那边写的必须是同一个文件，否则开关写了也不生效。
-  skillsCwd: process.env.MING_WORKSPACE || 'C:\\dsh\\hers_workplace',
+  skillsCwd: process.env.MING_WORKSPACE || 'C:\\dsh\\workspace',
   skillsOffFile: '',
   // 费用价目表：我们自己维护，缺省在 <workspace>/live/cost-prices.json
-  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || 'C:\\dsh\\hers_workplace') + '\\live\\cost-prices.json'),
+  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || 'C:\\dsh\\workspace') + '\\live\\cost-prices.json'),
+  // 2026-11-10：「索引费用」按钮写出来的自动价目。人工那份永远压过它。
+  costAutoFile: process.env.MING_COST_AUTO || ((process.env.MING_WORKSPACE || 'C:\\dsh\\workspace') + '\\live\\cost-prices.auto.json'),
 }
 
 // ---------- 本地配置 ----------
@@ -145,7 +151,7 @@ export function apply(ctx, config) {
         lastError = ''
       } catch (err) {
         lastError = String((err && err.message) || err)
-        return { ...(cache || { generatedAt: 0, sources: {}, people: [], rooms: [], topics: [], edges: [], tags: [], timeline: [], spokes: [], center: { id: 'ming', name: '溟', count: 0 } }), stale: !!cache, error: lastError }
+        return { ...(cache || { generatedAt: 0, sources: {}, people: [], rooms: [], topics: [], edges: [], tags: [], timeline: [], spokes: [], center: { id: 'ming', name: 'AI', count: 0 } }), stale: !!cache, error: lastError }
       } finally {
         building = null
       }
@@ -288,10 +294,40 @@ export function apply(ctx, config) {
             if (method === 'cost' || method === 'cost/refresh') {
               if (method.endsWith('/refresh')) costCache = null
               if (!costCache || Date.now() - costCacheAt > 60000) {
-                costCache = readCost({ pricesFile: cfg.costPricesFile })
+                costCache = readCost({ pricesFile: cfg.costPricesFile, autoFile: cfg.costAutoFile })
                 costCacheAt = Date.now()
               }
               respond(res, 200, costCache)
+              return
+            }
+            // 2026-11-10：「索引费用」——给账本里还没定价的模型去网上找一个价。
+            // 只写 live/cost-prices.auto.json，不碰人工那份；找完把新账一并回去，前端不用再拉一次。
+            if (method === 'cost/index') {
+              if (req.method !== 'POST') { respond(res, 405, { ok: false, error: 'cost/index 要 POST' }); return }
+              if (costIndexing) { respond(res, 200, await costIndexing); return }
+              costIndexing = (async () => {
+                const before = readCost({ pricesFile: cfg.costPricesFile, autoFile: cfg.costAutoFile })
+                const models = ((before.periods && before.periods.all && before.periods.all.models) || [])
+                  .filter((m) => !m.priced).map((m) => m.model)
+                if (!models.length) {
+                  return { ok: true, models: [], summary: { total: 0 }, message: '没有未定价的模型', cost: before }
+                }
+                const r = await indexModels({
+                  models,
+                  manualFile: cfg.costPricesFile,
+                  autoFile: cfg.costAutoFile,
+                  write: true,
+                })
+                const after = readCost({ pricesFile: cfg.costPricesFile, autoFile: cfg.costAutoFile })
+                costCache = after
+                costCacheAt = Date.now()
+                return { ...r, models, cost: after }
+              })()
+              try {
+                respond(res, 200, await costIndexing)
+              } finally {
+                costIndexing = null
+              }
               return
             }
             respond(res, 404, { error: 'unknown method ' + method })

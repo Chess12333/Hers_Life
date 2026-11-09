@@ -36,7 +36,7 @@ repc(
     '                value: sched.dailyMax,',
   ),
   L(
-    '              // 2026-11-08 15:15 浔：「没有聊天不上限的设置」——补一个不限开关，-1 表示不限。',
+    '              // 2026-11-08 15:15 她：「没有聊天不上限的设置」——补一个不限开关，-1 表示不限。',
     "              h('button', {",
     "                className: 'mg-btn',",
     "                title: '不限次数 / 每天限几次',",
@@ -97,7 +97,7 @@ function repi(label, from, to) {
 repi(
   'dailyMax 允许 -1',
   "          if (body?.dailyMax !== undefined) next.dailyMax = clamp(body.dailyMax, 0, 999, 6)",
-  "          // -1 = 不限（2026-11-08 15:15 浔要的）\n          if (body?.dailyMax !== undefined) next.dailyMax = clamp(body.dailyMax, -1, 999, 6)",
+  "          // -1 = 不限（2026-11-08 15:15 她要的）\n          if (body?.dailyMax !== undefined) next.dailyMax = clamp(body.dailyMax, -1, 999, 6)",
 )
 
 write(ix, s)

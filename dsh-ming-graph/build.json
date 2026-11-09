@@ -1,7 +1,7 @@
 {
-  "hash": "408e5beec6a633c5",
-  "at": "2026-11-08T16:02:09.355Z",
-  "bytes": 192471,
+  "hash": "81ea746f36b013c8",
+  "at": "2026-11-09T16:48:20.940Z",
+  "bytes": 198004,
   "units": [
     {
       "label": "主题",
@@ -39,9 +39,29 @@
       "chars": 3741
     },
     {
+      "label": "主面板·公共",
+      "path": "C:/dsh/dsh-ming-graph/src/panels/common.js",
+      "chars": 15532
+    },
+    {
+      "label": "主面板·记忆",
+      "path": "C:/dsh/dsh-ming-graph/src/panels/memory.js",
+      "chars": 10406
+    },
+    {
+      "label": "主面板·费用技能",
+      "path": "C:/dsh/dsh-ming-graph/src/panels/cost.js",
+      "chars": 9492
+    },
+    {
+      "label": "主面板·桌宠",
+      "path": "C:/dsh/dsh-ming-graph/src/panels/pet.js",
+      "chars": 19226
+    },
+    {
       "label": "主面板",
       "path": "C:/dsh/dsh-ming-graph/src/panel.js",
-      "chars": 71341
+      "chars": 22210
     }
   ]
 }

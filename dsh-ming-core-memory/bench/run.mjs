@@ -103,7 +103,7 @@ const r1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
 
 console.log('语料：' + corpusNote.replace('语料 = ', '') + ' —— ' + docs.length + ' 条，BM25 建索引 ' + r1(bm.buildMs) + ' ms');
 console.log('');
-console.log(pad('题', 4) + pad('类', 3) + pad('BM25', 6) + pad('溟', 6) + pad('溟+旧', 7) + pad('BM25 ms', 9) + pad('溟 ms', 8) + '  问法');
+console.log(pad('题', 4) + pad('类', 3) + pad('BM25', 6) + pad('AI', 6) + pad('AI+旧', 7) + pad('BM25 ms', 9) + pad('AI ms', 8) + '  问法');
 console.log('-'.repeat(96));
 for (const x of rows) {
   console.log(
@@ -120,7 +120,7 @@ const stat = (arm) => {
   const chars = Math.round(rows.reduce((a, x) => a + x[arm].chars, 0) / rows.length);
   return { h1: hit(1), h3: hit(3), h5: hit(5), mrr, ms: ms[Math.floor(ms.length / 2)], chars };
 };
-const arms = [['朴素 BM25', 'bm25'], ['溟（默认）', 'mine'], ['溟（含旧）', 'ret']];
+const arms = [['朴素 BM25', 'bm25'], ['AI（默认）', 'mine'], ['AI（含旧）', 'ret']];
 console.log('');
 console.log(pad('臂', 12) + pad('命中@1', 8) + pad('@3', 6) + pad('@5', 6) + pad('MRR', 7) + pad('中位耗时', 10) + '每题返回字数');
 console.log('-'.repeat(96));
@@ -145,8 +145,8 @@ if (cRows.length) {
   for (const x of cRows) {
     const stale = staleIds[x.id];
     const rankOf = (ids) => { for (let i = 0; i < ids.length; i++) if (stale.includes(ids[i])) return i + 1; return 0; };
-    console.log('  ' + x.id + '  旧条目排名：BM25=' + (x.bm25StaleRank || '—') + '  溟=' + (x.mineStaleRank || '—') +
-      '   标出新旧：溟默认=' + (x.staleOk.mine ? '标了' : '没标') + ' 溟+旧=' + (x.staleOk.ret ? '标了' : '没标'));
+    console.log('  ' + x.id + '  旧条目排名：BM25=' + (x.bm25StaleRank || '—') + '  AI=' + (x.mineStaleRank || '—') +
+      '   标出新旧：AI默认=' + (x.staleOk.mine ? '标了' : '没标') + ' AI+旧=' + (x.staleOk.ret ? '标了' : '没标'));
   }
 }
 if (process.argv.includes('--json')) {

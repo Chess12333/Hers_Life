@@ -14,7 +14,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 const FFPLAY = process.env.MING_FFPLAY || 'ffplay'
-const ROOT = 'C:\\dsh\\hers_workplace\\live\\voice'
+const ROOT = 'C:\\dsh\\workspace\\live\\voice'
 
 const text = (process.argv[2] || '').trim()
 const voice = (process.argv[3] || 'zh-CN-XiaoxiaoNeural').trim()

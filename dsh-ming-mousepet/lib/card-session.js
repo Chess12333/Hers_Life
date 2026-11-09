@@ -28,7 +28,7 @@ export function createCardSessionBridge({ engine, cardCtl, controller, create = 
         sid = result.id
       }
       const text = args.capture ? wrapCapture(String(args.capture), { question, url: args.url, title: args.title }) : question
-      await send({ op: 'open', title: '溟 · 会话' }, 8000)
+      await send({ op: 'open', title: 'AI · 会话' }, 8000)
       if (!owns()) return cancelled(sid)
       await send({ op: 'append', text: `\n→ 会话 ${String(sid).replace(/^session-/, '')}\n` }, 5000)
       if (!owns()) return cancelled(sid)

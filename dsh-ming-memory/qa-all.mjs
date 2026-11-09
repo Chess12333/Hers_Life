@@ -1,6 +1,6 @@
 // qa-all.mjs —— 一条命令跑完全部自检，最后一行给结论。
 //
-// 2026-10-24 溟加：以前四个脚本要一个个 node 过去，跑完还得自己看那堆 true/false。
+// 2026-10-24 AI加：以前四个脚本要一个个 node 过去，跑完还得自己看那堆 true/false。
 // 现在任何一个脚本报 FAIL 都会让这里 exit 非 0，挂到计划任务里也能报警。
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'

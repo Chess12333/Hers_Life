@@ -11,11 +11,12 @@
  */
 import fs from 'node:fs'
 
-const src = fs.readFileSync(new URL('./src/panel.js', import.meta.url), 'utf8')
+// 2026-11-10：主面板按页拆过（费用这块搬到了 src/panels/cost.js），这里跟着换源。
+// 原来读 src/panel.js、拿 NeuronPanel 当终点；拆分后那段不在了，测试会 FAIL「抽不出」——不是代码坏。
+const src = fs.readFileSync(new URL('./src/panels/cost.js', import.meta.url), 'utf8')
 const from = src.indexOf('function fmtMoney(')
-const to = src.indexOf('function NeuronPanel()')
-if (from < 0 || to < 0 || to <= from) { console.log('FAIL 抽不出那一段'); process.exit(1) }
-const chunk = src.slice(from, to)
+if (from < 0) { console.log('FAIL 抽不出那一段'); process.exit(1) }
+const chunk = src.slice(from)
 
 // 假的 h：返回可遍历的树，text 子节点直接收进来
 const h = (type, props, ...children) => ({
@@ -47,7 +48,7 @@ ok(fmtMoney(null) === '—', '没数就写 —，不写 0')
 
 // 2) skill 清单：开/关、遮罩标记、过滤、空态
 const data = {
-  ok: true, cwd: 'C:\\dsh\\hers_workplace', offFile: 'C:\\dsh\\hers_workplace\\skills-off.json',
+  ok: true, cwd: 'C:\\dsh\\workspace', offFile: 'C:\\dsh\\workspace\\skills-off.json',
   total: 3, offCount: 1,
   rows: [
     { name: 'humanizer', desc: '去 AI 味', on: true, provider: 'filesystem', source: 'user-dsh' },
@@ -85,14 +86,34 @@ ok(/没有匹配的/.test(t4), '没命中就说「没有匹配的」')
 ok(/读不到 skill 清单/.test(text(SkillsBody({ data: { ok: false, error: 'HTTP 404' } }))), '服务没通时说清是读不到，不是空')
 ok(/读清单中/.test(text(SkillsBody({ data: null }))), '还没回来时是「读清单中」')
 
-// 5) 费用
-const cost = { now: 1794000000000, todaySpend: 0.4213, monthSpend: 12.3, last30dSpend: 15.2, totalSpend: 345.6, currentSession: null, persistence: { state: 'ok' } }
-const t5 = text(CostBody({ data: cost, err: '', onReload() {} }))
-console.log('\n[5] 费用文本：' + t5.replace(/\s+/g, ' ').slice(0, 150))
-ok(/今日（北京）/.test(t5) && /¥0.421/.test(t5), '今日按北京日切显示')
-ok(/本月/.test(t5) && /近 30 天/.test(t5) && /全部/.test(t5), '四档都在')
-ok(/本会话/.test(t5), '留了一行「本会话」，写的是 —（面板不知道会话 id）')
-ok(/读不到费用/.test(text(CostBody({ data: null, err: 'HTTP 401', onReload() {} }))), '401 时说读不到，不是显示 0')
+// 5) 费用：空态与读不到
+// 2026-11-10 改：这一段原来喂的是 11-08 之前的旧数据结构（todaySpend/last30dSpend/currentSession），
+// CostBody 早就改成吃 periods 了，所以三项一直红着——红的是测试，不是功能。现在按现结构重写。
+ok(/读账本中/.test(text(CostBody({ data: null, err: '' }))), '还没回来时写「读账本中」')
+ok(/读不到账本/.test(text(CostBody({ data: null, err: 'HTTP 401', onReload() {} }))), '401 时说读不到账本，不是显示 0')
+ok(/读不到账本/.test(text(CostBody({ data: { ok: false, error: '找不到账本：x' } }))), 'ok:false 时把原因写出来')
+
+// 5) 2026-11-10：借了别的模型的价，名字后面要写出「（公式：X）」
+const costData = {
+  ok: true, basis: '按官方价折算', pricesSource: 'p.json', ledger: 'l.sqlite', at: '2026-11-10T00:00:00Z',
+  periods: {
+    today: { cost: 1, input: 10, cacheRead: 0, output: 1 },
+    month: { cost: 1, input: 10, cacheRead: 0, output: 1 },
+    d30: { cost: 1, input: 10, cacheRead: 0, output: 1 },
+    all: {
+      cost: 2, input: 110, cacheRead: 0, output: 11, records: 3,
+      models: [
+        { model: 'deepseek-v4.1-flash', records: 2, input: 10, cacheRead: 0, output: 1, cost: 1, priced: true, from: 'deepseek-v4.1-flash', source: 'api-docs' },
+        { model: 'gpt-6o', records: 1, input: 100, cacheRead: 0, output: 10, cost: 1, priced: true, from: 'gpt-6-astra', source: 'costperprompt' },
+        { model: 'zzz', records: 1, input: 0, cacheRead: 0, output: 0, cost: 0, priced: false, from: 'zzz' },
+      ],
+    },
+  },
+}
+const tCost = text(CostBody({ data: costData })).replace(/\s+/g, '')
+ok(/gpt-6o（公式：gpt-6-astra）/.test(tCost), '借来的价要标出公式：gpt-6o（公式：gpt-6-astra）')
+ok(!/deepseek-v4\.1-flash（公式：/.test(tCost), '自己的价不标公式（只有借的才标）')
+ok(/未定价/.test(tCost), '还是没价的模型照样写「未定价」，不装成有数')
 
 console.log('\n' + (bad ? bad + ' 项没过' : '全部通过'))
 process.exit(bad ? 1 : 0)

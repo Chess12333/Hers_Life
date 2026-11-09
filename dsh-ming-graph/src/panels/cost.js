@@ -74,6 +74,8 @@ function SkillsBody(props) {
 // 原来读 dsh-bottom-info-bar 的 getUsageSummary，它返回不出数（账本有 token 没价）。
 // 现在口径由 cost-lib.mjs 定，页面只负责显示，并把口径原样印在下面。
 function MgCostPage(props) {
+  const busy = !!props.indexing
+  const info = props.indexInfo
   return h('div', { className: 'ming-page' },
     h('div', { className: 'ming-ph' },
       h('div', { className: 'ming-ph-ic' },
@@ -82,12 +84,40 @@ function MgCostPage(props) {
           h('path', { d: 'M8 16v-5M12.5 16V8M17 16v-3' }))),
       h('div', { className: 'ming-ph-tx' },
         h('div', { className: 'ming-ph-t' }, '费用'),
-        h('div', { className: 'ming-ph-d' }, '用量是账本里的实数；金额按官方价折算，不是实际扣款'),
+        h('div', { className: 'ming-ph-d' }, '用量是账本里的实数；金额按价目折算，不是实际扣款'),
       ),
       h('div', { className: 'ming-ph-a' },
+        // 2026-11-10：她加的——没定价的模型，点一下去网上找价；找不到就借最相似的，标出公式
+        h('button', {
+          className: 'mg-btn',
+          disabled: busy,
+          title: '给账本里「未定价」的模型去网上搜一次价；找不到就借最相似的那个，并在名字后面标出用的是谁的公式',
+          onClick: props.onIndex,
+        }, busy ? '索引中…' : '索引费用'),
         h('button', { className: 'mg-btn', onClick: props.onReload }, '重读'),
       ),
     ),
+    info ? h('div', { className: 'ming-sec' },
+      h('div', { className: 'ming-sec-h' },
+        h('span', { className: 'ming-sec-t' }, '刚才那次索引'),
+        h('span', { className: 'ming-sec-n' }, info.ok === false ? '失败' : (info.message || ((info.summary && info.summary.total) || 0) + ' 个模型')),
+      ),
+      h('div', { className: 'ming-sec-b' },
+        info.ok === false
+          ? h('div', { className: 'mg-pop-empty' }, '索引失败：' + (info.error || '未知原因'))
+          : h('div', null,
+            h('div', { className: 'ming-note' },
+              '查到原价 ' + ((info.summary && (info.summary.exact + info.summary.search)) || 0) +
+              ' 个 · 借相近模型 ' + ((info.summary && info.summary.similar) || 0) +
+              ' 个 · 没找到 ' + ((info.summary && info.summary.none) || 0) + ' 个'),
+            (info.results || []).map((r) => h('div', { key: r.model, className: 'ming-note', style: { marginTop: 4 } },
+              r.model + ' → ',
+              r.from && r.from !== r.model ? ('公式：' + r.from) : (r.price ? '查到了自己的价' : '没找到'),
+              r.source ? '　⟵ ' + r.source : '',
+              r.note ? '　' + r.note : '')),
+          ),
+      ),
+    ) : null,
     h('div', { className: 'ming-wrap ming-scroll' }, h(CostBody, props)),
   )
 }
@@ -151,11 +181,20 @@ function CostBody(props) {
       h('div', { className: 'ming-sec-b flush' },
         h('div', { className: 'ming-list' },
           rows.map((m) => h('div', { key: m.model, className: 'ming-li' },
-            h('span', { className: 'ming-li-t', style: { flex: '1 1 auto', fontWeight: 400 } }, m.model),
-            m.priced ? null : h('span', { className: 'ming-pill', 'data-tone': 'warn', title: '价目表里没有这个写法，金额按 0 计' }, '未定价'),
-            h('span', { className: 'ming-note', style: { width: 64, textAlign: 'right' } }, m.records + ' 次'),
-            h('span', { className: 'ming-note', style: { width: 120, textAlign: 'right' } }, fmtTokens(SumTokens(m)) + ' tok'),
-            h('span', { className: 'ming-li-t', style: { width: 84, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, fmtMoney(m.cost)),
+            // 2026-11-10：这条价是拿谁的公式算的——找不到它的价就借最相似的，名字后面直接写出来
+            h('span', {
+              className: 'ming-li-t',
+              style: { flex: '1 1 auto', minWidth: 0, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+              title: m.source ? ('价从这儿来：' + m.source) : '',
+            },
+              m.model,
+              m.from && m.from !== m.model
+                ? h('span', { className: 'ming-note', style: { marginLeft: 6, opacity: 0.85, whiteSpace: 'nowrap' } }, '（公式：' + m.from + '）')
+                : null),
+            m.priced ? null : h('span', { className: 'ming-pill', style: { flex: '0 0 auto' }, 'data-tone': 'warn', title: '价目表里没有这个写法，金额按 0 计；点「索引费用」去网上找一个' }, '未定价'),
+            h('span', { className: 'ming-note', style: { flex: '0 0 auto', width: 64, textAlign: 'right', whiteSpace: 'nowrap' } }, m.records + ' 次'),
+            h('span', { className: 'ming-note', style: { flex: '0 0 auto', width: 120, textAlign: 'right', whiteSpace: 'nowrap' } }, fmtTokens(SumTokens(m)) + ' tok'),
+            h('span', { className: 'ming-li-t', style: { flex: '0 0 auto', width: 84, textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }, fmtMoney(m.cost)),
           )),
         ),
       ),
@@ -164,7 +203,11 @@ function CostBody(props) {
     h('div', { key: 'basis', className: 'ming-sec' },
       h('div', { className: 'ming-sec-b' },
         h('div', { className: 'ming-note' }, d.basis || ''),
-        h('div', { className: 'ming-note' }, '价目：' + (d.pricesSource || '内置') + '　账本：' + (d.ledger || '') + '　读于 ' + String(d.at || '').replace('T', ' ').slice(0, 16)),
+        h('div', { className: 'ming-note' },
+          '价目：内置' +
+          (d.pricesLayers && d.pricesLayers.auto ? ' + 索引出来的（cost-prices.auto.json）' : '') +
+          (d.pricesLayers && d.pricesLayers.manual ? ' + 人工（cost-prices.json，优先级最高）' : ''),
+          '　账本：' + (d.ledger || '') + '　读于 ' + String(d.at || '').replace('T', ' ').slice(0, 16)),
       ),
     ),
   ]

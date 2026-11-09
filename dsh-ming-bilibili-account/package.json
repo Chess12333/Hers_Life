@@ -1,9 +1,9 @@
 {
   "name": "dsh-ming-bilibili-account",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "溟的 B 站账号工具：扫码登录、查账号能力状态、改昵称。登录态只存进程内存，不落盘。",
+  "description": "AI的 B 站账号工具：扫码登录、查账号能力状态、改昵称。登录态只存进程内存，不落盘。",
   "main": "index.js",
   "exports": {
     ".": "./index.js",

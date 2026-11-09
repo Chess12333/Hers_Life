@@ -1,5 +1,5 @@
 // 2026-11-08 14:45 补丁十：气泡不许压在真实鼠标上。
-// 浔：「用户鼠标会把气泡挡住」。真光标永远画在最上层，泡跟它重叠那一块就是花的。
+// 她：「用户鼠标会把气泡挡住」。真光标永远画在最上层，泡跟它重叠那一块就是花的。
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -20,7 +20,7 @@ function rep(label, from, to) {
 rep(
   '气泡避开真实光标',
   `            if (px + sz.Width > wa.Right - 8) px = wa.Right - 8 - sz.Width;`,
-  `            // 2026-11-08 浔：「用户鼠标会把气泡挡住」。真实光标永远画在最上层，
+  `            // 2026-11-08 她：「用户鼠标会把气泡挡住」。真实光标永远画在最上层，
             // 泡跟它热区一重叠，那一小块就是花的。压上了就整体挪到它右下方。
             Point cp0 = Cursor.Position;
             Rectangle hot = new Rectangle(cp0.X - 2, cp0.Y - 2, 30, 36);

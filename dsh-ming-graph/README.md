@@ -1,3 +1,6 @@
+> **这个仓已并入 [Hers_Life](https://github.com/Chess12333/Hers_Life)，后续更新只在那边。**
+> 这里保留历史版本，不再单独发版；装完整版请用 Hers_Life。
+
 # dsh-ming-graph
 
 一个 DSH 插件：**把记忆库画成一张能读的图**——每条真记忆一个点，每条边都答得出「它凭什么连」。
@@ -67,8 +70,33 @@ people/_index.json（号码→昵称） ┘
 - **清单以宿主 `ctx.skills.list()` 为准**：那是模型看到的同一份合并结果，插件包里自带的 skill 也在里面。自己扫 `~/.dsh/skills` 只能看见一半，所以扫描只当兜底（服务没接上时整份退回磁盘，面板上会明写「可能比模型真正看到的多」）。
 - **开关只写 `<workspace>/skills-off.json`**（跟 `dsh-ming-skill-isolate` 同一个文件）。不跨插件调用：那个插件每次 `list()` 都重读这个文件，谁写都算数。
 - **开关状态只认文件，不认服务返回的 `invocation`**：遮罩条目 rank 是 1，会赢过真 skill，描述被换成「（本工作区已隔离…）」；拿它当状态来源，关了哪几个反而看不出来。
-- 费用读的是 `dsh-bottom-info-bar` 的 `/_dsh/dsh-bottom-info-bar/getUsageSummary`（POST，JSON）——它已经按条记 token×价（含缓存命中价），这里只展示，不自己算第二份账。
+- 费用**自己算**（`cost-lib.mjs`）：那个插件的账本有 token 没价（价目表里没有 `deepseek-v4.1-flash` 这种写法），`getUsageSummary` 出不来数。这里直接读它的 sqlite，按三层价目折算——内置 < 自动索引 < 人工，见下一节。
 - 改完立刻算数，但当前这一轮的 skill 目录已经组装完，**下一次请求**才刷新。
+
+### 索引费用（2026-11-10）
+
+无定价的模型点一下按钮，去网上找价；找不到就借最相似的，并在面板上标明用的是谁的公式——`gpt-6o（公式：gpt-6-astra）`。
+
+| 路由 | 说明 |
+| --- | --- |
+| `POST /cost/index` | 给账本里所有 `priced:false` 的模型跑一遍索引，写 `<workspace>/live/cost-prices.auto.json`，顺带把新账回给前端（不用再拉一次 `/cost`，那条要扫七万行） |
+
+四层，按顺序试，每层都把「这条价从哪儿来」写下来：
+
+1. **人工** `live/cost-prices.json` —— 永远压过其它层，按钮搜错了手改一句就盖住
+2. **内置参考目录** `price-index.mjs` 的 `REFERENCE` —— 我核对过来源的价
+3. **联网** —— Bing 搜「模型 + 价格」，先看摘要里有没有现成的数，再抓前三个像定价页的结果。抽出来的数要同时满足：写明「每百万 tokens」、带货币符号、不是订阅价、**这段文字里真的提了这个模型**（否则宁可没有）
+4. **相似** —— 都没有就借最相似的（同族系 + 名字编辑距离），`from` 记成被借的那个
+
+美元价按 `rates.usdCny`（默认 7.2）折成人民币进表，原始价留在 `price` 里。**抽不出来就不写**——宁可留「未定价」，也不塞一个看起来有数的假价。11-10 实测踩过：openrouter 的 DeepSeek 页面同时挂着 V4 Pro / V4.1 Flash 几档，随手取第一组就把别人的价当成了自己的，而摘要里那句「16」根本不是价。
+
+```bash
+node price-index.mjs                        # 手动跑一遍（会写 auto 文件）
+node price-index.mjs --dry                  # 只看不写
+node price-index.mjs --model=gpt-6o --dry   # 只查一个（调相似匹配时用）
+node price-index.mjs --offline              # 不联网，只用内置目录 + 相似
+node price-index.test.mjs                   # 抽价 / 相似度 / 落盘形状
+```
 
 ```bash
 node skills-lib.test.mjs        # 清单与开关逻辑：真磁盘 + 假服务 + 孤儿名字
@@ -153,7 +181,7 @@ build.mjs         打包
 **读盘和建图不在这儿**（2026-11-08 搬的）：`readDsh/readQQ/readPeople/readDiaries/build`
 在 `../dsh-ming-memory/lib/model.mjs`，`buildNeuron/buildUnified` 在 `../dsh-ming-memory/lib/neuron.mjs`。
 理由：神经元、星图、「她的一生」三个视图吃的是同一批数据，那批数据的实现不该住在「展示」这个插件里。
-代价是**这个仓要跟 `dsh-ming-memory` 放在同一个父目录下**（默认 `C:\dsh\` 并排），
+代价是**这个仓要跟 `dsh-ming-memory` 放在同一个父目录下**（默认 `<DSH>\` 并排），
 借的是相对路径而不是包名——profile 的 node_modules 是按真路径加载的，包名在这里解析不到。
 单独把这个仓 clone 出去，Host 半边起不来。
 
@@ -166,6 +194,31 @@ git config core.hooksPath .githooks   # 每个 clone 跑一次
 ```
 
 为什么要有它：这个插件最早一版把使用者的 QQ 号、群号和两个内嵌整图数据的预览页一起推了上去，后来改写过一次历史。钩子是为了让「下次」不会再犯。
+
+## 外部页签：别的插件可以往「她的一生」里挂一页（2026-11-09）
+
+宿主给的 slot 里没有「往别人的面板里塞一个页签」这种位置，只有 `settings.section`（一整个设置页）和
+`settings.general.item`（一行偏好）。所以这里自己开了一个口，**两边都不硬依赖对方**：
+
+```js
+// 挂：面板挂载时会建它；没装这个插件时它就是 undefined
+window.__MING_TAB_HOST.add({
+  id: 'cursor',               // 唯一；重复 add 同一个 id 就地更新
+  label: '光标',               // 顶栏上的字
+  order: 50,                  // 可选，接在内置 tab 后面按这个排
+  render: () => 你的组件,       // 不带参数的组件
+})
+window.__MING_TAB_HOST.remove('cursor')
+window.__MING_TAB_HOST.list() // 当前挂着哪些
+
+// 早到的：面板还没挂上就先写队列，面板挂上时一起收走（收完队列清空）
+;(window.__MING_TABS_PENDING || (window.__MING_TABS_PENDING = [])).push(desc)
+```
+
+调用方该怎么写：**先看 `window.__MING_TAB_HOST` 在不在**——在就挂进来、并且不再注册自己的设置页；
+不在就退回 `settings.section`。谁先启动都行，缺一个都能自己活。
+
+烟测：`node test-ext-tabs.mjs`（假 window + 假 React，加载真的 client.js，验「建宿主 / 挂 / 点 / 收 / 拆 / 早到」六步）。
 
 ## License
 

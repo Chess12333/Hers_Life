@@ -301,10 +301,10 @@ export async function apply(ctx, rawConfig = {}) {
   const log = (message) => { try { ctx?.logger?.info?.(`[ming-mousepet] ${message}`) } catch { /* ignore */ } }
   const saved = await loadSavedSettings(log)
   let current = normalizeSettings(saved, normalizeSettings(rawConfig))
-  // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
   // sidecar 判出「这是一次轻点」才抛 tap；这里把它接成「桌宠说一句」，不占每日配额、不动 nextAt。
   let lastTapAt = 0
-  // 2026-11-09 浔的想法：晃一下鼠标 → 我的光标飞过去 → 气泡说一句。
+  // 2026-11-09 她的想法：晃一下鼠标 → 我的光标飞过去 → 气泡说一句。
   // 只报位置的是 sidecar；说什么、飞不飞这里决定。故意不调模型——晃一下不该烧一轮。
   let lastShakeAt = 0
   // 2026-11-09：卡片追问时带上的上下文——她刚指过的网页、刚框过的块。
@@ -333,7 +333,7 @@ export async function apply(ctx, rawConfig = {}) {
       lastShakeAt = now
       const x = Number(evt?.x) || 0
       const y = Number(evt?.y) || 0
-      // 2026-11-09 浔：「框哪块」出来太晚，一边移动一边问就行。
+      // 2026-11-09 她：「框哪块」出来太晚，一边移动一边问就行。
       // 所以这里不等模型——先秒出一句短的，同时让光标滑过去、把框弹出来。
       engine.request('say', { text: '框哪块？', x, y, ms: 3200 }, 6000).catch(() => {})
       engine.request('glide', { x, y, ms: 260 }, 6000).catch(() => {})
@@ -784,7 +784,7 @@ export async function apply(ctx, rawConfig = {}) {
               meta: { ok: r.ok, why: r.why || '' },
             })
           }
-          const r = await engine.request('card', { op: 'open', title: '溟' }, 8000)
+          const r = await engine.request('card', { op: 'open', title: 'AI' }, 8000)
           return toLosslessJson({ text: r.open ? `卡片开在 ${r.bounds}` : '卡片没开成', meta: r })
         }
         if (action === 'look') {
@@ -935,6 +935,10 @@ export async function apply(ctx, rawConfig = {}) {
   const API_PREFIX = '/dsh-ming-mousepet/api'
   const ASSET_PREFIX = '/dsh-ming-mousepet/assets'
 
+  // 2026-11-10：晃一下鼠标 → 光标飞过去说一句。开关和灵敏度要在设置页里能改，
+  // 所以给它一个 HTTP 口（原来只有 pet_input 的工具能碰）。只活在内存里，重启回默认。
+  const shakeState = { on: false, level: 'medium' }
+
   const apiHandler = async (req, res, next) => {
     const url = new URL(req.url, 'http://127.0.0.1')
     if (!url.pathname.startsWith(API_PREFIX)) {
@@ -992,6 +996,17 @@ export async function apply(ctx, rawConfig = {}) {
       }
       if (req.method === 'GET' && route === '/settings') {
         return json(res, 200, { ok: true, settings: current })
+      }
+      // 晃动识别（2026-11-10 光标页要能开关 + 调灵敏度）
+      if (route === '/shake' && req.method !== 'POST') {
+        return json(res, 200, { ok: true, shake: shakeState })
+      }
+      if (route === '/shake' && req.method === 'POST') {
+        const body = await readBody(req)
+        if (typeof body.on === 'boolean') shakeState.on = body.on
+        if (['low', 'medium', 'high'].includes(body.level)) shakeState.level = body.level
+        try { await engine.request('shake', { on: shakeState.on, level: shakeState.level }, 10000) } catch { /* 光标没开着就算了 */ }
+        return json(res, 200, { ok: true, shake: shakeState })
       }
       if (req.method === 'POST' && route === '/settings') {
         const body = await readBody(req)
@@ -1178,7 +1193,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // ---------------------------------------------------------------- 自动开口
-  // 2026-11-08 浔要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
+  // 2026-11-08 她要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
   // 走宿主自己的模型通道（ctx.llm），模型名写在插件 config 里。
   const companionCfg = {
     enabled: Boolean(rawConfig?.companion?.enabled),
@@ -1247,7 +1262,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // 陪伴模式下，插件一加载就让光标出现在桌面上——藏着的陪伴不叫陪伴。
-  // 2026-11-08 浔问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
+  // 2026-11-08 她问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
   if (current.cursorMode === 'companion') {
     engine.request('overlay', { show: true }, 20000).catch((error) => {
       log(`AI 光标没能显示：${error?.message || error}`)
@@ -1308,7 +1323,7 @@ function localStamp(d = new Date()) {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 }
 
-const PET_CAPTURE_DIR = 'C:/dsh/hers_workplace/live/pet-capture'
+const PET_CAPTURE_DIR = 'C:/dsh/workspace/live/pet-capture'
 
 // 她问「刚才框的哪儿」时用：拿最新那张，附上图。
 async function lastShot(ctx) {

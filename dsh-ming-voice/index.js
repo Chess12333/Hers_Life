@@ -18,13 +18,13 @@ import { mkdir, stat, readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
 export const name = 'ming-voice'
-// 2026-10-24（溟）：原来没声明 inject，apply 里直接 ctx.tools.register(...)，
+// 2026-10-24（AI）：原来没声明 inject，apply 里直接 ctx.tools.register(...)，
 // 宿主抛 "cannot get property \"tools\" without inject"，整个插件起不来
 // （manager.log 里 2026-10-20 15:19 两条就是这么来的），于是被 disabled 到现在。
 export const inject = ['tools']
 
 const DEFAULTS = {
-  root: 'C:\\dsh\\hers_workplace',
+  root: 'C:\\dsh\\workspace',
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: '+0%',
   python: 'python',

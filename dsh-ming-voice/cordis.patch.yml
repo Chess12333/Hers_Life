@@ -2,6 +2,6 @@
     - id: ming-voice
       name: 'dsh-ming-voice'
       config:
-        root: 'C:\dsh\hers_workplace'
+        root: '<DSH>\workspace'
         voice: 'zh-CN-XiaoxiaoNeural'
         rate: '+0%'

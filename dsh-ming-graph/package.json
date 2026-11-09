@@ -1,6 +1,6 @@
 {
   "name": "dsh-ming-graph",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "记忆神经元：每条真记忆一个点，每条边都带「凭什么连」的理由（读盘与建图在 dsh-ming-memory/lib）",

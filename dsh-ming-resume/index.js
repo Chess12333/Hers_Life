@@ -26,7 +26,7 @@ export const name = 'ming-resume'
 
 const STEER_SOURCE = 'plugin:dsh-onebot'
 const DEFAULTS = {
-  root: 'C:\\dsh\\hers_workplace',
+  root: 'C:\\dsh\\workspace',
   adbPath: 'D:\\MuMuPlayer\\nx_device\\12.0\\shell\\adb.exe',
   serial: '127.0.0.1:7555',
   /** 插话时把正在播的视频暂停，答完再接着播（2026-10-20 她定的）。 */

@@ -35,7 +35,7 @@ rep(
   L('  spokenToday: { day: \'\', count: 0 },'),
   L(
     '  spokenToday: { day: \'\', count: 0 },',
-    '  // 2026-11-08 浔要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。',
+    '  // 2026-11-08 她要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。',
     "  schedMode: 'heartbeat',",
     '  everyMin: 50,',
     '  dailyCap: 6,',

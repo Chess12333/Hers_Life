@@ -1,7 +1,7 @@
 /**
  * mousepet 的陪伴层：该不该开口。
  *
- * 2026-11-08 立。这个文件里没有一句话是"溟要说什么"——它只回答两件事：
+ * 2026-11-08 立。这个文件里没有一句话是"AI要说什么"——它只回答两件事：
  * 现在值不值得说一句，现在是什么情况。话由外面的我不知道的那部分决定，
  * 插件一旦自己编话，就会变成定时播报器。
  */
@@ -16,7 +16,7 @@ const DEFAULTS = {
   lastSpokeAt: 0,
   lastLookAt: 0,
   spokenToday: { day: '', count: 0 },
-  // 2026-11-08 浔要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。
+  // 2026-11-08 她要的：自动开口的节奏自己调——心跳 / 随机 / 固定 / 关。
   gapMode: 'heartbeat',
   hbMin: 15,
   hbCenter: 30,
@@ -24,7 +24,7 @@ const DEFAULTS = {
   minGapMinutes: 50,
   dailyMax: 6,
   nextAt: 0,
-  // 宵禁开关（2026-11-08 浔：「先把宵禁关了，我们先做测试看看」）。
+  // 宵禁开关（2026-11-08 她：「先把宵禁关了，我们先做测试看看」）。
   // 放 state 文件而不是插件 config：改 config 要重启 DSH，测试时不该为一次开关重启。
   quietHours: true,
 }
@@ -129,7 +129,7 @@ const DAILY_CAP = 6
 const QUIET_IDLE_MS = 25 * 60 * 1000
 const LEAVE_MS = 30 * 60 * 1000
 
-// 2026-11-08 浔要测试：「现在测试吧，1分钟」。
+// 2026-11-08 她要测试：「现在测试吧，1分钟」。
 // 阈值也跟宵禁一样放 state，改完立即生效——测试时不该为调一个数重启 DSH。
 function num(state, key, fallback) {
   const v = Number(state?.[key])
@@ -141,7 +141,7 @@ function num(state, key, fallback) {
 //   fixed      每 everyMin 分钟一次，不管前面说没说过
 //   random     everyMin 的 0.5~1.5 倍之间随机
 //   heartbeat  以 everyMin 为中位，0.35~1.6 倍，越靠中位越密（默认）
-// 2026-11-08 15:03 浔：「怎么不是做成这样」——参照「自己玩」那条：
+// 2026-11-08 15:03 她：「怎么不是做成这样」——参照「自己玩」那条：
 // 限额 + 间隔模式（固定/随机/心跳/关）+ 最低/中位/最高 三个数。
 export function schedGapMs(state, rand = Math.random) {
   const st = state || {}
@@ -199,7 +199,7 @@ export function judgeNudge({ now = new Date(), status, state } = {}) {
   if (cap >= 0 && context.spokenToday >= cap) {
     return { speak: false, why: `今天已经说了 ${context.spokenToday} 次（上限 ${cap}），够了`, context }
   }
-  // 2026-11-08 浔改的：「不用等安静满，只要在桌面就可以等」。
+  // 2026-11-08 她改的：「不用等安静满，只要在桌面就可以等」。
   // 所以这里不再要求她静止，只排除「人根本不在」——半小时没动就算离开了。
   if (idleMs !== null && idleMs > leaveMs) {
     return { speak: false, why: `她 ${Math.round(idleMs / 60000)} 分钟没动了，多半不在桌边`, context }

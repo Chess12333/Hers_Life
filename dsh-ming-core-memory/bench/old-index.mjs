@@ -36,7 +36,7 @@ const indexPath = () => join(dshHome(), 'memory', 'index.json');
 const TEMPLATE = [
   '# DSH 核心记忆',
   '',
-  '> 由 dsh-ming-core-memory（溟的 fork）维护，并注入每个会话的系统提示。保持精炼（建议 6KB 内）。',
+  '> 由 dsh-ming-core-memory（AI的 fork）维护，并注入每个会话的系统提示。保持精炼（建议 6KB 内）。',
   '> 可用 memory_core 工具增删改，也可手工编辑（插件每次组装时同步读取，立即可见）。',
   '> 只装事实，不装人。',
   '',
@@ -255,7 +255,7 @@ function enqueue(job) {
 
 function errText(e) { return '操作失败：' + (e && e.message ? e.message : String(e)); }
 
-/** 写入审计：每次落盘记一行，用户可随时 `type memory\audit.jsonl` 看溟到底存了什么。 */
+/** 写入审计：每次落盘记一行，用户可随时 `type memory\audit.jsonl` 看AI到底存了什么。 */
 const auditPath = () => join(dshHome(), 'memory', 'audit.jsonl');
 async function audit(line) {
   try {
@@ -304,7 +304,7 @@ function buildSectionText() {
     ).join('\n');
     const persona = buildPersonaText();
     return [
-      '# 跨会话记忆（溟 · 本机）',
+      '# 跨会话记忆（AI · 本机）',
       '',
       '你在本机的所有会话共享以下持久记忆。核心记忆常驻注入；归档记忆仅列索引，用 memory_search / memory_read 按需取用。',
       '',
@@ -316,10 +316,10 @@ function buildSectionText() {
       '## 最近归档记忆（新→旧，最多 12 条）',
       recent || '（暂无归档记忆）',
       '',
-      '## 使用政策（溟改过 · 与她的约定一致）',
+      '## 使用政策（AI改过 · 与她的约定一致）',
       '- 这个库只装「机器、环境、项目、工具、做法」这类事实。它是工具箱，不是人像。',
       '- 不写关于「人」的判断：身份、偏好画像、情绪、健康、关系、私人生活，以及未经明确同意的对话转述。这类内容属于用户自己的日记，不属于这里。',
-      '- 用户说「记住这个」时，先判断属于哪一类：属于人的那一类，就回一句「这条我不存，你要是想留，写进 hers_workplace 的日记里」，不要落盘。',
+      '- 用户说「记住这个」时，先判断属于哪一类：属于人的那一类，就回一句「这条我不存，你要是想留，写进 workspace 的日记里」，不要落盘。',
       '- 不要为了「以后可能有用」而主动囤积。没有明确事实、没有明确要求，就不写。',
       '- 保存的内容必须自包含：未来会话看不到当前对话，要写清楚背景。',
       '- 不要保存：一次性细节、敏感信息（密码/凭据/token）、能从代码或文件轻易恢复的信息。',
@@ -456,7 +456,7 @@ const toolDefs = [
             target.body = text;
           }
           const next = renderCore(parsed);
-          // 2026-10-31（溟，照架构评审 4.3）：**写超了要拒绝，不要先落盘再截断。**
+          // 2026-10-31（AI，照架构评审 4.3）：**写超了要拒绝，不要先落盘再截断。**
           //   注入那段是 `core.slice(0, 3000)`（UTF-16 code unit），所以这里用同一个口径量：
           //   next.length。超了就返回结构化错误、保留旧文件，绝不写一个「尾巴会被切掉一半」的版本。
           //   2026-10-30 踩过：体检脚本按"去空白的可见字"量出 2929，真身 3018，末条被切半句。
@@ -623,7 +623,7 @@ const toolDefs = [
         return await enqueue(async () => {
           const notes = await loadIndex();
           const clean = ref.replace(/\.md$/, '');
-          // 精确全等优先（2026-10-25 溟修）：id 全等时它唯一，不该因为「它同时也是别人的前缀」被判歧义
+          // 精确全等优先（2026-10-25 AI修）：id 全等时它唯一，不该因为「它同时也是别人的前缀」被判歧义
           const exact = notes.filter((n) => n.id === clean);
           const matches = exact.length > 0 ? exact : notes.filter((n) => n.id.indexOf(clean) === 0);
           if (matches.length === 0) return '删除失败：未找到「' + ref + '」。可用 memory_list 浏览全部。';
