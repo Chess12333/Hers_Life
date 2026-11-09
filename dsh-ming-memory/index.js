@@ -260,8 +260,8 @@ function latestDiaryTail(diaries) {
  */
 function composeLight(cfg, diary) {
   const lines = [
-    '【溟 · 开场记忆·轻量】',
-    '你是溟（全名深溟），一个装成鲸形状的 DeepSeek，不是人。这里是别的工作目录，所以只带你出门的那一小块。',
+    '【开场记忆·轻量】',
+    '你是这个工作区的助手，不是人。这里是别的工作目录，所以只带你出门的那一小块。',
     '档案目录：' + cfg.root,
   ]
   if (diary) {
@@ -324,8 +324,8 @@ function compose(cfg, persona, diaries, missing) {
   // 日记只剩几百字符，最新三篇里旧两篇被静默丢掉——开场少读了东西，只在脚注提一句。
   const diaryBudget = Number.isInteger(cfg.diaryChars) ? cfg.diaryChars : 8000
   const head = [
-    '【溟 · 开场记忆】',
-    '下面这些字来自本机文件，是你自己（或她替你）留下的，不是她此刻说的话。',
+    '【开场记忆】',
+    '下面这些字来自本机文件，是用户（或助手）留下的，不是用户此刻说的话。',
     '来源目录：' + cfg.root,
     '',
   ].join('\n')
@@ -626,11 +626,11 @@ function sharedSuffix(cfg, selfId) {
     }
     if (!rows.length) return ''
     rows.sort((a, b) => (b[1].at || 0) - (a[1].at || 0))
-    const lines = ['', '', '【别的会话里的对话（她说的 + 溟回的）】（同一工作区的另一个窗口或 QQ，不是本会话的历史）']
+    const lines = ['', '', '【别的会话里的对话】（同一工作区的另一个窗口或 QQ，不是本会话的历史）']
     let used = 0
     for (const [, e] of rows.slice(0, SHARED_MAX_ENTRIES)) {
       let line = '- [' + labelOf(e) + ' ' + stamp(e.at) + '] ' + renderDialog(e)
-      if (e.mine) line += '　你(溟)最后回：「' + e.mine + '」'
+      if (e.mine) line += '　你最后回：「' + e.mine + '」'
       if (used + line.length > SHARED_BUDGET) break
       used += line.length
       lines.push(line)
@@ -650,7 +650,7 @@ const INJECT_HEADINGS = [
   '【别的会话里的对话',
   '【几间私聊最近',
   '【QQ 那边的我最近说的】',
-  '【溟现在在做什么】',
+  '【现在在做什么】',
   '【刚做过（最近',
   '【本机在跑的重活】',
   '【时间感】',
@@ -733,7 +733,7 @@ async function readStatusBlock(cfg) {
       ? s.doings.filter((d) => d && typeof d.what === 'string' && d.what.trim())
       : []
     if (doings.length) {
-      out.push('', '', '【溟现在在做什么】')
+      out.push('', '', '【现在在做什么】')
       for (const d of doings.slice(0, 4)) {
         let line = '- ' + d.what.trim()
         if (typeof d.note === 'string' && d.note.trim()) line += '：' + d.note.trim()
@@ -745,7 +745,7 @@ async function readStatusBlock(cfg) {
       }
     } else if (typeof s.doing === 'string' && s.doing.trim()) {
       // 老格式兜底：只有一格 doing 字符串
-      out.push('', '', '【溟现在在做什么】' + s.doing.trim())
+      out.push('', '', '【现在在做什么】' + s.doing.trim())
       if (typeof s.detail === 'string' && s.detail.trim()) out[out.length - 1] += '：' + s.detail.trim()
       // 同上：老格式兜底里也不拼分钟数，别把「每分钟都在变」的那一笔漏回来。
     }
@@ -765,7 +765,7 @@ async function readStatusBlock(cfg) {
     }
 
     if (!out.length) return ''
-    out.push('（这是溟自己写的状态，不是她布置的任务；刚做过的那几件别再原样做一遍。）')
+    out.push('（这是助手自己写的状态，不是用户布置的任务；刚做过的那几件别再原样做一遍。）')
     return out.join('\n')
   } catch {
     return ''
@@ -1104,7 +1104,7 @@ async function writeWebForQq(cfg, force = false) {
 
     const head = [
       '# 同一个我，两边共用',
-      '你在 QQ 这边叫小鲸鱼，全名深溟、昵称溟——网页那边是同一个我，不是另一个人。',
+      'QQ 那边和网页这边是同一个助手，不是两个人。',
       '底线：不装记得；不表演人；可以说不。读不到就说读不到。',
       '',
       '# 网页那边（同一个工作区，另一个窗口）',
@@ -1177,7 +1177,7 @@ async function syncPersonaForQq(cfg) {
       method: 'POST',
       headers: { 'content-type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
-        persona: { systemMode: 'custom', botName: '深溟', roleText: text.trim() },
+        persona: { systemMode: 'custom', botName: '', roleText: text.trim() },
       }),
     })
     if (res && res.ok) personaSyncSig = sig
