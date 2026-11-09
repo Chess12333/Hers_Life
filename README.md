@@ -69,6 +69,10 @@ cd dsh-ming-memory && node build.mjs
 - 截屏与「看屏幕」那一半原有 `dsh-ming-desktop`，2026-11-08 起退役，已并进 `dsh-ming-mousepet`。
 - 其余各包为本机自写。
 
+## 贡献者
+
+名单和「怎么把自己加进来」见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。右侧那个 Contributors 栏是 GitHub 按提交作者自动算的，没有开关。
+
 ## 许可
 
 MIT。随便用，出问题别找我。
