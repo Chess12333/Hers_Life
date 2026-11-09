@@ -74,6 +74,13 @@ function NeuronPanel() {
   const [skillQ, setSkillQ] = useState('')
   const [skillBusy, setSkillBusy] = useState('')
   const [cost, setCost] = useState(null)
+  // 完整版检测（2026-11-10）：单独装这个插件时，顶栏下面挂一条「完整版在 Hers_Life」
+  const [solo, setSolo] = useState(false)
+  useEffect(() => {
+    fetch('/dsh-ming-mousepet/api/pet-status', { cache: 'no-store' })
+      .then((r) => { if (!r.ok) setSolo(true) })
+      .catch(() => setSolo(true))
+  }, [])
   const [costErr, setCostErr] = useState('')
   // 2026-11-10：「索引费用」——点一下，没定价的模型去网上找价（Host 那边做，见 price-index.mjs）
   const [costIdxBusy, setCostIdxBusy] = useState(false)
@@ -311,6 +318,10 @@ function NeuronPanel() {
 
   return h('div', { className: 'mg-mount' },
     h('style', null, PAGE_CSS + MING_UI.css('ming')),
+    solo ? h('div', { style: { margin: '0 14px 8px', padding: '7px 12px', border: '1px solid rgba(217,164,65,.45)', borderRadius: '8px', fontSize: '11.5px', lineHeight: '1.7', color: 'var(--dsw-alias-label-secondary, #b8b8c4)' } },
+      '这是单独安装的版本。完整版在 ',
+      h('a', { href: 'https://github.com/Chess12333/Hers_Life', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary, #6aa9ff)' } }, 'Hers_Life'),
+      ' 更新。') : null,
 
     // ---- top 栏：全局操作 ----
     h('div', { className: 'mg-top' },
