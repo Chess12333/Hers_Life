@@ -5,7 +5,9 @@ const source = readFileSync(new URL('./lib/talker.js', import.meta.url), 'utf8')
 const body = source.slice(source.indexOf('  async function poke(evt)'), source.indexOf('  async function tick()'))
 for (const size of [24, 64, 192]) {
  const calls = []; let composed
- const ctx = vm.createContext({ running:false, llm:{stream(){}}, Date, Math, Number, Promise,
+ // 2026-11-09 00:2x：poke 里引用了闭包变量 stopped，这个沙箱只给了 running，
+ // 于是这份测试一跑就 ReferenceError —— 测试自己漏了一格，不是产品坏了。
+ const ctx = vm.createContext({ running:false, stopped:false, llm:{stream(){}}, Date, Math, Number, Promise,
  setTimeout:()=>0, clockLine:()=>'', say:()=>{},
  engine:{cursorSize:size, async request(action,args){calls.push({action,args});return {}}},
  compose:async(rows,status,opts)=>{composed=opts;return {spoken:true,line:'test'}} })

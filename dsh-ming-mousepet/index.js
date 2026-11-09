@@ -11,8 +11,11 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputEngine } from './lib/engine.js'
-import { judgeNudge, loadPetState, savePetState, spokenToday , updatePetState, normalizeSchedulePatch } from './lib/pet.js'
+import { judgeNudge, shouldMuteSay, loadPetState, savePetState, spokenToday , updatePetState, normalizeSchedulePatch } from './lib/pet.js'
 import { ensureWorkspace, resolveCardPath, startTalker } from './lib/talker.js'
+import { listSessions } from './lib/sessions.js'
+import { createCardSessionBridge } from './lib/card-session.js'
+import { createCard } from './lib/card.js'
 
 export const name = 'ming-mousepet'
 export const inject = ['tools', 'attachments', 'webServer']
@@ -167,9 +170,11 @@ function toolSpec() {
       action: {
         type: 'string',
         required: true,
-        description: 'status | windows | capture | click | type | key | scroll | drag | move | pause | resume | overlay | probe | calscan',
+        description: 'status | windows | capture | lastshot | click | type | key | scroll | drag | move | pause | resume | overlay | probe | calscan | shake',
       },
       go: { type: 'boolean', description: 'calscan：true 才真的移动一次真实光标去量（测完自动还原）；省略只报口径' },
+      on: { type: 'boolean', description: 'shake：true 开 / false 关，默认开' },
+      level: { type: 'string', description: 'shake：灵敏度 low | medium（默认）| high' },
       x: { type: 'number', description: '屏幕绝对 x（click/type/scroll/drag 的起点/move/overlay）' },
       y: { type: 'number', description: '屏幕绝对 y' },
       toX: { type: 'number', description: 'drag 终点 x' },
@@ -296,9 +301,17 @@ export async function apply(ctx, rawConfig = {}) {
   const log = (message) => { try { ctx?.logger?.info?.(`[ming-mousepet] ${message}`) } catch { /* ignore */ } }
   const saved = await loadSavedSettings(log)
   let current = normalizeSettings(saved, normalizeSettings(rawConfig))
-  // 2026-11-08 21:1x 她：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
+  // 2026-11-08 21:1x 浔：「点按桌宠直接进行一次不记次数的活动，长按拖动」。
   // sidecar 判出「这是一次轻点」才抛 tap；这里把它接成「桌宠说一句」，不占每日配额、不动 nextAt。
   let lastTapAt = 0
+  // 2026-11-09 浔的想法：晃一下鼠标 → 我的光标飞过去 → 气泡说一句。
+  // 只报位置的是 sidecar；说什么、飞不飞这里决定。故意不调模型——晃一下不该烧一轮。
+  let lastShakeAt = 0
+  // 2026-11-09：卡片追问时带上的上下文——她刚指过的网页、刚框过的块。
+  // 只留一句注记，不留全文：全文再读一遍成本高，窗口里本来就有。
+  let lastPickNote = ''
+  // 2026-11-09 21:1x：框选/指认之后用哪一档回答。默认简易（气泡），右键菜单可改。
+  let answerMode = 'quick'
   const engine = new InputEngine({
     log,
     ...current,
@@ -314,7 +327,143 @@ export async function apply(ctx, rawConfig = {}) {
       // 自动开口没开也得有反应，不然点了像坏了。就一个字，不替模型编话。
       engine.request('say', { text: '在', ms: 1600 }, 8000).catch(() => {})
     },
+    onShake: (evt) => {
+      const now = Date.now()
+      if (now - lastShakeAt < 2500) return // 连晃只算一次
+      lastShakeAt = now
+      const x = Number(evt?.x) || 0
+      const y = Number(evt?.y) || 0
+      // 2026-11-09 浔：「框哪块」出来太晚，一边移动一边问就行。
+      // 所以这里不等模型——先秒出一句短的，同时让光标滑过去、把框弹出来。
+      engine.request('say', { text: '框哪块？', x, y, ms: 3200 }, 6000).catch(() => {})
+      engine.request('glide', { x, y, ms: 260 }, 6000).catch(() => {})
+      engine.request('select', { timeoutMs: 12000 }, 8000).catch(() => {})
+    },
+    onSelect: (evt) => {
+      // 她框完了一块：交给 handleRect——先看这块能不能读，再存图、读字、说一句。
+      if (!evt || evt.event !== 'select-done' || !evt.rect) return
+      Promise.resolve(handleRect(evt.rect, '框选')).catch((error) => log(`框选后没接上：${error?.message || error}`))
+    },
+    onPick: (evt) => {
+      // 2026-11-09：她「指了一下」——悬停取块、回车确认。和拖框走同一条管线。
+      if (!evt || evt.event !== 'pick' || !evt.rect) {
+        if (evt && evt.event === 'pick-none') log(`指一下取消：${evt.why || ''}`)
+        return
+      }
+      const tag = evt.name ? `：${evt.name}` : evt.fallback ? '（聚焦框）' : ''
+      lastPickNote = `她刚指了屏幕上一块${tag}`
+      Promise.resolve(handleRect(evt.rect, '指认')).catch((error) => log(`指认后没接上：${error?.message || error}`))
+    },
+    onWebPick: () => {
+      // 浏览器扩展刚 POST 进来一段网页选中的字（存在 webpick.json）。
+      Promise.resolve()
+        .then(async () => {
+          const file = join(homedir(), '.dsh', 'ming-mousepet', 'webpick.json')
+          const raw = await readFile(file, 'utf8')
+          const pick = JSON.parse(String(raw).replace(/^﻿/, ''))
+          if (!pick || !pick.text) return
+          log(`网页取文：${pick.title || pick.url || '无标题'}（${String(pick.text).length} 字）`)
+          lastPickNote = `她刚指了网页上一块：${pick.title || pick.url || ''}${pick.bv ? `（BV ${pick.bv}）` : ''}`
+          const sw = stopTalker && stopTalker.speakWeb
+          if (typeof sw === 'function') await sw(pick)
+        })
+        .catch((error) => log(`网页取文没接上：${error?.message || error}`))
+    },
+    onAsk: (evt) => {
+      // 她在卡片里按了回车。答案流回卡片，不走会话桥——这边有 llm.stream。
+      const q = String(evt?.text || '').trim()
+      if (!q) return
+      Promise.resolve(sessionCard.askCard(q, lastPickNote ? [lastPickNote] : [])).catch((error) =>
+        log(`卡片没答上：${error?.message || error}`),
+      )
+    },
+    onMenu: (evt) => {
+      // 右键菜单里点了东西：回答档要记进 pet-state，晃动检测只要记一行日志。
+      const action = String(evt?.action || '')
+      if (action === 'answer') {
+        answerMode = evt?.mode === 'full' ? 'full' : 'quick'
+        log(`回答档改成：${answerMode === 'full' ? '完整（卡片）' : '简易（气泡）'}`)
+        Promise.resolve(loadPetState())
+          .then((state) => updatePetState({ answerMode }))
+          .catch((error) => log(`回答档没存上：${error?.message || error}`))
+      } else if (action === 'shake') {
+        log(`晃动检测：${evt?.on ? '开' : '关'}`)
+      }
+    },
+    onCardClosed: () => {
+      // 关掉就忘：下次开是新的对话，别把上一轮的上下文拖过来。
+      lastPickNote = ''
+      try {
+        sessionCard.reset()
+      } catch {
+        /* ignore */
+      }
+    },
   })
+
+  // 框选和指认共用这一段：先看这块能不能读（密码框/登录支付不读），再存图、读字、说一句。
+  async function handleRect(rect, how = '框选') {
+    const parts = String(rect).split(',').map(Number)
+    const cx = Math.round((parts[0] || 0) + (parts[2] || 0) / 2)
+    const cy = Math.round((parts[1] || 0) + (parts[3] || 0) / 2)
+    const g = await engine.request('guard', { x: cx, y: cy }, 6000).catch(() => null)
+    if (g && g.blocked) {
+      const why =
+        g.reason === 'password'
+          ? '这块是密码框，不读。'
+          : g.reason === 'elevated'
+            ? '这个程序是管理员权限，不读。'
+            : '这块像登录/支付，不读。'
+      await engine.request('say', { text: why, x: cx, y: cy, ms: 3000 }, 8000).catch(() => {})
+      log(`${how}拦下：${g.reason}（${g.title || '无标题'}）`)
+      return
+    }
+    const ui = await engine.request('uiainfo', { x: cx, y: cy }, 6000).catch(() => null)
+    const capDir = PET_CAPTURE_DIR
+    const stamp = localStamp()
+    const shot = join(capDir, `${stamp}.png`)
+    await mkdir(capDir, { recursive: true })
+    await engine.request('capture', { path: shot, rect }, 15000)
+    await writeFile(join(capDir, 'index.md'), `- ${stamp} rect=${rect} via=${how}
+`, { flag: 'a' })
+    log(`${how}住一块：${shot}（${rect}）`)
+    const sw = stopTalker && stopTalker.speakWith
+    if (typeof sw !== 'function') return
+    const said = await sw(rect, ui)
+    if (said && said.line) {
+      await writeFile(join(capDir, 'index.md'), `  说了：${said.line}
+`, { flag: 'a' }).catch(() => {})
+    }
+  }
+
+  // 2026-11-09：卡片独立于「自动开口」。她关了自动开口，照样能在桌面上问一句。
+  const cardCtl = createCard({
+    llm: () => llmRef,
+    engine,
+    cardPath: resolveCardPath(String(rawConfig?.companion?.workspace || '') || process.cwd()),
+    // 2026-11-09 17:0x：卡片这一档也得说清用哪条模型线——
+    // 宿主 GenerateOptions.provider/model 必填，不传就选不到适配器（症状是「模型给的空话」）。
+    // 读的是同一个 talkerOptions，所以页面上换模型，卡片下一次开口就跟着换。
+    callModel: () => ({ provider: talkerOptions.provider, model: talkerOptions.model }),
+    log,
+  })
+  const sessionCard = createCardSessionBridge({
+    engine,
+    cardCtl,
+    controller: () => sessionRef,
+  })
+
+  // 2026-11-09 21:2x：开机把存档里的回答档推给 sidecar——菜单里的勾要跟存档一致。
+  Promise.resolve(loadPetState())
+    .then((st) => {
+      if (st && (st.answerMode === 'full' || st.answerMode === 'quick')) {
+        answerMode = st.answerMode
+        return engine.request('menustate', { answer: answerMode }, 5000)
+      }
+      return null
+    })
+    .catch((error) => log(`回答档没推上去：${error?.message || error}`))
+
   const toolConfig = toolSpec()
 
   const tool = {
@@ -352,6 +501,7 @@ export async function apply(ctx, rawConfig = {}) {
             + ' · 偏差 (' + ex + ', ' + ey + ')'
           return toLosslessJson({ text: t, meta: r })
         }
+
         if (action === 'status') {
           const s = await engine.request('status', {}, 10000)
           return toLosslessJson({ text: statusText(s), meta: s })
@@ -367,6 +517,12 @@ export async function apply(ctx, rawConfig = {}) {
         if (action === 'resume') {
           const s = await engine.request('resume', {}, 10000)
           return toLosslessJson({ text: `已恢复。\n${statusText(s)}`, meta: s })
+        }
+        if (action === 'shake') {
+          const on = args.on !== false
+          const level = String(args.level || 'medium')
+          const r = await engine.request('shake', { on, level }, 10000)
+          return toLosslessJson({ text: `晃动检测：${r.enabled ? '开' : '关'}（${r.level}）`, meta: r })
         }
         if (action === 'move') {
           const r = await engine.request('move', { x: args.x, y: args.y }, 10000)
@@ -468,6 +624,9 @@ export async function apply(ctx, rawConfig = {}) {
         if (action === 'capture') {
           return await capture(ctx, engine, args)
         }
+        if (action === 'lastshot') {
+          return await lastShot(ctx)
+        }
         return {
           text: '未知 action。可用：status / windows / capture / click / type / key / scroll / drag / move / pause / resume / overlay。',
           meta: { ok: false, action },
@@ -513,14 +672,21 @@ export async function apply(ctx, rawConfig = {}) {
       + '- `cursor` 控制 AI 光标（显示 / 隐藏 / 移动 / 大小 / 模式）。\n\n'
       + '开口的规矩：先 `nudge`，说不要就别硬说；一天最多 6 次、两次至少隔 10 分钟、'
       + '她 15 秒内动过电脑就别说、静音 00:30–10:30。一次一句，别连发；'
-      + '说的时候要有由头（她安静久了、屏幕上有什么、时间），没由头就不说。',
+      + '说的时候要有由头（她安静久了、屏幕上有什么、时间），没由头就不说。'
+      + 'card：开一张能追问的小卡片——带 question 就是问一句，答案流式写进去；'
+      + '不带就开空卡，她在卡片里打字，回车发问。关掉即忘，下次是新对话。',
     parameters: {
       action: {
         type: 'string',
         required: true,
-        description: 'status | look | watch | say | point | cursor | drift | nudge | config',
+        description: 'status | look | watch | say | point | cursor | drift | nudge | config | card | pick | sessions | ask',
       },
       text: { type: 'string', description: 'say / point：要说的话，一句，40 字以内最好' },
+      question: { type: 'string', description: 'card：要问的一句；不带就只开一张空卡' },
+      op: { type: 'string', description: 'card：close 关掉；不带就按「带 question 就问，不带就开」' },
+      sessionId: { type: 'string', description: 'ask：丢给哪个会话；省略或 "new" 就新开一个' },
+      capture: { type: 'string', description: 'ask：要一起交给会话的原文（会包进 <抓取内容>）' },
+      cwd: { type: 'string', description: 'ask：新会话的工作目录（省略用默认）' },
       ms: { type: 'number', description: 'say：气泡停留毫秒，默认 3200' },
       x: { type: 'number', description: 'say/cursor：屏幕绝对 x；say 省略就浮在光标上方' },
       y: { type: 'number', description: 'say/cursor：屏幕绝对 y' },
@@ -547,7 +713,79 @@ export async function apply(ctx, rawConfig = {}) {
         if (action === 'status') {
           const s = await engine.request('status', {}, 10000)
           const state = await loadPetState()
-          return toLosslessJson({ text: petStatusText(s, state, now), meta: s })
+          // 2026-11-09：版本握手结果挂在这里，一眼能看出「跑的是不是文件里那份」。
+          const hs = engine.handshake
+          const hsLine = hs
+            ? hs.ok
+              ? `sidecar 版本 ${hs.actual}（与文件一致，指纹 ${hs.fileHash}）`
+              : `⚠ sidecar 版本对不上：文件 ${hs.expected ?? '?'} / 进程 ${hs.actual ?? '?'}——ps1 改过但 sidecar 没重启？`
+            : 'sidecar 版本：还没握手（进程没起）'
+          return toLosslessJson({
+            text: `${petStatusText(s, state, now)}\n${hsLine}`,
+            meta: { ...s, handshake: hs },
+          })
+        }
+        if (action === 'sessions') {
+          // 看得见哪些会话（不激活 Agent）。
+          const r = await listSessions(sessionRef)
+          if (!r.ok) return toLosslessJson({ text: `列不出来：${r.why}`, meta: r })
+          const lines = r.items.slice(0, 12).map((it, i) =>
+            `${i + 1}. ${it.short}${it.title ? ` · ${it.title}` : ''}${it.running ? ' · 在跑' : ''}${it.blank ? ' · 空' : ''}`,
+          )
+          return toLosslessJson({
+            text: lines.length ? `会话（新→旧）：\n${lines.join('\n')}` : '没有可见的会话',
+            meta: { ok: true, items: r.items.slice(0, 12) },
+          })
+        }
+        if (action === 'ask') {
+          // 把一句丢进真会话去办，答案流式写进卡片。sessionId 缺省就新开一个。
+          const say0 = String(args.text || args.question || '').trim()
+          if (!say0) return toLosslessJson({ text: '要说点什么', meta: { ok: false } })
+          const r = await sessionCard.ask(args)
+          const sid = r.sessionId || args.sessionId || args.session || ''
+          return toLosslessJson({
+            text: r.ok
+              ? `会话 ${String(sid).replace(/^session-/, '')} 回了 ${String(r.text || '').length} 字，动了 ${r.tools} 次手`
+              : `没成：${r.why}`,
+            meta: r,
+          })
+        }
+        if (action === 'pick') {
+          // 2026-11-09：指一下——不拖框。
+          const r = await engine.request('pick', { op: 'start', timeoutMs: Number(args.ms) || 30000 }, 8000)
+          return toLosslessJson({
+            text: r.started ? '指一下：光标停在哪就框哪块，回车确认，[ ] 收放，Esc 取消' : '指一下没起来（可能在全屏里）',
+            meta: r,
+          })
+        }
+        if (action === 'card') {
+          // 2026-11-09：能追问的小卡片。带 text 就是「问一句」，不带就是「开一张空卡」。
+          const op = String(args.op || '').toLowerCase()
+          if (op === 'close') {
+            lastPickNote = ''
+            const r = await sessionCard.close()
+            return toLosslessJson({ text: '卡片关了', meta: r })
+          }
+          if (op === 'follow') {
+            // 2026-11-09 17:2x：她问「卡片能不能跟桌宠走」。跟随默认就是开的，
+            // 这个 op 只是在她说「别跟了」或想重新贴上去时拨一下。
+            const on = args.on !== false
+            const r = await engine.request('card', { op: 'follow', on }, 8000)
+            return toLosslessJson({
+              text: r.follow ? `卡片跟着桌宠（${r.bounds || '位置读不到'}）` : '卡片钉在原地了',
+              meta: r,
+            })
+          }
+          const q = String(args.text || args.question || '').trim()
+          if (q) {
+            const r = await sessionCard.askCard(q, lastPickNote ? [lastPickNote] : [])
+            return toLosslessJson({
+              text: r.ok ? `卡片里答了 ${String(r.text || '').length} 字` : `卡片没答成：${r.why}`,
+              meta: { ok: r.ok, why: r.why || '' },
+            })
+          }
+          const r = await engine.request('card', { op: 'open', title: '溟' }, 8000)
+          return toLosslessJson({ text: r.open ? `卡片开在 ${r.bounds}` : '卡片没开成', meta: r })
         }
         if (action === 'look') {
           return await capture(ctx, engine, args)
@@ -573,6 +811,19 @@ export async function apply(ctx, rawConfig = {}) {
         if (action === 'say') {
           const text = String(args.text || '').trim()
           if (!text) throw new Error('say 需要 text')
+          // 2026-11-09 00:2x（她问「AI 指针有聊天宵禁吗」，然后「加一个宵禁功能吧」）：
+          // 自动陪伴那条路一直有 00:30–10:30 的静音，但**我主动调的这个 say 没有**——
+          // 半夜照样能弹气泡。缺口在这儿，补上。判据收在 lib/pet.js 的 shouldMuteSay。
+          // 00:25 她一句「那不就是说我必须两分钟动一次」否掉了「她在动就放行」的第一版：
+          // 拿键鼠空闲当「醒着」的证据，等于要她定时动一下。现在没有例外。
+          const st0 = await loadPetState()
+          const gate = shouldMuteSay({ now, state: st0 })
+          if (gate.mute) {
+            return toLosslessJson({
+              text: '没弹：' + gate.why,
+              meta: { skipped: 'quiet-hour' },
+            })
+          }
           const r = await engine.request('say', { text, ms: args.ms, x: args.x, y: args.y }, 15000)
           // 2026-11-08 19:47：工具触发的 say 不再计入「陪伴主动开口」配额，也不重置间隔。
           // 起因：spokenToday 记到 42、dailyMax 是 6，于是自动陪伴每一轮都判「够了」，
@@ -927,7 +1178,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // ---------------------------------------------------------------- 自动开口
-  // 2026-11-08 她要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
+  // 2026-11-08 浔要的：一个开关，开了就有个会说话的桌宠，不用另开会话、不用另给 key。
   // 走宿主自己的模型通道（ctx.llm），模型名写在插件 config 里。
   const companionCfg = {
     enabled: Boolean(rawConfig?.companion?.enabled),
@@ -938,6 +1189,7 @@ export async function apply(ctx, rawConfig = {}) {
     workspace: String(rawConfig?.companion?.workspace || '') || process.cwd(),
   }
   let stopTalker = null
+  let sessionRef = null
   let llmRef = null
 
   // 2026-11-08（她提的「桌面那只只能用默认模型」）：用哪个模型不再只由 patch.yml 定。
@@ -948,9 +1200,21 @@ export async function apply(ctx, rawConfig = {}) {
     provider: current.talkProvider || companionCfg.provider,
     model: current.talkModel || companionCfg.model,
     cardPath: resolveCardPath(companionCfg.workspace),
+    // 框选/指认后的回答档：菜单改的就是它。
+    answerMode: () => answerMode,
     // 2026-11-08：静默读屏那个脚本，每轮醒来跑一次。
     screenScript: join(PLUGIN_DIR, 'scripts', 'read-screen.ps1'),
     logFile: join(homedir(), '.dsh', 'ming-mousepet', 'companion.log'),
+  }
+
+  // 2026-11-09：会话桥。她要「真去动手」时把一句丢进 DSH 会话里跑，
+  // 卡片的文字只是窗口；真正干活的是会话那边。拿不到就当这条功能不存在。
+  try {
+    ctx.inject(['sessionController'], (sctx) => {
+      sessionRef = sctx.sessionController
+    })
+  } catch (error) {
+    log(`会话桥没挂上：${error?.message || error}`)
   }
 
   // llm 无条件拿一次：设页里列模型（/models）要用它，不以自动开口开没开为前提。
@@ -983,7 +1247,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   // 陪伴模式下，插件一加载就让光标出现在桌面上——藏着的陪伴不叫陪伴。
-  // 2026-11-08 她问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
+  // 2026-11-08 浔问「你的虚拟鼠标呢」，就是因为它要手动 show 才出来。
   if (current.cursorMode === 'companion') {
     engine.request('overlay', { show: true }, 20000).catch((error) => {
       log(`AI 光标没能显示：${error?.message || error}`)
@@ -991,6 +1255,7 @@ export async function apply(ctx, rawConfig = {}) {
   }
 
   return () => {
+    sessionCard.dispose()
     try { dispose?.() } catch { /* ignore */ }
     try { disposePet?.() } catch { /* ignore */ }
     try { stopTalker?.() } catch { /* ignore */ }
@@ -1035,6 +1300,39 @@ async function attachImages(ctx, paths) {
     }
   }
   return out
+}
+
+// 2026-11-09：文件名用本地时间（原来写 UTC，看着像凌晨七点）。
+function localStamp(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+}
+
+const PET_CAPTURE_DIR = 'C:/dsh/hers_workplace/live/pet-capture'
+
+// 她问「刚才框的哪儿」时用：拿最新那张，附上图。
+async function lastShot(ctx) {
+  let files = []
+  try {
+    files = (await readdir(PET_CAPTURE_DIR)).filter((f) => f.toLowerCase().endsWith('.png')).sort()
+  } catch { files = [] }
+  if (!files.length) return toLosslessJson({ text: '还没框过（live/pet-capture 是空的）。', images: [] })
+  const path = join(PET_CAPTURE_DIR, files[files.length - 1])
+  let images = []
+  try {
+    const data = await readFile(path)
+    const svc = ctx?.attachments
+    if (svc?.saveImage) {
+      images = [await svc.saveImage.call(svc, { data, mediaType: 'image/png', name: `ming-lastshot-${Date.now()}.png` })]
+    }
+  } catch (error) {
+    ctx?.logger?.warn?.(`[ming-mousepet] 最近那张读不回来：${error?.message || error}`)
+  }
+  return toLosslessJson({
+    text: `最近框的一块：${path}（一共 ${files.length} 张）`,
+    images,
+    meta: { path, count: files.length },
+  })
 }
 
 async function capture(ctx, engine, args) {

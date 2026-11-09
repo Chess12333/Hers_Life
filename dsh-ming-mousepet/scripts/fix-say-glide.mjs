@@ -1,5 +1,5 @@
 // 2026-11-08 14:33 补丁六：说话前让桌宠「滑」过去，而不是瞬间钉到位。
-// 她问「是不是没有缓动」——对，先前用的是 Show-StateAt，直接出现在目标点。
+// 浔问「是不是没有缓动」——对，先前用的是 Show-StateAt，直接出现在目标点。
 // 改成 Glide（ease-out，520ms），滑完按它的落点画泡。
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +26,7 @@ rep(
         $by = [DshOverlay]::LastY
       }`,
   `      if ($bx -ge 0) {
-        # 2026-11-08 她：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
+        # 2026-11-08 浔：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
         # 改成真滑过去（ease-out 520ms）：先确保它已经在屏幕上，滑完再按落点画泡。
         $script:cursorStyle = 'pointer'
         if (-not [DshOverlay]::VisibleNow() -and [DshOverlay]::HasLast) {

@@ -32,7 +32,7 @@ rep(
             Rectangle me0 = new Rectangle(px, py, sz.Width, sz.Height);
             if (me0.IntersectsWith(hot) || me0.IntersectsWith(pet))
             {
-                // 2026-11-08 她：「避开你和桌宠两边」。按顺序试几个候选，
+                // 2026-11-08 浔：「避开你和桌宠两边」。按顺序试几个候选，
                 // 第一个两边都不压的胜出；全都不行才退到光标右下角。
                 Point[] cand = new Point[] {
                     new Point(x + 64, y - sz.Height - 12),          // 桌宠右上

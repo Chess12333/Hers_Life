@@ -2,7 +2,7 @@
 
 桌面上陪着她。看得见、会说一句话、也能动手——三件事本来分在两个插件里（`dsh-independent-input` 负责输入和 AI 光标、`dsh-ming-desktop` 负责看），这个插件把它们并成一个。
 
-2026-11-08 起。起因是她说「把电脑操作插件和独立光标插件合在一起做一个新插件，像是在桌面陪伴，偶尔还会说两句话」。
+2026-11-08 起。起因是浔说「把电脑操作插件和独立光标插件合在一起做一个新插件，像是在桌面陪伴，偶尔还会说两句话」。
 
 ## 两个工具
 
@@ -92,3 +92,24 @@ node test/pet-test.mjs
 - **轻点一下**：它说一句（相当于你叫它一声）。这一次不占「每天最多几次」的自动开口配额。
 - **按住再拖**：挪位置。按住超过约 0.2 秒再移动才算拖，手抖不会把它拖走。
 - **右键**：锁定 / 取消锁定、关闭显示。
+
+## 指一下 / 卡片（2026-11-09）
+
+对照 Pointy 补的两件事，做成我们自己的形状：
+
+- **指一下**：`pet {action:"pick"}`，或由 `pet` 面板触发。光标停在哪就框哪块（UIA 从光标下往上挑「比整窗小一圈、又不是整屏」的那一块）；
+  自绘窗口（MuMu、Chromium 壳）问不出子块时退成 720×320 的聚焦框。**回车**确认、`[` `]` 收放、`Esc` 取消，遮罩点穿透、不抢焦点，全屏时不启动。
+- **能追问的卡片**：`pet {action:"card", question:"…"}` 开一张，答案流式写进去；空卡片可以直接在窗口里打字回车问。
+  追问续同一段对话，关掉即忘。它用自己的 `llm.stream`，不走 DSH 会话桥——**我们的桌宠本来就有嘴**，不需要为了一张卡去开一个会话。
+- **快答 / 深入**：气泡用简短回答提示词，卡片用结论优先的详细回答提示词。两档由 `lib/answer.js` 选择；这里直接调用 `llm.stream`，没有工具执行循环，不承诺联网或运行命令。
+- **网页指一段**：扩展右键「溟：指一段」→ 光标下的语义块高亮 → 点一下交出去，带站点、作者、时间、BV 号、播放进度。老的「选中 + Ctrl+Alt+S」留着兜底。
+- **提权程序不读**：`guard` 现在会看前台进程是不是管理员权限跑的，命中就拒。
+- **卡片跟桌宠**：卡片开在桌宠右上方，桌宠一动它跟着挪（250ms）；她手动拖标题栏就停止跟随。`pet {action:"card", op:"follow", on}` 可拨开关（JS 侧要重启 DSH）。气泡=简易回复（quick），卡片=完整回复（full）。
+- **会话桥**：`pet {action:"sessions"}` 列会话、`pet {action:"ask", sessionId, text, capture}` 把一句（连同 `<抓取内容>`）丢进真会话去跑，已确认归属的完整回答消息追加到卡片，不逐 token 显示；关联缺失或同轮混入其他请求时拒绝展示。卡片自己有嘴，这条只在她要「真去动手」时才用。关闭卡片只停止跟随，不代表已提交的 DSH 任务停止。真实宿主端到端尚未验证。
+
+改 `sidecar.ps1` 之后**先跑 `node fix-ps.mjs`**：PS 5.1 要 UTF-8 BOM + CRLF，工具链会悄悄把它们弄丢，
+症状是「报错指在第 30 行，坏的地方在第一个字节」（11-08、11-09 各踩过一次）。
+
+契约测试：`test/card-contract.mjs`（11）、`test/card-ask-contract.mjs`（9）、`test/card-cancel-contract.mjs`（7）、`test/pick-contract.mjs`（10）、`test/session-bridge-contract.mjs`（20）、`test/session-lifecycle-contract.mjs`（17）、`test/session-correlation-contract.mjs`（7）、`test/answer-call-config-contract.mjs`（5）、`test/pet-action-routing-contract.mjs`（5）、`test/ask-branch-contract.mjs`（3）；另有卡片会话所有权、网页点击目标与无工具能力提示词回归。测试类型和未验范围见 `test/pointy-verification-20261109-1626.md`。
+
+卡片回答要带模型路由：宿主 `GenerateOptions.provider` / `model` 是必填，路由取自 `talkerOptions`（`settings.json` 的 talkProvider/talkModel 优先，留空退回插件 config）。缺了当场报「没指定 provider/model」，不会再去撞适配器、更不会把它显示成「模型给的空话」。

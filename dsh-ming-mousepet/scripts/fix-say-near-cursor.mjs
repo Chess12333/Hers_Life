@@ -1,5 +1,5 @@
 // 2026-11-08 14:36 补丁七：say 不带坐标时，现读真实光标，落到它右下方 24px。
-// 起因：她「再到我鼠标这来看看」——我这边先读坐标、再发请求，中间隔一两秒，
+// 起因：浔「再到我鼠标这来看看」——我这边先读坐标、再发请求，中间隔一两秒，
 // 她的手一动，落点就偏了。让 sidecar 自己在动手那一刻读，才跟得上。
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
