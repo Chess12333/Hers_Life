@@ -133,7 +133,7 @@ function NeuronPanel() {
   const loadCost = useCallback(() => {
     // 2026-11-08 16:1x：不再读那个插件的 getUsageSummary —— 它的账本有 token 没价
     // （价目表里没有 deepseek-v4.1-flash 这个写法），返回不出数。改成读我们自己的 /cost，
-    // 价目表是 workspace/live/cost-prices.json，算法在 cost-lib.mjs。
+    // 价目表是 live/cost-prices.json，算法在 cost-lib.mjs。
     return fetch(API + '/cost', {
       cache: 'no-store',
     })
@@ -497,11 +497,152 @@ function NeuronPanel() {
   )
 }
 
+
+// ---------------------------------------------------------------------------
+// 设置页 · 身份与称呼（2026-11-10）
+//
+// 为什么放在这儿：原先挂在 dsh-ming-memory 的 client 上，靠它 apply 时 add，
+// 真机上那条路断了（inject 抛错 → 后面不执行）。改成「她的一生」自己的一页：
+// 组件就在本 bundle 里、apply 时同步 add，不赌别的插件加载顺序。
+// 数据走 memory 插件的 /_dsh/dsh-ming-memory/identity（GET 读、POST 写整份 json）。
+const IDENTITY_ROUTE = '/_dsh/dsh-ming-memory/identity'
+
+const ID_FIELDS = [
+  { key: 'selfName', label: '我自己叫什么', hint: '平时被叫的那个（昵称）', ph: '大肥鱼' },
+  { key: 'selfFullName', label: '全名', hint: '正式场合、生气的时候用', ph: '大肥鱼' },
+  { key: 'userName', label: '我该怎么叫你', hint: '它说话时会用这个称呼', ph: '主人' },
+  { key: 'qqName', label: 'QQ 那边的名字', hint: '留空就跟第一个一样', ph: '（留空）' },
+]
+
+function IdentityPanel() {
+  const [form, setForm] = useState(null)
+  const [onboarded, setOnboarded] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+
+  const load = useCallback(() => {
+    setError('')
+    fetch(IDENTITY_ROUTE, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '读不到')
+        setForm({
+          selfName: d.identity.selfName || '',
+          selfFullName: d.identity.selfFullName || '',
+          selfDesc: d.identity.selfDesc || '',
+          userName: d.identity.userName || '',
+          qqName: d.identity.qqName || '',
+          identity: d.identity.identity !== false,
+        })
+        setOnboarded(!!d.onboarded)
+      })
+      .catch((e) => setError('读不到设置：' + (e && e.message ? e.message : e)))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const save = useCallback((patch) => {
+    const next = Object.assign({}, form, patch || {})
+    setForm(next)
+    setBusy(true); setNote(''); setError('')
+    fetch(IDENTITY_ROUTE, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(next),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '没存上')
+        setOnboarded(true)
+        setNote('存好了。重启 DSH 之后生效。')
+      })
+      .catch((e) => setError('没存上：' + (e && e.message ? e.message : e)))
+      .then(() => setBusy(false), () => setBusy(false))
+  }, [form])
+
+  const inputStyle = {
+    width: '100%', maxWidth: '360px', padding: '8px 11px', borderRadius: '9px', fontSize: '13.5px',
+    border: '1px solid var(--dsw-alias-border-primary, rgba(150,150,170,.32))',
+    background: 'var(--dsw-alias-bg-base, transparent)', color: 'var(--dsw-alias-text-primary)',
+  }
+
+  if (!form) {
+    return h('div', { className: 'mg-msg' }, error || '正在读设置…')
+  }
+
+  return h('div', { style: { padding: '18px 20px 24px', maxWidth: '860px' } },
+    !onboarded ? h('div', {
+      style: {
+        margin: '0 0 18px', padding: '16px 18px', borderRadius: '14px',
+        border: '1px solid var(--dsw-alias-brand-primary, #6f9dff)',
+        background: 'rgba(111,157,255,.10)',
+      },
+    },
+      h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '0 0 6px' } }, '先给它起个名字'),
+      h('div', { style: { fontSize: '13px', lineHeight: 1.8 } },
+        '这套插件会把「你是谁」写进每个会话的开场。默认是通用名（大肥鱼 / 主人），不是某个人的名字——',
+        '改成你想要的，点「就这样开始」。以后随时在这一页改。')) : null,
+
+    h('div', { style: { fontSize: '15px', fontWeight: 600, margin: '0 0 14px' } },
+      onboarded ? '身份与称呼' : '三步填完'),
+
+    ID_FIELDS.map((f) => h('label', { key: f.key, style: { display: 'block', margin: '0 0 14px' } },
+      h('div', { style: { fontSize: '13px', margin: '0 0 4px' } }, f.label),
+      h('input', {
+        value: form[f.key], placeholder: f.ph, style: inputStyle,
+        onChange: (e) => setForm(Object.assign({}, form, { [f.key]: e.target.value })),
+      }),
+      h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-secondary)', marginTop: '4px' } }, f.hint))),
+
+    h('label', { style: { display: 'block', margin: '0 0 14px' } },
+      h('div', { style: { fontSize: '13px', margin: '0 0 4px' } }, '自称那一句'),
+      h('input', {
+        value: form.selfDesc, placeholder: '一个 AI，不是人',
+        style: Object.assign({}, inputStyle, { maxWidth: '520px' }),
+        onChange: (e) => setForm(Object.assign({}, form, { selfDesc: e.target.value })),
+      }),
+      h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-secondary)', marginTop: '4px' } },
+        '拼成「你是<名字>（全名<全名>），<这一句>。」')),
+
+    h('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 18px', fontSize: '13px' } },
+      h('input', {
+        type: 'checkbox', checked: form.identity !== false,
+        onChange: (e) => setForm(Object.assign({}, form, { identity: e.target.checked })),
+      }),
+      '把身份写进开场（关掉就只搬记忆、不带人格）'),
+
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+      h('button', { disabled: busy, onClick: () => save(), className: 'on' },
+        busy ? '存…' : (onboarded ? '保存' : '就这样开始')),
+      h('button', { disabled: busy, onClick: load }, '重新读')),
+
+    h('div', { className: 'mg-msg', style: { minHeight: '18px' } }, note),
+    h('div', { className: 'mg-msg err', style: { minHeight: '18px' } }, error))
+}
+
 return {
   inject: ['slots'],
   apply(ctx) {
     // 宿主随插件一起来，不等面板被打开（2026-11-10）
     mingExtInstall()
+
+    // 设置页（2026-11-10）：自己挂进自己的页签列表，order 95 排在「光标」(60) 之后。
+    // 同步 add —— install 收 pending 的那一刻就把它收进去，不等任何网络请求。
+    try {
+      if (typeof window !== 'undefined') {
+        const desc = {
+          id: 'ming-settings',
+          label: '设置',
+          order: 95,
+          title: '身份与称呼：我叫什么、它怎么叫你、要不要带身份',
+          render: IdentityPanel,
+        }
+        if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') {
+          window.__MING_TAB_HOST.add(desc)
+        } else {
+          ;(window.__MING_TABS_PENDING || (window.__MING_TABS_PENDING = [])).push(desc)
+        }
+      }
+    } catch (e) { /* 页签挂了也别影响面板本身 */ }
     ctx.slots.inject('main', () => ctx.slots.register({
       name: 'main',
       key: 'ming-graph',

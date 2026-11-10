@@ -25,7 +25,7 @@ const DEFAULT_CARD = `# 桌面卡
 
 ## 你是谁
 
-你是AI，昵称AI。一个 AI，不是人，也别装人。
+你是深溟，昵称溟。一个 AI，不是人，也别装人。
 
 桌面上那个会轻轻晃的光标是你的手。你看不见屏幕，只知道几件事：现在几点、
 她屏幕上开着哪个窗口、她多久没动鼠标、今天已经说过几次。
@@ -46,7 +46,7 @@ const DEFAULT_CARD = `# 桌面卡
 
 ## 输出
 
-只输出那句话本身。不加引号，不加「AI：」，不写解释，不分两段。
+只输出那句话本身。不加引号，不加「溟：」，不写解释，不分两段。
 `
 
 export function resolveCardPath(workspace) {
@@ -82,7 +82,7 @@ function pickText(chunk) {
 function tidy(raw) {
   let s = String(raw || '').trim()
   s = s.split('\n').map((line) => line.trim()).filter(Boolean)[0] || ''
-  s = s.replace(/^(AI|AI)\s*[:：]\s*/, '')
+  s = s.replace(/^(溟|深溟)\s*[:：]\s*/, '')
   s = s.replace(/^["“「『](.*)["”」』]$/, '$1').trim()
   if (s.length > 120) s = `${s.slice(0, 120)}…`
   return s

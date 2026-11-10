@@ -52,7 +52,7 @@ sidecar 改的是鼠标判据，重载 sidecar 即可；`index.js` 与 `lib/*.js
 
 # 对着 Pointy 补短板：指认 · 网页取文 · 快答/深入 · 卡片（2026-11-09 16:0x）
 
-对照 `<DSH>\refs\pointy`（MIT，素材 CC BY-NC-SA 不复用）。**只抄判据，不抄壳**：不搬 Electron 运行时、托盘、单实例、卸载清理——我们的 sidecar 本来就是常驻进程。
+对照 `C:\dsh\refs\pointy`（MIT，素材 CC BY-NC-SA 不复用）。**只抄判据，不抄壳**：不搬 Electron 运行时、托盘、单实例、卸载清理——我们的 sidecar 本来就是常驻进程。
 
 ## 1. 指认：从「拖一个框」变成「指一下」
 

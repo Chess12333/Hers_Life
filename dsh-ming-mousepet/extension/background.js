@@ -1,8 +1,8 @@
 // 发请求 + 右键菜单。service worker 的 fetch 不受页面 CORS 限制。
 //
 // 两条入口：
-//  ① 右键「AI：指一段」→ 页面进入指认模式，光标指到哪块就高亮哪块，点一下交出去。
-//  ② 选中一段字 → 右键「交给AI：看这段」/ Ctrl+Alt+S（兜底，老路照旧）。
+//  ① 右键「溟：指一段」→ 页面进入指认模式，光标指到哪块就高亮哪块，点一下交出去。
+//  ② 选中一段字 → 右键「交给溟：看这段」/ Ctrl+Alt+S（兜底，老路照旧）。
 
 const PICK_URL = 'http://127.0.0.1:47322/webpick'
 
@@ -22,12 +22,12 @@ function makeMenu() {
     chrome.contextMenus.removeAll(() => {
       chrome.contextMenus.create({
         id: 'ming-pick-block',
-        title: 'AI：指一段',
+        title: '溟：指一段',
         contexts: ['page', 'frame', 'image', 'link'],
       })
       chrome.contextMenus.create({
         id: 'ming-webpick',
-        title: '交给AI：看这段',
+        title: '交给溟：看这段',
         contexts: ['selection'],
       })
     })

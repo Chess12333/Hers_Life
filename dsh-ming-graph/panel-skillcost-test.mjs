@@ -48,7 +48,7 @@ ok(fmtMoney(null) === '—', '没数就写 —，不写 0')
 
 // 2) skill 清单：开/关、遮罩标记、过滤、空态
 const data = {
-  ok: true, cwd: 'C:\\dsh\\workspace', offFile: 'C:\\dsh\\workspace\\skills-off.json',
+  ok: true, cwd: (process.env.MING_WORKSPACE || ''), offFile: 'C:\\dsh\\工作目录\\skills-off.json',
   total: 3, offCount: 1,
   rows: [
     { name: 'humanizer', desc: '去 AI 味', on: true, provider: 'filesystem', source: 'user-dsh' },

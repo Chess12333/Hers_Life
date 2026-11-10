@@ -14,3 +14,6 @@ preview.html
 shot-*.png
 *.png
 !icon.png
+
+# 本机备份（含旧代码与预览数据），不入库
+backup/

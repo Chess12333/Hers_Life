@@ -1,4 +1,4 @@
-// AI的网页取文 v0.2 —— 指一段就交出去，不用先选中。
+// 溟的网页取文 v0.2 —— 指一段就交出去，不用先选中。
 //
 // 判据（照 Pointy 的思路，但只留我们要的）：
 //  · 只在「指一段」模式下动 DOM；平时不挂鼠标监听，只留一个消息入口。
@@ -111,7 +111,7 @@
     }
     const tag = cur.el.tagName.toLowerCase()
     const note = cur.len > 4000 ? ` · 只发前 4000 字` : ''
-    tipEl.textContent = `${tag} · ${cur.len} 字${note} · 点一下交给AI · [ ] 收放 · Esc 取消`
+    tipEl.textContent = `${tag} · ${cur.len} 字${note} · 点一下交给溟 · [ ] 收放 · Esc 取消`
     boxEl.style.display = 'block'
     tipEl.style.display = 'block'
     boxEl.style.left = `${Math.max(0, r.left - 2)}px`
@@ -264,7 +264,7 @@
         border: '1px solid rgba(110,196,255,.45)', borderRadius: '8px',
         padding: '6px 10px',
       })
-      badge.textContent = 'AI：指一段 · 点一下交出 · Esc 取消'
+      badge.textContent = '溟：指一段 · 点一下交出 · Esc 取消'
       document.documentElement.appendChild(badge)
     }
     badge.style.display = 'block'

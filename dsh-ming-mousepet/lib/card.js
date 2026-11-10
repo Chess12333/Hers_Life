@@ -62,7 +62,7 @@ export function createCard({ llm, engine, cardPath = '', fallbackCard = DEFAULT_
     const cancelled = () => ({ ok: false, why: '已取消' })
     const t0 = Date.now()
     try {
-      await engine.request('card', { op: 'open', title: 'AI' }, 8000).catch(() => null)
+      await engine.request('card', { op: 'open', title: '溟' }, 8000).catch(() => null)
       if (!owns()) return cancelled()
       await engine.request('card', { op: 'append', text: '\n' }, 4000).catch(() => null)
       if (!owns()) return cancelled()
@@ -116,7 +116,7 @@ export function createCard({ llm, engine, cardPath = '', fallbackCard = DEFAULT_
   }
 
   /** 把一段现成的字放进卡片（框选、网页取文都可以走这条，而不是只说一句话）。 */
-  async function show(text, title = 'AI') {
+  async function show(text, title = '溟') {
     const body = String(text || '').trim()
     if (!body) return { ok: false, why: '没内容' }
     await engine.request('card', { op: 'open', title }, 8000).catch(() => null)

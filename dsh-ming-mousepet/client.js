@@ -99,213 +99,401 @@ window.__ModuleLoader__.load({
       return data
     }
 
-    function Page() {
-      const [settings, setSettings] = useState(null)
-      const [note, setNote] = useState('')
-      const [error, setError] = useState('')
-      const [busy, setBusy] = useState(false)
-      const [previewOn, setPreviewOn] = useState(false)
-      const [sched, setSched] = useState(null)
+    // >>> 共享光标页（源 C:/dsh/dsh-ming-ui/src/cursor-page.js —— 改源后跑 sync-cursor-page.mjs，别手改这段）
+    function makeCursorPage(React, io) {
+      const h = React.createElement
 
-      const applyResult = (data) => {
-        if (data?.settings) setSettings(data.settings)
+      // 15 个状态的名字两边共用一份，免得同一个图标在两边叫不同的名字
+      const STYLE_LABELS = {
+        pointer: '指针', work: '干活', unavailiable: '不可用', link: '可点', text: '文本',
+        cross: '精确', busy: '等待', move: '移动', vert: '上下', horz: '左右',
+        help: '求助', handwriting: '手写', dgn1: '对角一', dgn2: '对角二', alternate: '备用',
+      }
+      const labelOf = (id) => STYLE_LABELS[id] || id
+
+      const S = {
+        page: { padding: '18px 20px 26px', maxWidth: '1080px', color: '#e8edf6', fontSize: '14px' },
+        head: { display: 'flex', alignItems: 'baseline', gap: '12px', margin: '0 0 14px' },
+        h1: { fontSize: '17px', fontWeight: 600, margin: 0, letterSpacing: '.3px' },
+        headNote: { fontSize: '12.5px', color: '#8b9ab3' },
+        banner: {
+          margin: '0 0 14px', padding: '10px 14px', borderRadius: '10px',
+          background: 'rgba(255,170,60,.10)', border: '1px solid rgba(255,170,60,.32)',
+          color: '#f0b45c', fontSize: '13px', lineHeight: 1.7,
+        },
+        card: {
+          border: '1px solid rgba(255,255,255,.09)', borderRadius: '14px',
+          background: 'rgba(255,255,255,.025)', padding: '16px 18px', margin: '0 0 14px',
+        },
+        hero: { display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' },
+        stage: {
+          width: '132px', height: '132px', flex: '0 0 auto', borderRadius: '12px',
+          background: 'radial-gradient(circle at 50% 45%, rgba(120,170,255,.18), rgba(0,0,0,.25) 70%)',
+          border: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        },
+        body: { flex: '1 1 320px', minWidth: 0 },
+        title: { fontSize: '15px', fontWeight: 600, margin: '2px 0 6px' },
+        hint: { fontSize: '12.5px', color: '#8b9ab3', lineHeight: 1.7 },
+        row: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '12px' },
+        seg: { display: 'inline-flex', border: '1px solid rgba(255,255,255,.14)', borderRadius: '10px', overflow: 'hidden' },
+        segBtn: (on) => ({
+          padding: '7px 15px', fontSize: '13px', cursor: 'pointer', border: 0,
+          background: on ? 'rgba(120,170,255,.22)' : 'transparent',
+          color: on ? '#cfe2ff' : '#98a6bd', fontWeight: on ? 600 : 400,
+        }),
+        num: {
+          width: '92px', padding: '6px 9px', borderRadius: '8px', fontSize: '13px',
+          border: '1px solid rgba(255,255,255,.14)', background: 'rgba(0,0,0,.22)', color: '#e8edf6',
+        },
+        range: { flex: '1 1 220px', minWidth: '160px', accentColor: '#78aaff' },
+        value: { fontSize: '12.5px', color: '#9fb3d1', minWidth: '52px', textAlign: 'right' },
+        secTitle: { fontSize: '13px', fontWeight: 600, color: '#c7d5ea', margin: '0 0 4px' },
+        grid: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' },
+        cell: (on) => ({
+          width: '76px', padding: '9px 6px 7px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
+          border: on ? '1px solid rgba(120,170,255,.75)' : '1px solid rgba(255,255,255,.09)',
+          background: on ? 'rgba(120,170,255,.16)' : 'rgba(255,255,255,.02)',
+        }),
+        cellName: { display: 'block', fontSize: '11.5px', color: '#9fb3d1', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+        foot: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '4px' },
+        primary: {
+          padding: '8px 18px', borderRadius: '10px', border: 0, cursor: 'pointer', fontSize: '13.5px', fontWeight: 600,
+          background: 'linear-gradient(180deg,#6f9dff,#4a7fe6)', color: '#fff',
+        },
+        btn: {
+          padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px',
+          border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.04)', color: '#cbd8ea',
+        },
+        line: { fontSize: '12.5px', color: '#8b9ab3', marginTop: '10px', minHeight: '18px' },
+        err: { fontSize: '12.5px', color: '#ff9a9a', marginTop: '6px', minHeight: '18px' },
+        empty: { padding: '40px', textAlign: 'center', color: '#8b9ab3', fontSize: '13px' },
       }
 
-      const load = async () => {
-        const data = await api('/settings')
-        applyResult(data)
-        // 2026-11-08：自动开口的节奏存在 state 文件里，改完下一轮生效，不用重启。
-        try { setSched(await api('/schedule')) } catch { setSched(null) }
-      }
+      return function CursorPage() {
+        const [cfg, setCfg] = React.useState(null)
+        const [styles, setStyles] = React.useState([])
+        const [busy, setBusy] = React.useState(false)
+        const [note, setNote] = React.useState('')
+        const [error, setError] = React.useState('')
+        const [live, setLive] = React.useState('')
+        const [banner, setBanner] = React.useState('')
+        const [extra, setExtra] = React.useState(null)   // 完整版才有：开口节奏 / 模型 / 晃动识别
+        const [holdDraft, setHoldDraft] = React.useState(null)   // 输入框里正在打的数，别每敲一下都保存
+        const [sizeDraft, setSizeDraft] = React.useState(null)
 
-      useEffect(() => {
-        load().catch((e) => setError(e.message))
-      }, [])
+        const reload = React.useCallback(() => {
+          setError('')
+          Promise.resolve()
+            .then(() => io.load())
+            .then((r) => {
+              setCfg(r.cfg)
+              setStyles(r.styles || [])
+              setBanner(r.banner || '')
+              return io.extra ? io.extra.load().then((x) => setExtra(x || null)).catch(() => setExtra(null)) : null
+            })
+            .catch((e) => setError('读不到：' + (e && e.message ? e.message : e)))
+        }, [])
 
-      const update = (patch) => setSettings((current) => current ? { ...current, ...patch } : current)
+        React.useEffect(() => { reload() }, [reload])
 
-      const save = async () => {
-        if (!settings) return
-        setBusy(true); setError(''); setNote('')
-        try {
-          const data = await api('/settings', { method: 'POST', body: settings })
-          applyResult(data)
-          if (sched) {
-            try {
-              const ns = await api('/schedule', { method: 'POST', body: sched })
-              setSched(ns)
-            } catch (e) {
-              setError('节奏没存上：' + e.message)
-            }
-          }
-          setNote('已保存并立即生效，不需要重启。')
-        } catch (e) {
-          setError(e.message)
-        } finally {
-          setBusy(false)
+        const put = (patch) => {
+          const merged = Object.assign({}, cfg, patch || {})
+          setCfg(merged)
+          setBusy(true); setNote(''); setError('')
+          Promise.resolve()
+            .then(() => io.save(merged))
+            .then((r) => { if (r && r.cfg) setCfg(r.cfg); setNote('已生效') })
+            .catch((e) => setError('没存上：' + (e && e.message ? e.message : e)))
+            .then(() => setBusy(false), () => setBusy(false))
         }
-      }
 
-      const reset = async () => {
-        const defaults = { cursorMode: 'companion', cursorHoldMs: 2600, cursorSize: 64 }
-        setSettings((current) => current ? { ...current, ...defaults } : defaults)
-        setBusy(true); setError(''); setNote('')
-        try {
-          const data = await api('/settings', { method: 'POST', body: defaults })
-          applyResult(data)
-          setNote('已恢复默认：陪伴 · 64px。')
-        } catch (e) {
-          setError(e.message)
-        } finally {
-          setBusy(false)
+        const putExtra = (kind, patch) => {
+          if (!io.extra) return
+          Promise.resolve()
+            .then(() => io.extra.save(kind, patch))
+            .then((r) => { if (r) setExtra((cur) => Object.assign({}, cur, r)); setNote('已生效') })
+            .catch((e) => setError('没存上：' + (e && e.message ? e.message : e)))
         }
-      }
 
-      const hideCursor = async () => {
-        setError('')
-        try {
-          await api('/hide', { method: 'POST', body: {} })
-          setPreviewOn(false)
-          setNote('AI 光标已收起；再点“在屏幕上试一下”可以叫出来。')
-        } catch (e) {
-          setError(e.message)
+        const tryIt = () => {
+          setLive('正在叫光标…'); setError('')
+          Promise.resolve()
+            .then(() => io.tryIt())
+            .then((t) => setLive(t || '好了'))
+            .catch((e) => { setLive(''); setError('没叫出来：' + (e && e.message ? e.message : e)) })
         }
-      }
 
-      const showCursor = async () => {
-        setError('')
-        try {
-          await api('/show', { method: 'POST', body: {} })
-          setPreviewOn(true)
-          setNote('已把 AI 光标放到屏幕上；真实鼠标没有移动。')
-        } catch (e) {
-          setError(e.message)
+        if (!cfg && !error) return h('div', { style: S.page }, h('div', { style: S.empty }, '正在读光标设置…'))
+
+        if (!cfg) {
+          return h('div', { style: S.page },
+            h('div', { style: S.head }, h('div', { style: S.h1 }, 'AI 光标')),
+            h('div', { style: S.banner }, error),
+            h('div', { style: S.foot }, h('button', { style: S.btn, onClick: reload }, '重试')))
         }
-      }
 
-      if (!settings) {
+        const clean = cfg.mode === 'clean'
+        const secs = Math.round((cfg.holdMs || 2600) / 100) / 10
+
         return h('div', { style: S.page },
-          h('div', { style: S.lead }, error ? `加载失败：${error}` : '正在读取桌宠设置……'),
-          h('button', {
-            type: 'button',
-            style: S.btn,
-            onClick: () => { setError(''); load().catch((e) => setError(e.message)) },
-          }, '重试'),
-        )
+          h('div', { style: S.head },
+            h('div', { style: S.h1 }, 'AI 光标'),
+            h('div', { style: S.headNote }, io.note || '桌面上那只指针；它按正在做的事自己换姿势')),
+
+          banner ? h('div', { style: S.banner }, banner) : null,
+
+          // ① 一眼看到：现在长什么样 + 什么时候在
+          h('div', { style: S.card },
+            h('div', { style: S.hero },
+              h('div', { style: S.stage }, h('span', { style: io.sprite(cfg.style, 72) })),
+              h('div', { style: S.body },
+                h('div', { style: S.title }, labelOf(cfg.style)),
+                h('div', { style: S.hint }, clean
+                  ? '露 ' + secs + ' 秒，然后自己收（适合不想被它一直挡着的时候）'
+                  : '一直在屏幕上，直到收起（陪伴：看得见它在忙什么）'),
+
+                h('div', { style: S.row },
+                  h('div', { style: S.seg },
+                    h('button', { style: S.segBtn(!clean), disabled: busy, onClick: () => put({ mode: 'companion' }) }, '陪伴'),
+                    h('button', { style: S.segBtn(clean), disabled: busy, onClick: () => put({ mode: 'clean' }) }, '整洁')),
+                  clean ? h('span', { style: S.hint }, '露多久') : null,
+                  clean ? h('input', {
+                    type: 'number', min: 400, max: 60000, step: 100, style: S.num,
+                    value: holdDraft == null ? cfg.holdMs : holdDraft,
+                    onChange: (e) => setHoldDraft(Number(e.target.value)),
+                    onBlur: () => { const v = Math.max(400, Math.min(60000, Number(holdDraft) || cfg.holdMs)); setHoldDraft(null); if (v !== cfg.holdMs) put({ holdMs: v }) },
+                  }) : null,
+                  clean ? h('span', { style: S.hint }, '毫秒') : null,
+                ),
+
+                h('div', { style: S.row },
+                  h('span', { style: Object.assign({}, S.hint, { whiteSpace: 'nowrap' }) }, '大小'),
+                  h('input', {
+                    type: 'range', min: 24, max: 192, step: 4, style: S.range,
+                    value: sizeDraft == null ? cfg.size : sizeDraft,
+                    onChange: (e) => setSizeDraft(Number(e.target.value)),
+                    onMouseUp: () => { if (sizeDraft != null && sizeDraft !== cfg.size) put({ size: sizeDraft }); setSizeDraft(null) },
+                    onTouchEnd: () => { if (sizeDraft != null && sizeDraft !== cfg.size) put({ size: sizeDraft }); setSizeDraft(null) },
+                  }),
+                  h('span', { style: S.value }, (sizeDraft == null ? cfg.size : sizeDraft) + 'px')),
+              )),
+          ),
+
+          // ② 换样子：点一下就换
+          h('div', { style: S.card },
+            h('div', { style: S.secTitle }, '样子'),
+            h('div', { style: S.hint }, '点一下就换。屏幕上那只按状态自己变姿势，这里定的是默认那只。'),
+            h('div', { style: S.grid },
+              styles.map((id) => h('div', {
+                key: id, style: S.cell(cfg.style === id), title: id,
+                onClick: () => put({ style: id }),
+              },
+              h('span', { style: io.sprite(id, 30) }),
+              h('span', { style: S.cellName }, labelOf(id)))))),
+
+          // ②' 陪伴（只有完整版才有这些；轻量版 io.extra 为空，整块不出现）
+          extra ? h('div', { style: S.card },
+            h('div', { style: S.secTitle }, '陪伴'),
+            h('div', { style: S.hint }, '它什么时候自己开口、用哪个模型、晃一下鼠标算不算叫你——这些归完整版管，改完立刻生效。'),
+
+            extra.sched ? h('div', null,
+              h('div', { style: S.row },
+                h('span', { style: Object.assign({}, S.hint, { whiteSpace: 'nowrap' }) }, '开口节奏'),
+                h('select', {
+                  style: S.num, value: extra.sched.gapMode || 'off',
+                  onChange: (e) => putExtra('sched', { gapMode: e.target.value }),
+                },
+                  h('option', { value: 'off' }, '关'),
+                  h('option', { value: 'fixed' }, '定时'),
+                  h('option', { value: 'random' }, '随机'),
+                  h('option', { value: 'heartbeat' }, '心跳')),
+                h('span', { style: S.hint }, '今天 ' + (extra.sched.spokenToday || 0) + ' 句'),
+                extra.sched.nextAt ? h('span', { style: S.hint }, '· 下次约 ' + String(extra.sched.nextAt).slice(11, 16)) : null),
+
+              extra.sched.gapMode === 'heartbeat' ? h('div', { style: S.row },
+                h('span', { style: S.hint }, '最低'),
+                h('input', { type: 'number', min: 1, max: 1440, style: S.num, value: extra.sched.hbMin,
+                  onChange: (e) => setExtra((c) => Object.assign({}, c, { sched: Object.assign({}, c.sched, { hbMin: Number(e.target.value) }) })),
+                  onBlur: (e) => putExtra('sched', { hbMin: Number(e.target.value) }) }),
+                h('span', { style: S.hint }, '中位'),
+                h('input', { type: 'number', min: 1, max: 1440, style: S.num, value: extra.sched.hbCenter,
+                  onChange: (e) => setExtra((c) => Object.assign({}, c, { sched: Object.assign({}, c.sched, { hbCenter: Number(e.target.value) }) })),
+                  onBlur: (e) => putExtra('sched', { hbCenter: Number(e.target.value) }) }),
+                h('span', { style: S.hint }, '最高'),
+                h('input', { type: 'number', min: 1, max: 1440, style: S.num, value: extra.sched.hbMax,
+                  onChange: (e) => setExtra((c) => Object.assign({}, c, { sched: Object.assign({}, c.sched, { hbMax: Number(e.target.value) }) })),
+                  onBlur: (e) => putExtra('sched', { hbMax: Number(e.target.value) }) }),
+                h('span', { style: S.hint }, '分'))
+                : h('div', { style: S.row },
+                  h('span', { style: S.hint }, '间隔'),
+                  h('input', { type: 'number', min: 1, max: 1440, style: S.num, value: extra.sched.minGapMinutes,
+                    onChange: (e) => setExtra((c) => Object.assign({}, c, { sched: Object.assign({}, c.sched, { minGapMinutes: Number(e.target.value) }) })),
+                    onBlur: (e) => putExtra('sched', { minGapMinutes: Number(e.target.value) }) }),
+                  h('span', { style: S.hint }, '分钟')),
+
+              h('div', { style: S.row },
+                h('span', { style: S.hint }, '每天最多'),
+                h('input', { type: 'number', min: 0, max: 999, style: S.num,
+                  value: extra.sched.dailyMax < 0 ? '' : extra.sched.dailyMax,
+                  disabled: extra.sched.dailyMax < 0,
+                  onChange: (e) => setExtra((c) => Object.assign({}, c, { sched: Object.assign({}, c.sched, { dailyMax: Number(e.target.value) }) })),
+                  onBlur: (e) => putExtra('sched', { dailyMax: Number(e.target.value) }) }),
+                h('span', { style: S.hint }, '句'),
+                h('button', { style: S.btn, onClick: () => putExtra('sched', { dailyMax: extra.sched.dailyMax < 0 ? 6 : -1 }) },
+                  extra.sched.dailyMax < 0 ? '改成限额' : '不限'),
+                h('button', { style: S.btn, onClick: reload }, '刷新')))
+              : h('div', { style: S.hint }, '读不到节奏设置（完整版没在跑？）'),
+
+            extra.models && extra.models.current ? h('div', { style: S.row },
+              h('span', { style: Object.assign({}, S.hint, { whiteSpace: 'nowrap' }) }, '用哪个模型'),
+              h('select', {
+                style: Object.assign({}, S.num, { width: '300px' }),
+                value: extra.models.current.provider + '||' + extra.models.current.model,
+                onChange: (e) => {
+                  const at = e.target.value.indexOf('||')
+                  putExtra('model', at < 0
+                    ? { talkProvider: '', talkModel: '' }
+                    : { talkProvider: e.target.value.slice(0, at), talkModel: e.target.value.slice(at + 2) })
+                },
+              },
+                h('option', { value: '' }, '插件默认'),
+                (extra.models.providers || []).map((p) => (p.models && p.models.length
+                  ? h('optgroup', { key: p.id, label: p.name || p.id },
+                    p.models.map((m) => h('option', { key: p.id + '||' + m.id, value: p.id + '||' + m.id },
+                      m.name && m.name !== m.id ? m.name + '（' + m.id + '）' : m.id)))
+                  : h('option', { key: p.id, value: p.id + '||' + extra.models.current.model, disabled: true },
+                    (p.name || p.id) + (p.error ? '（列不出来）' : '（没有模型目录）'))))),
+              h('span', { style: S.hint }, extra.models.current.fromSettings ? '按这里选的' : '插件默认'))
+              : null,
+
+            extra.shake ? h('div', null,
+              h('div', { style: S.row },
+                h('span', { style: Object.assign({}, S.hint, { whiteSpace: 'nowrap' }) }, '晃一下鼠标'),
+                h('div', { style: S.seg },
+                  h('button', { style: S.segBtn(!!extra.shake.on), onClick: () => putExtra('shake', { on: true }) }, '算叫你'),
+                  h('button', { style: S.segBtn(!extra.shake.on), onClick: () => putExtra('shake', { on: false }) }, '不理')),
+                h('span', { style: S.hint }, '灵敏度'),
+                h('select', { style: S.num, value: extra.shake.level, onChange: (e) => putExtra('shake', { level: e.target.value }) },
+                  h('option', { value: 'low' }, '低'),
+                  h('option', { value: 'medium' }, '中'),
+                  h('option', { value: 'high' }, '高'))),
+              h('div', { style: S.hint }, '开了之后：晃一下鼠标，光标飞过去问一句「框哪块」。'))
+              : null)
+            : null,
+
+          // ③ 到底动没动：叫出来看一眼，别只信「保存成功」
+          h('div', { style: S.foot },
+            h('button', { style: S.primary, onClick: tryIt }, '在屏幕上试一下'),
+            h('button', { style: S.btn, disabled: busy, onClick: reload }, '重新读')),
+
+          h('div', { style: S.line }, live || note),
+          h('div', { style: S.err }, error))
       }
-
-      const isClean = settings.cursorMode === 'clean'
-
-      return h('div', { style: S.page },
-        h('div', { style: S.title }, '桌宠 · AI 光标'),
-        h('div', { style: S.lead },
-          '这里调 AI 光标的显示方式和大小；外观会像正常鼠标一样，按当前操作自动切换。默认不移动你的真实光标、不抢键盘焦点，保存后立即生效。'),
-
-        h('div', { style: S.card },
-          h('div', { style: S.title }, '显示方式'),
-          h('div', { style: S.hint }, '陪伴 = 一直显示到收工；整洁 = 每次动作后约 ' + (settings.cursorHoldMs || 2600) + 'ms 自动收起。'),
-          h('div', { style: S.row },
-            h('button', { type: 'button', style: S.modeBtn(!isClean), onClick: () => update({ cursorMode: 'companion' }) }, '陪伴（一直显示）'),
-            h('button', { type: 'button', style: S.modeBtn(isClean), onClick: () => update({ cursorMode: 'clean' }) }, '整洁（动作后收起）'),
-          ),
-          isClean ? h('div', { style: { ...S.row, marginTop: '10px' } },
-            h('span', { style: S.hint }, '收起前停留'),
-            h('input', {
-              type: 'number', min: 300, max: 10000, step: 100,
-              style: S.num,
-              value: settings.cursorHoldMs,
-              onChange: (e) => update({ cursorHoldMs: Math.max(300, Math.min(10000, Number(e.target.value) || 2600)) }),
-            }),
-            h('span', { style: S.hint }, 'ms'),
-          ) : null,
-        ),
-
-        h('div', { style: S.card },
-          h('div', { style: S.title }, '光标状态（自动切换）'),
-          h('div', { style: S.hint }, '这些是同一只光标的 15 个状态，不是样式；不用手选，插件按操作自动切。'),
-          h('div', { style: S.stateGrid },
-            STATE_ROWS.map(([id, label, why]) => h('div', { key: id, style: S.stateItem },
-              h('img', { src: `${ASSET}/${id}.png`, alt: id, style: S.stateThumb }),
-              h('div', { style: { minWidth: 0 } },
-                h('div', { style: S.stateName }, label),
-                h('div', { style: S.stateWhy }, why),
-              ),
-            )),
-          ),
-        ),
-
-        h('div', { style: S.card },
-          h('div', { style: S.title }, '光标大小'),
-          h('div', { style: S.hint }, `当前 ${settings.cursorSize}px；暂停时会自动变成红色“禁止”。`),
-          h('div', { style: S.row },
-            h('input', {
-              type: 'range', min: 24, max: 192, step: 4,
-              style: S.range,
-              value: settings.cursorSize,
-              onChange: (e) => update({ cursorSize: Number(e.target.value) || 64 }),
-            }),
-            h('input', {
-              type: 'number', min: 24, max: 192, step: 4,
-              style: S.num,
-              value: settings.cursorSize,
-              onChange: (e) => update({ cursorSize: Math.max(24, Math.min(192, Number(e.target.value) || 64)) }),
-            }),
-            h('span', { style: S.hint }, 'px'),
-          ),
-          h('div', { style: { ...S.row, marginTop: '8px' } },
-            [48, 64, 96, 128].map((n) => h('button', {
-              key: n, type: 'button', style: S.btn,
-              onClick: () => update({ cursorSize: n }),
-            }, `${n}px`)),
-          ),
-        ),
-
-        h('div', { style: S.card },
-          h('div', { style: S.title }, '自动开口的节奏'),
-          h('div', { style: S.hint }, '桌宠多久自己说一句。关 / 心跳（越靠近基础间隔越容易出现）/ 随机 / 固定。改完下一轮就生效，不用重启。'),
-          sched ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
-            h('div', { style: S.row },
-              [['heartbeat', '心跳'], ['random', '随机'], ['fixed', '固定'], ['off', '关']].map(([id, label]) =>
-                h('button', {
-                  key: id, type: 'button',
-                  style: S.modeBtn(sched.schedMode === id),
-                  onClick: () => setSched((cur) => ({ ...cur, schedMode: id })),
-                }, label)),
-            ),
-            h('div', { style: S.row },
-              h('span', { style: S.hint }, '基础间隔'),
-              h('input', {
-                type: 'number', min: 1, max: 1440, step: 1, style: S.num,
-                value: sched.everyMin,
-                onChange: (e) => setSched((cur) => ({ ...cur, everyMin: Math.max(1, Math.min(1440, Number(e.target.value) || 50)) })),
-              }),
-              h('span', { style: S.hint }, '分钟'),
-              h('span', { style: S.hint }, '　每天最多'),
-              h('input', {
-                type: 'number', min: 0, max: 200, step: 1, style: S.num,
-                value: sched.dailyCap,
-                onChange: (e) => setSched((cur) => ({ ...cur, dailyCap: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })),
-              }),
-              h('span', { style: S.hint }, '句'),
-            ),
-            h('div', { style: S.hint }, `今天已经说了 ${sched.spokenToday ?? 0} 句`),
-          ) : h('div', { style: S.hint }, '读不到节奏设置'),
-        ),
-
-        h('div', { style: S.row },
-          h('button', { type: 'button', style: S.primary, disabled: busy, onClick: save }, busy ? '保存中…' : '保存并生效'),
-          h('button', { type: 'button', style: S.btn, disabled: busy, onClick: reset }, '恢复默认'),
-          h('button', { type: 'button', style: S.btn, onClick: previewOn ? hideCursor : showCursor }, previewOn ? '收起光标' : '在屏幕上试一下'),
-        ),
-        h('div', { style: S.note }, note),
-        h('div', { style: S.error }, error),
-      )
     }
+    // <<< 共享光标页
+
+    // 完整版：读写自己的 settings（cursor* 三个字段），映射成共享页那套 {mode, holdMs, size, style}。
+    // 顺带看一眼轻量版在不在跑——两边都画就是两只光标，页上给一句提示，别让人自己去猜。
+    const toCfg = (s) => ({
+      mode: s && s.cursorMode === 'clean' ? 'clean' : 'companion',
+      holdMs: (s && Number(s.cursorHoldMs)) || 2600,
+      size: (s && Number(s.cursorSize)) || 64,
+      style: (s && s.cursorState) || 'pointer',
+    })
+    const CursorTab = makeCursorPage(React, {
+      note: '桌面上那只指针；它按正在做的事自己换姿势',
+      // 完整版的素材服务只认 /assets/<style>.png（单张 64×64 的预览图，来自 assets/previews）。
+      // /assets/cursors/... 不在白名单里，会 404 —— 2026-11-10 撞过一次：图全黑就是这个。
+      sprite: (id, px) => ({
+        display: 'inline-block', width: px + 'px', height: px + 'px',
+        backgroundImage: 'url(' + ASSET + '/' + id + '.png)',
+        backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', imageRendering: 'pixelated',
+      }),
+      load: async () => {
+        const d = await (await fetch(API + '/settings', { cache: 'no-store' })).json()
+        if (!d || !d.ok || !d.settings) throw new Error('读不到设置')
+        let styles = []
+        try {
+          const k = await (await fetch(API + '/skins', { cache: 'no-store' })).json()
+          if (k && k.ok) styles = (k.builtin || []).slice()
+        } catch (e) { /* 没有就用下面那份 */ }
+        if (!styles.length) styles = ['pointer', 'work', 'unavailiable', 'link', 'text', 'cross', 'busy', 'move', 'vert', 'horz', 'help', 'handwriting', 'dgn1', 'dgn2', 'alternate']
+        let banner = ''
+        try {
+          const c = await (await fetch('/dsh-ming-cursor/api/settings', { cache: 'no-store' })).json()
+          if (c && c.ok) banner = '轻量版（dsh-ming-cursor）也在跑，两只光标会打架。建议在插件里把它禁用——光标页仍然在这一页，不受影响。'
+        } catch (e) { /* 没装就没有 */ }
+        return { cfg: toCfg(d.settings), styles, banner }
+      },
+      save: async (c) => {
+        const d = await (await fetch(API + '/settings', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            cursorMode: c.mode === 'clean' ? 'clean' : 'companion',
+            cursorHoldMs: c.holdMs,
+            cursorSize: c.size,
+            cursorState: c.style,
+          }),
+        })).json()
+        if (!d || !d.ok) throw new Error('没存上')
+        return { cfg: toCfg(d.settings) }
+      },
+      tryIt: async () => {
+        const d = await (await fetch(API + '/show', { method: 'POST', cache: 'no-store' })).json()
+        if (!d || !d.ok) throw new Error('完整版没在跑？')
+        return '完整版那只光标已经叫出来了'
+      },
+      // 陪伴那几块（开口节奏 / 用哪个模型 / 晃动识别）：只有完整版有，轻量版不提供，页面上就不出现。
+      extra: {
+        load: async () => {
+          const out = {}
+          try { const d = await (await fetch(API + '/schedule', { cache: 'no-store' })).json(); if (d && d.ok) out.sched = d } catch (e) {}
+          try { const d = await (await fetch(API + '/models', { cache: 'no-store' })).json(); if (d && d.ok) out.models = d } catch (e) {}
+          try { const d = await (await fetch(API + '/shake', { cache: 'no-store' })).json(); if (d && d.ok) out.shake = d.shake } catch (e) {}
+          return Object.keys(out).length ? out : null
+        },
+        save: async (kind, patch) => {
+          const url = API + (kind === 'sched' ? '/schedule' : kind === 'shake' ? '/shake' : '/settings')
+          const d = await (await fetch(url, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch),
+          })).json()
+          if (!d || !d.ok) throw new Error('没存上')
+          if (kind === 'sched') return { sched: d }
+          if (kind === 'shake') return { shake: d.shake }
+          return {}
+        },
+      },
+    })
 
     return {
-      // 2026-11-08 15:17 她：「把设置栏中的桌宠删掉」。
-      // 光标 / 皮肤 / 自动开口现在全在「她的一生」→ 桌宠页里，设置栏这一节是重复的。
-      apply() {},
+      // 2026-11-08 15:17 她：「把设置栏中的桌宠删掉」——那会儿完整版自己没有页，
+      // 全靠「她的一生 → 桌宠」那一页，而那一页后来没挂成页签，光标设置就断了入口。
+      // 2026-11-10：完整版自己带一个「光标」页，有 graph 就挂进去，没有就注册设置节。
+      apply(ctx) {
+        const DESC = { id: 'pet-cursor', label: '光标', order: 60, title: 'AI 光标：样子 / 大小 / 什么时候在', render: CursorTab }
+        const SPEC = { name: 'settings.section', id: 'ming-mousepet-cursor', label: () => 'AI 光标', order: 42 }
+        const section = () => {
+          try {
+            if (ctx && ctx.slots && typeof ctx.slots.inject === 'function') {
+              ctx.slots.inject('settings.section', () => ctx.slots.register(SPEC, CursorTab))
+              return true
+            }
+          } catch (e) { /* 没有设置位就算了 */ }
+          return false
+        }
+        if (typeof window === 'undefined') { section(); return }
+        if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') {
+          window.__MING_TAB_HOST.add(DESC)
+          return
+        }
+        ;(window.__MING_TABS_PENDING || (window.__MING_TABS_PENDING = [])).push(DESC)
+        setTimeout(() => {
+          if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') return
+          const q = window.__MING_TABS_PENDING
+          if (Array.isArray(q)) { const i = q.indexOf(DESC); if (i >= 0) q.splice(i, 1) }
+          section()
+        }, 1500)
+      },
     }
   },
 })

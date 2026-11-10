@@ -1785,6 +1785,17 @@ public static class DshOverlay
                 shakeMenu.DropDownItems.Add(ansQuick);
                 shakeMenu.DropDownItems.Add(ansFull);
                 menu.Items.Add(shakeMenu);
+                // 2026-11-10 她：常态识别——开启之后一直看，只在画面动了才留一帧。
+                ToolStripMenuItem ambMenu = new ToolStripMenuItem(DshAmbient.Enabled ? "常态识别 ✓" : "常态识别");
+                ToolStripMenuItem ambOn = new ToolStripMenuItem("开");
+                ambOn.Checked = DshAmbient.Enabled;
+                ambOn.Click += delegate { DshOverlay.EmitLine("{\"event\":\"menu\",\"action\":\"ambient\",\"on\":true}"); };
+                ToolStripMenuItem ambOff = new ToolStripMenuItem("关");
+                ambOff.Checked = !DshAmbient.Enabled;
+                ambOff.Click += delegate { DshOverlay.EmitLine("{\"event\":\"menu\",\"action\":\"ambient\",\"on\":false}"); };
+                ambMenu.DropDownItems.Add(ambOn);
+                ambMenu.DropDownItems.Add(ambOff);
+                menu.Items.Add(ambMenu);
                 menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add("关闭显示", null, delegate
                 {
@@ -1986,7 +1997,7 @@ public static class DshOverlay
 
 
     // ---------------------------------------------------------------- 晃一下鼠标
-    // 2026-11-09 她的想法：晃鼠标 → AI的光标飞过来 → 气泡说一句。
+    // 2026-11-09 她的想法：晃鼠标 → 溟的光标飞过来 → 气泡说一句。
     // 只读光标位置，不装钩子、不记轨迹；鼠标按着的时候不计（那是拖动/框选）。
     // 检测到就抛一行 {"event":"shake",x,y}，跟 tap 走同一条出口。
     public static class DshShake
@@ -2565,7 +2576,7 @@ public static class DshCard
 
         public CardForm(string title, int x, int y)
         {
-            Text = "AI";
+            Text = "溟";
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
@@ -2578,7 +2589,7 @@ public static class DshCard
             head = new Label();
             head.Dock = DockStyle.Top;
             head.Height = 30;
-            head.Text = "  " + (string.IsNullOrEmpty(title) ? "AI" : title);
+            head.Text = "  " + (string.IsNullOrEmpty(title) ? "溟" : title);
             head.ForeColor = Color.FromArgb(143, 182, 217);
             head.BackColor = Color.FromArgb(28, 34, 46);
             head.Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
@@ -3466,6 +3477,215 @@ public static class DshEye
         return total == 0 ? 0 : (int)(diff * 100.0 / total);
     }
 }
+
+public static class DshAmbient
+{
+    // 2026-11-10：常态识别（借 see_now 的挑帧思路）。
+    //   节奏由插件侧（JS）的定时器给，这里只负责一次「看一眼」：
+    //   主线程截一张缩略图比变化，画面真动了才留一帧（1280 宽 JPEG）+ 一行时间线。
+    //   静止时只有一次 CopyFromScreen + 粗网格抽样，几乎为零开销。
+    //   为什么不在这里起线程：实测后台线程里 GDI 截图会卡死（diag 停在 tick:area），
+    //   而主线程（请求线程）同一份代码正常——所以节奏归 JS，截图归这里。
+    static readonly object gate = new object();
+    static Bitmap prevThumb;
+    static string ambientDir = "";
+    static readonly List<string> files = new List<string>();
+    public static bool Enabled { get; private set; }
+    public static int IntervalMs = 3000;
+    public static int ThresholdPct = 3;
+    public static int MaxFrames = 120;
+    public static int LastDiff = 100;
+    public static long Ticks = 0;
+    public static string LastError = "";
+    public static string LastAt = "";
+    public static string LastTitle = "";
+    public static string Diag = "";
+
+    public static void Start(int intervalMs, int threshold, int maxFrames, string folder)
+    {
+        lock (gate)
+        {
+            IntervalMs = Math.Max(500, Math.Min(30000, intervalMs));
+            ThresholdPct = Math.Max(1, Math.Min(80, threshold));
+            MaxFrames = Math.Max(8, Math.Min(800, maxFrames));
+            ambientDir = folder;
+            try { System.IO.Directory.CreateDirectory(ambientDir); } catch { }
+            LoadIndex();
+            if (prevThumb != null) { try { prevThumb.Dispose(); } catch { } prevThumb = null; }
+            Enabled = true;
+            Diag = "start:" + IntervalMs;
+        }
+    }
+
+    public static void Stop()
+    {
+        lock (gate)
+        {
+            Enabled = false;
+            if (prevThumb != null) { try { prevThumb.Dispose(); } catch { } prevThumb = null; }
+        }
+    }
+
+    static void LoadIndex()
+    {
+        try
+        {
+            files.Clear();
+            string[] got = System.IO.Directory.GetFiles(ambientDir, "amb_*.jpg");
+            Array.Sort(got, StringComparer.Ordinal);
+            for (int i = 0; i < got.Length; i++) files.Add(got[i]);
+            while (files.Count > MaxFrames) { try { System.IO.File.Delete(files[0]); } catch { } files.RemoveAt(0); }
+        }
+        catch { }
+    }
+
+    // 由主线程调用：截一次、比一次、该留就留。
+    public static Dictionary<string, object> TickNow()
+    {
+        if (!Enabled)
+        {
+            Dictionary<string, object> off = Status();
+            off["skipped"] = true;
+            return off;
+        }
+        Bitmap full = null;
+        try
+        {
+            Rectangle area = System.Windows.Forms.SystemInformation.VirtualScreen;
+            full = new Bitmap(area.Width, area.Height);
+            using (Graphics g = Graphics.FromImage(full))
+                g.CopyFromScreen(area.X, area.Y, 0, 0, full.Size, CopyPixelOperation.SourceCopy);
+            Diag = "tick:copied";
+
+            int tw = 320;
+            int th = Math.Max(1, (int)Math.Round(full.Height * (double)tw / full.Width));
+            Bitmap thumb = new Bitmap(full, tw, th);
+            int d = 100;
+            lock (gate)
+            {
+                if (prevThumb != null) { d = DshEye.DiffPct(prevThumb, thumb); prevThumb.Dispose(); }
+                prevThumb = thumb;
+                LastDiff = d;
+                Ticks++;
+            }
+            if (d >= ThresholdPct) SaveFrame(full, d);
+            LastError = "";
+            Diag = "tick:diff=" + d;
+            return Status();
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.GetType().Name + ": " + ex.Message;
+            Diag = "tick:err";
+            return Status();
+        }
+        finally { if (full != null) full.Dispose(); }
+    }
+
+    static void SaveFrame(Bitmap full, int diff)
+    {
+        try
+        {
+            if (!System.IO.Directory.Exists(ambientDir)) System.IO.Directory.CreateDirectory(ambientDir);
+            DateTime now = DateTime.Now;
+            string title = "";
+            try { title = DshInput.WindowTitle(DshInput.GetForegroundWindow()); } catch { }
+            string name = "amb_" + now.ToString("yyyyMMdd_HHmmss_fff") + ".jpg";
+            string path = System.IO.Path.Combine(ambientDir, name);
+            int w = Math.Min(1280, full.Width);
+            int h = Math.Max(1, (int)Math.Round(full.Height * (double)w / full.Width));
+            ImageCodecInfo jpg = null;
+            foreach (ImageCodecInfo c in ImageCodecInfo.GetImageEncoders())
+                if (c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid) { jpg = c; break; }
+            EncoderParameters ep = new EncoderParameters(1);
+            ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 72L);
+            using (Bitmap small = new Bitmap(full, w, h))
+            {
+                if (jpg != null) small.Save(path, jpg, ep);
+                else small.Save(path, System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
+            ep.Dispose();
+            lock (gate)
+            {
+                files.Add(path);
+                LastAt = now.ToString("HH:mm:ss");
+                LastTitle = title;
+                while (files.Count > MaxFrames)
+                {
+                    string old = files[0];
+                    files.RemoveAt(0);
+                    try { System.IO.File.Delete(old); } catch { }
+                }
+            }
+            string line = "{\"at\":\"" + now.ToString("yyyy-MM-ddTHH:mm:ss") + "\",\"diff\":" + diff
+                + ",\"title\":" + JsonEsc(title) + ",\"file\":" + JsonEsc(name) + "}";
+            System.IO.File.AppendAllText(System.IO.Path.Combine(ambientDir, "timeline.jsonl"), line + "\n", new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception ex) { LastError = ex.GetType().Name + ": " + ex.Message; }
+    }
+
+    static string JsonEsc(string s)
+    {
+        if (s == null) return "\"\"";
+        StringBuilder b = new StringBuilder("\"");
+        foreach (char c in s)
+        {
+            if (c == '"' || c == '\\') b.Append('\\').Append(c);
+            else if (c == '\n') b.Append("\\n");
+            else if (c == '\r') b.Append("\\r");
+            else if (c == '\t') b.Append("\\t");
+            else if (c < ' ') b.Append(' ');
+            else b.Append(c);
+        }
+        b.Append('"');
+        return b.ToString();
+    }
+
+    public static Dictionary<string, object> Status()
+    {
+        Dictionary<string, object> o = new Dictionary<string, object>();
+        o["ok"] = true;
+        o["enabled"] = Enabled;
+        o["intervalMs"] = IntervalMs;
+        o["threshold"] = ThresholdPct;
+        o["maxFrames"] = MaxFrames;
+        o["ticks"] = Ticks;
+        o["kept"] = files.Count;
+        o["lastDiff"] = LastDiff;
+        o["lastAt"] = LastAt;
+        o["lastTitle"] = LastTitle;
+        o["dir"] = ambientDir;
+        o["error"] = LastError;
+        o["diag"] = Diag;
+        return o;
+    }
+
+    public static Dictionary<string, object> Dump(int n)
+    {
+        if (n < 1) n = 12;
+        if (n > 200) n = 200;
+        List<object> items = new List<object>();
+        lock (gate)
+        {
+            int start = Math.Max(0, files.Count - n);
+            for (int i = start; i < files.Count; i++)
+            {
+                Dictionary<string, object> one = new Dictionary<string, object>();
+                one["path"] = files[i];
+                try { one["at"] = System.IO.File.GetLastWriteTime(files[i]).ToString("HH:mm:ss"); } catch { one["at"] = ""; }
+                items.Add(one);
+            }
+        }
+        Dictionary<string, object> o = new Dictionary<string, object>();
+        o["ok"] = true;
+        o["enabled"] = Enabled;
+        o["intervalMs"] = IntervalMs;
+        o["threshold"] = ThresholdPct;
+        o["dir"] = ambientDir;
+        o["items"] = items;
+        return o;
+    }
+}
 '@
 
 # 2026-11-08：气泡和光标窗并成同一个编译单元——不然右键菜单调不到气泡。
@@ -3969,6 +4189,37 @@ function Invoke-Request($req) {
     }
     'watch' {
       return Invoke-WatchFrames $req
+    }
+    'ambient' {
+      # 2026-11-10：常态识别。op = start / stop / status / dump
+      $op = 'status'
+      if ($req.op) { $op = [string]$req.op }
+      if ($op -eq 'start') {
+        $itv = 3000
+        if ($null -ne $req.intervalMs) { $itv = [int]$req.intervalMs }
+        $thr = 3
+        if ($null -ne $req.threshold) { $thr = [int]$req.threshold }
+        $mx = 120
+        if ($null -ne $req.maxFrames) { $mx = [int]$req.maxFrames }
+        $folder = Join-Path $env:USERPROFILE '.dsh\ming-mousepet\ambient'
+        if ($req.dir) { $folder = [string]$req.dir }
+        [DshAmbient]::Start($itv, $thr, $mx, $folder)
+        return [DshAmbient]::Status()
+      }
+      if ($op -eq 'stop') {
+        [DshAmbient]::Stop()
+        return [DshAmbient]::Status()
+      }
+      if ($op -eq 'tick') {
+        # 节奏由插件侧定时器给：一次请求 = 看一眼。
+        return [DshAmbient]::TickNow()
+      }
+      if ($op -eq 'dump') {
+        $n = 12
+        if ($null -ne $req.n) { $n = [int]$req.n }
+        return [DshAmbient]::Dump($n)
+      }
+      return [DshAmbient]::Status()
     }
     'windowAt' {
       $h = [DshInput]::WindowAt([int]$req.x, [int]$req.y)

@@ -247,6 +247,14 @@ function normalizeSettings(input, fallback = {}) {
     // 只收字符串——写坏了自动开口就起不来，宁可退回默认。
     talkProvider: typeof merged.talkProvider === 'string' ? merged.talkProvider.trim().slice(0, 80) : '',
     talkModel: typeof merged.talkModel === 'string' ? merged.talkModel.trim().slice(0, 120) : '',
+    // 2026-11-10（她：「记得保存用户配置，不要每次重启 dsh 都变成默认配置」）：
+    //   晃动检测以前只活在内存里，重启就回「开 / 中」。现在跟着 settings.json 走。
+    shake: {
+      on: merged && merged.shake && typeof merged.shake.on === 'boolean' ? merged.shake.on : true,
+      level: merged && merged.shake && ['low', 'medium', 'high'].includes(String(merged.shake.level))
+        ? String(merged.shake.level)
+        : 'medium',
+    },
   }
 }
 
@@ -384,10 +392,23 @@ export async function apply(ctx, rawConfig = {}) {
         answerMode = evt?.mode === 'full' ? 'full' : 'quick'
         log(`回答档改成：${answerMode === 'full' ? '完整（卡片）' : '简易（气泡）'}`)
         Promise.resolve(loadPetState())
-          .then((state) => updatePetState({ answerMode }))
+          .then((state) => updatePetState((st) => ({ ...st, answerMode })))
           .catch((error) => log(`回答档没存上：${error?.message || error}`))
       } else if (action === 'shake') {
-        log(`晃动检测：${evt?.on ? '开' : '关'}`)
+        const on = evt?.on !== false
+        log(`晃动检测：${on ? '开' : '关'}`)
+        // 2026-11-10 她：右键改的也要存——不然下次重启又回默认。
+        current = { ...current, shake: { on, level: current.shake?.level || 'medium' } }
+        persistSettings(current).catch((error) => log(`晃动开关没存上：${error?.message || error}`))
+      } else if (action === 'ambient') {
+        // 2026-11-10 她：右键开/关常态识别。菜单在 sidecar 那边弹，这边只负责落地和记账。
+        const on = evt?.on !== false
+        Promise.resolve(on ? ambientCtl.start() : ambientCtl.stop())
+          .then((r) => {
+            log(`常态识别：${r?.enabled ? '开' : '关'}（每 ${r?.intervalMs} ms，阈值 ${r?.threshold}%）`)
+            return updatePetState((st) => ({ ...st, ambient: on }))
+          })
+          .catch((error) => log(`常态识别没切过来：${error?.message || error}`))
       }
     },
     onCardClosed: () => {
@@ -436,6 +457,40 @@ export async function apply(ctx, rawConfig = {}) {
     }
   }
 
+  // 2026-11-10：常态识别。节奏在 Node 这边（setInterval），sidecar 只负责「看一眼」。
+  //   起因：sidecar 自己的线程里 GDI 截图会卡死，主线程（请求线程）同一份代码正常——
+  //   所以把定时挪到这边，一次 tick 一个请求。
+  let ambTimer = null
+  let ambBusy = false
+  const ambientCtl = {
+    async start(opts = {}) {
+      const r = await engine.request('ambient', {
+        op: 'start',
+        intervalMs: opts.intervalMs,
+        threshold: opts.threshold,
+        maxFrames: opts.maxFrames,
+      }, 15000)
+      const every = Math.max(500, Math.min(30000, Number(r?.intervalMs) || 3000))
+      if (ambTimer) clearInterval(ambTimer)
+      ambTimer = setInterval(async () => {
+        if (ambBusy) return
+        ambBusy = true
+        try { await engine.request('ambient', { op: 'tick' }, 15000) } catch { /* 一次没看成，下一轮再看 */ }
+        finally { ambBusy = false }
+      }, every)
+      if (typeof ambTimer.unref === 'function') ambTimer.unref()
+      return r
+    },
+    async stop() {
+      if (ambTimer) { clearInterval(ambTimer); ambTimer = null }
+      ambBusy = false
+      return engine.request('ambient', { op: 'stop' }, 15000).catch(() => null)
+    },
+    running() {
+      return Boolean(ambTimer)
+    },
+  }
+
   // 2026-11-09：卡片独立于「自动开口」。她关了自动开口，照样能在桌面上问一句。
   const cardCtl = createCard({
     llm: () => llmRef,
@@ -463,6 +518,12 @@ export async function apply(ctx, rawConfig = {}) {
       return null
     })
     .catch((error) => log(`回答档没推上去：${error?.message || error}`))
+
+  // 2026-11-10：常态识别也记在存档里——DSH / sidecar 重起之后接着看，不用她再点一次菜单。
+  Promise.resolve(loadPetState())
+    .then((st) => (st && st.ambient === true ? ambientCtl.start() : null))
+    .then((r) => { if (r) log(`常态识别接回来了：每 ${r.intervalMs} ms，阈值 ${r.threshold}%`) })
+    .catch((error) => log(`常态识别没接回来：${error?.message || error}`))
 
   const toolConfig = toolSpec()
 
@@ -522,6 +583,9 @@ export async function apply(ctx, rawConfig = {}) {
           const on = args.on !== false
           const level = String(args.level || 'medium')
           const r = await engine.request('shake', { on, level }, 10000)
+          // 2026-11-10：工具改的也存——三处入口（右键 / 设置页 / 工具）写同一份 settings。
+          current = { ...current, shake: { on, level } }
+          persistSettings(current).catch(() => {})
           return toLosslessJson({ text: `晃动检测：${r.enabled ? '开' : '关'}（${r.level}）`, meta: r })
         }
         if (action === 'move') {
@@ -667,6 +731,8 @@ export async function apply(ctx, rawConfig = {}) {
       + '- `status` 现在什么情况（前台窗口、她多久没动、光标状态、今天说过几次）。\n'
       + '- `look` 看一眼屏幕（可裁），图直接附上来。\n'
       + '- `watch` 连拍几秒，只回变化大的帧——静止画面只回一张，比连拍便宜。\n'
+      + '- `ambient` 常态识别：`{on:true}` 一直看（画面动了才留一帧，静止时几乎不花什么）；'
+      + '`{on:false}` 关；不带就报状态；带 `frames:4` 取最近几帧和时间线（附图）。\n'
       + '- `say` 在桌面上说一句话：无边框气泡浮在她光标上方，几秒自己消失，不抢焦点、不打断她。\n'
       + '- `nudge` 问「现在值不值得开口」：回 speak 与否、为什么、现在什么情况。它**不生成话**——话得自己写。\n'
       + '- `cursor` 控制 AI 光标（显示 / 隐藏 / 移动 / 大小 / 模式）。\n\n'
@@ -679,7 +745,7 @@ export async function apply(ctx, rawConfig = {}) {
       action: {
         type: 'string',
         required: true,
-        description: 'status | look | watch | say | point | cursor | drift | nudge | config | card | pick | sessions | ask',
+        description: 'status | look | watch | ambient | say | point | cursor | drift | nudge | config | card | pick | sessions | ask',
       },
       text: { type: 'string', description: 'say / point：要说的话，一句，40 字以内最好' },
       question: { type: 'string', description: 'card：要问的一句；不带就只开一张空卡' },
@@ -694,9 +760,11 @@ export async function apply(ctx, rawConfig = {}) {
       path: { type: 'string', description: 'look：存 PNG 的路径；省略自动放 ~/.dsh/ming-mousepet/shots/' },
       seconds: { type: 'number', description: 'watch：看几秒，默认 4（0.5–20）' },
       fps: { type: 'number', description: 'watch：每秒采样几次，默认 4（0.5–10）' },
-      frames: { type: 'integer', description: 'watch：最多留几帧，默认 4（1–9）' },
+      frames: { type: 'integer', description: 'watch：最多留几帧，默认 4（1–9）；ambient：取最近几帧（给这个就是取帧）' },
+      intervalMs: { type: 'number', description: 'ambient：多少毫秒看一次，默认 3000' },
+      threshold: { type: 'number', description: 'ambient：画面变化多少百分比才留帧，默认 3' },
       quietHours: { type: 'boolean', description: 'config：宵禁开关；false = 00:30–10:30 也开口（测试用）' },
-      on: { type: 'boolean', description: 'drift：false = 停止晃动' },
+      on: { type: 'boolean', description: 'drift / ambient：true 开 / false 关' },
       show: { type: 'boolean', description: 'cursor：false 收起 AI 光标' },
       cursorMode: { type: 'string', description: 'cursor：companion（一直显示）| clean（用完就收）' },
       cursorSize: { type: 'number', description: 'cursor：24–192 像素' },
@@ -784,7 +852,7 @@ export async function apply(ctx, rawConfig = {}) {
               meta: { ok: r.ok, why: r.why || '' },
             })
           }
-          const r = await engine.request('card', { op: 'open', title: 'AI' }, 8000)
+          const r = await engine.request('card', { op: 'open', title: '溟' }, 8000)
           return toLosslessJson({ text: r.open ? `卡片开在 ${r.bounds}` : '卡片没开成', meta: r })
         }
         if (action === 'look') {
@@ -807,6 +875,40 @@ export async function apply(ctx, rawConfig = {}) {
           for (const f of list) lines.push(`  ${f.t}s · 变化 ${f.diff}% · ${f.path}`)
           if (!list.length) lines.push('  画面一直没动。')
           return toLosslessJson({ text: lines.join('\n'), images, meta: r })
+        }
+        if (action === 'ambient') {
+          // 2026-11-10 她：常态识别——开启之后一直看，只在画面动了才留一帧。
+          // 不给 on 也不给 frames 就是报状态；给 frames 就是取最近几帧回来（附图）。
+          if (args.frames !== undefined) {
+            const n = Math.max(1, Math.min(9, Number(args.frames) || 4))
+            const r = await engine.request('ambient', { op: 'dump', n }, 15000)
+            const items = Array.isArray(r?.items) ? r.items : []
+            const images = await attachImages(ctx, items.map((x) => x.path).filter(Boolean))
+            const lines = [
+              `常态识别：${r?.enabled ? '开着' : '关着'} · 每 ${r?.intervalMs ?? '?'} ms 看一次 · 最近 ${items.length} 帧`,
+            ]
+            for (const it of items) lines.push(`  ${it.at} · ${it.path}`)
+            if (!items.length) lines.push('  还没有帧——刚开起来，或者画面一直没动。')
+            return toLosslessJson({ text: lines.join('\n'), images, meta: r })
+          }
+          const op = args.on === true ? 'start' : args.on === false ? 'stop' : 'status'
+          let r
+          if (op === 'start') {
+            r = await ambientCtl.start({ intervalMs: args.intervalMs, threshold: args.threshold })
+          } else if (op === 'stop') {
+            r = await ambientCtl.stop()
+          } else {
+            r = await engine.request('ambient', { op: 'status' }, 15000)
+          }
+          if (op !== 'status') {
+            // 记下来：DSH 重启、sidecar 重起之后按这个把常态识别接回去。
+            await updatePetState((st) => ({ ...st, ambient: op === 'start' })).catch(() => {})
+          }
+          const head = `常态识别${r?.enabled ? '开着' : '关着'} · 每 ${r?.intervalMs ?? '?'} ms 一次 · 阈值 ${r?.threshold ?? '?'}% · 已看 ${r?.ticks ?? 0} 次，留了 ${r?.kept ?? 0} 帧`
+          const extra = r?.lastAt ? `\n最近一次变化 ${r.lastAt}${r.lastTitle ? `（${r.lastTitle}）` : ''}` : ''
+          const err = r?.error ? `\n⚠ ${r.error}` : ''
+          const dir = r?.dir ? `\n帧在 ${r.dir}` : ''
+          return toLosslessJson({ text: head + extra + err + dir, meta: r })
         }
         if (action === 'say') {
           const text = String(args.text || '').trim()
@@ -935,9 +1037,21 @@ export async function apply(ctx, rawConfig = {}) {
   const API_PREFIX = '/dsh-ming-mousepet/api'
   const ASSET_PREFIX = '/dsh-ming-mousepet/assets'
 
+  // 2026-11-10 她：「不要每次重启 dsh 都变成默认配置」。
+  //   原来 settings.json 只是存着，开机没人推——光标大小、模式、皮肤、晃动检测全都回默认。
+  //   这里把存下来的那份开机先推一遍；推不动就记一行，不拦启动。
+  applySettings(current)
+    .then(() => engine.request('shake', { on: current.shake?.on !== false, level: current.shake?.level || 'medium' }, 10000))
+    .then(() => log(`开机设置已恢复：光标 ${current.cursorMode}/${current.cursorSize}px/${current.cursorState}，晃动 ${current.shake?.on === false ? '关' : '开'}·${current.shake?.level || 'medium'}`))
+    .catch((error) => log(`开机设置没恢复：${error?.message || error}`))
+
   // 2026-11-10：晃一下鼠标 → 光标飞过去说一句。开关和灵敏度要在设置页里能改，
-  // 所以给它一个 HTTP 口（原来只有 pet_input 的工具能碰）。只活在内存里，重启回默认。
-  const shakeState = { on: false, level: 'medium' }
+  // 所以给它一个 HTTP 口（原来只有 pet_input 的工具能碰）。
+  // 2026-11-10 改：不再只活在内存里——存进 settings.json，重启后按存档恢复。
+  const shakeState = {
+    on: current.shake?.on !== false,
+    level: current.shake?.level || 'medium',
+  }
 
   const apiHandler = async (req, res, next) => {
     const url = new URL(req.url, 'http://127.0.0.1')
@@ -1006,6 +1120,9 @@ export async function apply(ctx, rawConfig = {}) {
         if (typeof body.on === 'boolean') shakeState.on = body.on
         if (['low', 'medium', 'high'].includes(body.level)) shakeState.level = body.level
         try { await engine.request('shake', { on: shakeState.on, level: shakeState.level }, 10000) } catch { /* 光标没开着就算了 */ }
+        // 2026-11-10：存下来，重启后按这个恢复。
+        current = { ...current, shake: { on: shakeState.on, level: shakeState.level } }
+        try { await persistSettings(current) } catch { /* 存不下来不影响这次生效 */ }
         return json(res, 200, { ok: true, shake: shakeState })
       }
       if (req.method === 'POST' && route === '/settings') {
@@ -1304,10 +1421,12 @@ async function attachImages(ctx, paths) {
   for (const p of paths) {
     try {
       const data = await readFile(p)
+      // 2026-11-10：常态识别的帧是 JPEG，别一律当 PNG 报（媒体类型错了图就出不来）。
+      const jpeg = /\.jpe?g$/i.test(String(p))
       const ref = await svc.saveImage.call(svc, {
         data,
-        mediaType: 'image/png',
-        name: `ming-mousepet-${Date.now()}.png`,
+        mediaType: jpeg ? 'image/jpeg' : 'image/png',
+        name: `ming-mousepet-${Date.now()}.${jpeg ? 'jpg' : 'png'}`,
       })
       out.push(ref)
     } catch {
@@ -1323,7 +1442,7 @@ function localStamp(d = new Date()) {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 }
 
-const PET_CAPTURE_DIR = 'C:/dsh/workspace/live/pet-capture'
+const PET_CAPTURE_DIR = join(homedir(), '.dsh', 'ming-mousepet', 'captures')
 
 // 她问「刚才框的哪儿」时用：拿最新那张，附上图。
 async function lastShot(ctx) {

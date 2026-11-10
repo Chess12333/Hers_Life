@@ -16,6 +16,7 @@
 | `status` | 前台窗口、她多久没动、光标状态、今天说过几次 |
 | `look` | 看一眼屏幕（可裁），图直接附上来 |
 | `watch` | 连拍几秒，只回变化大的帧；静止画面只回一张 |
+| `ambient` | 常态识别：`{on:true}` 一直看（画面动了才留一帧），`{on:false}` 关，`{frames:4}` 取最近几帧 + 时间线（附图） |
 | `say` | 在桌面上说一句话：无边框气泡浮在她光标上方，几秒自己消失，不抢焦点 |
 | `nudge` | 问「现在值不值得开口」，回 speak 与否 + 为什么 + 现在什么情况 |
 | `cursor` | AI 光标 显示 / 隐藏 / 移动 / 大小 / 模式 |
@@ -43,6 +44,12 @@
 - 气泡用 `WS_EX_NOACTIVATE`，不夺焦点。
 - 物理输入只在显式要求时启用。
 - `watch` 是最便宜的一档：静止画面只回一张，不在那儿空转。
+- `ambient`（常态识别，2026-11-10）：右键桌宠开关，开了就一直看。
+  **节奏在 Node 侧**（`setInterval` 每 3 秒发一次 tick），sidecar 只负责截一张缩略图比变化；
+  画面变化超过阈值（默认 3%）才留一帧 1280 宽 JPEG + 一行时间线，静止时只有一次截屏 + 粗网格抽样。
+  帧落在 `~/.dsh/ming-mousepet/ambient/`，超过 120 帧丢最旧的；`timeline.jsonl` 记 at/diff/前台窗口。
+  为什么不放在 sidecar 里起线程：实测后台线程里 GDI 截图会卡死（diag 停在 tick:area），
+  主线程（请求线程）同一份代码正常——所以「多久看一次」归 JS，「怎么看一次」留在 sidecar。
 - 没有 `postinstall`，没有运行时依赖；侧车是 Windows PowerShell 5.1 + WinForms。
 
 ## 结构
@@ -105,7 +112,7 @@ node test/pet-test.mjs
 - **能追问的卡片**：`pet {action:"card", question:"…"}` 开一张，答案流式写进去；空卡片可以直接在窗口里打字回车问。
   追问续同一段对话，关掉即忘。它用自己的 `llm.stream`，不走 DSH 会话桥——**我们的桌宠本来就有嘴**，不需要为了一张卡去开一个会话。
 - **快答 / 深入**：气泡用简短回答提示词，卡片用结论优先的详细回答提示词。两档由 `lib/answer.js` 选择；这里直接调用 `llm.stream`，没有工具执行循环，不承诺联网或运行命令。
-- **网页指一段**：扩展右键「AI：指一段」→ 光标下的语义块高亮 → 点一下交出去，带站点、作者、时间、BV 号、播放进度。老的「选中 + Ctrl+Alt+S」留着兜底。
+- **网页指一段**：扩展右键「溟：指一段」→ 光标下的语义块高亮 → 点一下交出去，带站点、作者、时间、BV 号、播放进度。老的「选中 + Ctrl+Alt+S」留着兜底。
 - **提权程序不读**：`guard` 现在会看前台进程是不是管理员权限跑的，命中就拒。
 - **卡片跟桌宠**：卡片开在桌宠右上方，桌宠一动它跟着挪（250ms）；她手动拖标题栏就停止跟随。`pet {action:"card", op:"follow", on}` 可拨开关（JS 侧要重启 DSH）。气泡=简易回复（quick），卡片=完整回复（full）。
 - **会话桥**：`pet {action:"sessions"}` 列会话、`pet {action:"ask", sessionId, text, capture}` 把一句（连同 `<抓取内容>`）丢进真会话去跑，已确认归属的完整回答消息追加到卡片，不逐 token 显示；关联缺失或同轮混入其他请求时拒绝展示。卡片自己有嘴，这条只在她要「真去动手」时才用。关闭卡片只停止跟随，不代表已提交的 DSH 任务停止。真实宿主端到端尚未验证。
@@ -116,3 +123,13 @@ node test/pet-test.mjs
 契约测试：`test/card-contract.mjs`（11）、`test/card-ask-contract.mjs`（9）、`test/card-cancel-contract.mjs`（7）、`test/pick-contract.mjs`（10）、`test/session-bridge-contract.mjs`（20）、`test/session-lifecycle-contract.mjs`（17）、`test/session-correlation-contract.mjs`（7）、`test/answer-call-config-contract.mjs`（5）、`test/pet-action-routing-contract.mjs`（5）、`test/ask-branch-contract.mjs`（3）；另有卡片会话所有权、网页点击目标与无工具能力提示词回归。测试类型和未验范围见 `test/pointy-verification-20261109-1626.md`。
 
 卡片回答要带模型路由：宿主 `GenerateOptions.provider` / `model` 是必填，路由取自 `talkerOptions`（`settings.json` 的 talkProvider/talkModel 优先，留空退回插件 config）。缺了当场报「没指定 provider/model」，不会再去撞适配器、更不会把它显示成「模型给的空话」。
+
+
+## 光标页的源在哪（2026-11-10）
+
+界面**只有一份**：`C:/dsh/dsh-ming-ui/src/cursor-page.js`。
+它被 `sync-cursor-page.mjs` 原样注入到 `client.js` 的标记区（`// >>> 共享光标页` … `// <<< 共享光标页`）。
+
+- 改界面：改源 → `node C:/dsh/dsh-ming-ui/sync-cursor-page.mjs`
+- 验有没有漂：`node C:/dsh/dsh-ming-ui/sync-cursor-page.mjs --check`（可以挂进构建门口）
+- **别手改 client.js 里那一段**——下一次同步会被覆盖，而且两边会长得不一样。

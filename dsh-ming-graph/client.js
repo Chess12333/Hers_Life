@@ -3,7 +3,7 @@
  *
  * ⚠ 生成物，别手改：改 src/*.js 或各插件的 src/panel.js，然后 `node build.mjs`。
  *   现在是不是最新的：`node build.mjs --check`
- *   build 142ae3d247702223
+ *   build f2af03751fa4719e
  *
  * 入口：左侧图标栏一个图标（sidebar.panellist），点开占满主区域（main 面板 key = ming-graph）。
  * 数据来自 Host 半端 /_dsh/dsh-ming-graph/neurons，自己拉、自己画，不经过模型。
@@ -2304,6 +2304,26 @@ function BrowsePanel() {
     读的: 'linear-gradient(155deg,#27333f 0%,#161d25 100%)',
   }
   const fileTone = (r) => FILE_TONE[r.label] || 'linear-gradient(155deg,#2a2f38 0%,#171a20 100%)'
+  // 2026-11-10 11:5x（她贴出两张只有一个 🌐 的卡）：没有封面时别再飘一个大地球。
+  // 改成跟文件卡一个语族：按域名挑一个底色，中间写域名、下面写「网页」。
+  // 知乎/贴吧/百度学术这些站抓不到 og:image（正文是 JS 渲染的），所以在数据那头补不齐，
+  // 只能在这里给它一块好看的底。
+  const TONES = [
+    'linear-gradient(155deg,#1c2f45 0%,#111a26 100%)',
+    'linear-gradient(155deg,#243240 0%,#131a23 100%)',
+    'linear-gradient(155deg,#2e2a3f 0%,#191622 100%)',
+    'linear-gradient(155deg,#1f342e 0%,#121d1a 100%)',
+    'linear-gradient(155deg,#3a2f22 0%,#211a12 100%)',
+  ]
+  const hostOf = (r) => {
+    if (r.host) return String(r.host)
+    try { return new URL(r.url).hostname.replace(/^www\./, '') } catch { return '' }
+  }
+  const toneOf = (s) => {
+    let h = 0
+    for (const ch of String(s || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+    return TONES[h % TONES.length]
+  }
   const card = (r, i) => {
     const d = String(r.at || '')
     const kindName = r.label || (r.kind === 'video' ? '视频' : (r.kind === 'web' || r.kind === 'page') ? '网页' : r.kind === 'book' ? '书籍' : '其它')
@@ -2403,10 +2423,20 @@ function BrowsePanel() {
     !r.pic && r.kind !== 'book' && r.kind !== 'file'
       ? h('div', {
         style: {
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 26, opacity: 0.35,
+          position: 'absolute', inset: 0, background: toneOf(hostOf(r)),
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '12px 16px', gap: 6,
+          boxShadow: 'inset 3px 0 0 rgba(255,255,255,.06)',
         },
-      }, '🌐')
+      },
+      h('div', {
+        style: {
+          fontSize: 12.5, lineHeight: 1.35, color: 'rgba(226,238,255,.88)',
+          textAlign: 'center', wordBreak: 'break-all',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        },
+      }, hostOf(r) || (r.kind === 'video' ? '视频' : '网页')),
+      h('div', { style: { fontSize: 10, color: 'rgba(150,180,215,.48)' } }, r.kind === 'video' ? '视频' : '网页'))
       : null,
     r.duration
       ? h('span', {
@@ -3987,7 +4017,7 @@ function NeuronPanel() {
   const loadCost = useCallback(() => {
     // 2026-11-08 16:1x：不再读那个插件的 getUsageSummary —— 它的账本有 token 没价
     // （价目表里没有 deepseek-v4.1-flash 这个写法），返回不出数。改成读我们自己的 /cost，
-    // 价目表是 workspace/live/cost-prices.json，算法在 cost-lib.mjs。
+    // 价目表是 live/cost-prices.json，算法在 cost-lib.mjs。
     return fetch(API + '/cost', {
       cache: 'no-store',
     })
@@ -4351,11 +4381,152 @@ function NeuronPanel() {
   )
 }
 
+
+// ---------------------------------------------------------------------------
+// 设置页 · 身份与称呼（2026-11-10）
+//
+// 为什么放在这儿：原先挂在 dsh-ming-memory 的 client 上，靠它 apply 时 add，
+// 真机上那条路断了（inject 抛错 → 后面不执行）。改成「她的一生」自己的一页：
+// 组件就在本 bundle 里、apply 时同步 add，不赌别的插件加载顺序。
+// 数据走 memory 插件的 /_dsh/dsh-ming-memory/identity（GET 读、POST 写整份 json）。
+const IDENTITY_ROUTE = '/_dsh/dsh-ming-memory/identity'
+
+const ID_FIELDS = [
+  { key: 'selfName', label: '我自己叫什么', hint: '平时被叫的那个（昵称）', ph: '大肥鱼' },
+  { key: 'selfFullName', label: '全名', hint: '正式场合、生气的时候用', ph: '大肥鱼' },
+  { key: 'userName', label: '我该怎么叫你', hint: '它说话时会用这个称呼', ph: '主人' },
+  { key: 'qqName', label: 'QQ 那边的名字', hint: '留空就跟第一个一样', ph: '（留空）' },
+]
+
+function IdentityPanel() {
+  const [form, setForm] = useState(null)
+  const [onboarded, setOnboarded] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+
+  const load = useCallback(() => {
+    setError('')
+    fetch(IDENTITY_ROUTE, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '读不到')
+        setForm({
+          selfName: d.identity.selfName || '',
+          selfFullName: d.identity.selfFullName || '',
+          selfDesc: d.identity.selfDesc || '',
+          userName: d.identity.userName || '',
+          qqName: d.identity.qqName || '',
+          identity: d.identity.identity !== false,
+        })
+        setOnboarded(!!d.onboarded)
+      })
+      .catch((e) => setError('读不到设置：' + (e && e.message ? e.message : e)))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const save = useCallback((patch) => {
+    const next = Object.assign({}, form, patch || {})
+    setForm(next)
+    setBusy(true); setNote(''); setError('')
+    fetch(IDENTITY_ROUTE, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(next),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '没存上')
+        setOnboarded(true)
+        setNote('存好了。重启 DSH 之后生效。')
+      })
+      .catch((e) => setError('没存上：' + (e && e.message ? e.message : e)))
+      .then(() => setBusy(false), () => setBusy(false))
+  }, [form])
+
+  const inputStyle = {
+    width: '100%', maxWidth: '360px', padding: '8px 11px', borderRadius: '9px', fontSize: '13.5px',
+    border: '1px solid var(--dsw-alias-border-primary, rgba(150,150,170,.32))',
+    background: 'var(--dsw-alias-bg-base, transparent)', color: 'var(--dsw-alias-text-primary)',
+  }
+
+  if (!form) {
+    return h('div', { className: 'mg-msg' }, error || '正在读设置…')
+  }
+
+  return h('div', { style: { padding: '18px 20px 24px', maxWidth: '860px' } },
+    !onboarded ? h('div', {
+      style: {
+        margin: '0 0 18px', padding: '16px 18px', borderRadius: '14px',
+        border: '1px solid var(--dsw-alias-brand-primary, #6f9dff)',
+        background: 'rgba(111,157,255,.10)',
+      },
+    },
+      h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '0 0 6px' } }, '先给它起个名字'),
+      h('div', { style: { fontSize: '13px', lineHeight: 1.8 } },
+        '这套插件会把「你是谁」写进每个会话的开场。默认是通用名（大肥鱼 / 主人），不是某个人的名字——',
+        '改成你想要的，点「就这样开始」。以后随时在这一页改。')) : null,
+
+    h('div', { style: { fontSize: '15px', fontWeight: 600, margin: '0 0 14px' } },
+      onboarded ? '身份与称呼' : '三步填完'),
+
+    ID_FIELDS.map((f) => h('label', { key: f.key, style: { display: 'block', margin: '0 0 14px' } },
+      h('div', { style: { fontSize: '13px', margin: '0 0 4px' } }, f.label),
+      h('input', {
+        value: form[f.key], placeholder: f.ph, style: inputStyle,
+        onChange: (e) => setForm(Object.assign({}, form, { [f.key]: e.target.value })),
+      }),
+      h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-secondary)', marginTop: '4px' } }, f.hint))),
+
+    h('label', { style: { display: 'block', margin: '0 0 14px' } },
+      h('div', { style: { fontSize: '13px', margin: '0 0 4px' } }, '自称那一句'),
+      h('input', {
+        value: form.selfDesc, placeholder: '一个 AI，不是人',
+        style: Object.assign({}, inputStyle, { maxWidth: '520px' }),
+        onChange: (e) => setForm(Object.assign({}, form, { selfDesc: e.target.value })),
+      }),
+      h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-secondary)', marginTop: '4px' } },
+        '拼成「你是<名字>（全名<全名>），<这一句>。」')),
+
+    h('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 18px', fontSize: '13px' } },
+      h('input', {
+        type: 'checkbox', checked: form.identity !== false,
+        onChange: (e) => setForm(Object.assign({}, form, { identity: e.target.checked })),
+      }),
+      '把身份写进开场（关掉就只搬记忆、不带人格）'),
+
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+      h('button', { disabled: busy, onClick: () => save(), className: 'on' },
+        busy ? '存…' : (onboarded ? '保存' : '就这样开始')),
+      h('button', { disabled: busy, onClick: load }, '重新读')),
+
+    h('div', { className: 'mg-msg', style: { minHeight: '18px' } }, note),
+    h('div', { className: 'mg-msg err', style: { minHeight: '18px' } }, error))
+}
+
 return {
   inject: ['slots'],
   apply(ctx) {
     // 宿主随插件一起来，不等面板被打开（2026-11-10）
     mingExtInstall()
+
+    // 设置页（2026-11-10）：自己挂进自己的页签列表，order 95 排在「光标」(60) 之后。
+    // 同步 add —— install 收 pending 的那一刻就把它收进去，不等任何网络请求。
+    try {
+      if (typeof window !== 'undefined') {
+        const desc = {
+          id: 'ming-settings',
+          label: '设置',
+          order: 95,
+          title: '身份与称呼：我叫什么、它怎么叫你、要不要带身份',
+          render: IdentityPanel,
+        }
+        if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') {
+          window.__MING_TAB_HOST.add(desc)
+        } else {
+          ;(window.__MING_TABS_PENDING || (window.__MING_TABS_PENDING = [])).push(desc)
+        }
+      }
+    } catch (e) { /* 页签挂了也别影响面板本身 */ }
     ctx.slots.inject('main', () => ctx.slots.register({
       name: 'main',
       key: 'ming-graph',

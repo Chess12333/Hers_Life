@@ -8,7 +8,7 @@
  * getUsageSummary 就返回不出数——不是没数，是没价。
  *
  * 这一份只读它的 sqlite，按我们自己的价目表算；价目表放
- * `workspace/live/cost-prices.json`（`{ "models": { 模型名: {peak:[命中,未命中,输出], offpeak:[...] } } }`），
+ * `live/cost-prices.json`（`{ "models": { 模型名: {peak:[命中,未命中,输出], offpeak:[...] } } }`），
  * 缺省用这里内置的官方价。
  *
  * 口径写在返回值里（basis），别让它变成第二个"看起来有数"的地方。

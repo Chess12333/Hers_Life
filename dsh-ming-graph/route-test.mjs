@@ -45,7 +45,7 @@ const ctx = {
   tools: { register() {} },
 }
 
-apply(ctx, { skillsCwd: 'C:\\dsh\\workspace', skillsOffFile: offFile })
+apply(ctx, { skillsCwd: (process.env.MING_WORKSPACE || ''), skillsOffFile: offFile })
 await new Promise((r) => setTimeout(r, 50))
 if (!handlers.length) { console.log('FAIL 没注册上 webServer 路由'); process.exit(1) }
 const { path: prefix, handler } = handlers[0]

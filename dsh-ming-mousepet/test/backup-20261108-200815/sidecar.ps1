@@ -1116,7 +1116,7 @@ public static class DshOverlay
         Run(delegate() { form.Paused = paused; }, 400);
     }
 
-    // 2026-11-08 16:3x 她：「让光标自己去点、右键、拖动」
+    // 2026-11-08 16:3x 浔：「让光标自己去点、右键、拖动」
     // 光标先飞到目标旁边（右下 24,22 —— 别挡住自己要点的地方），再发真实鼠标事件，
     // 完了停在动作结束的位置。真实光标由 Physical* 自己保存/恢复，这里不插手。
     public static void Act(string action, int x, int y, int x2, int y2, int duration, int delta)
@@ -1165,7 +1165,7 @@ public static class DshOverlay
         t.Start();
     }
     // 2026-11-08：锁定之后鼠标拖不动它。
-    public static bool locked = false;   // 2026-11-08 她：「别跟随，自己晃就可以了」
+    public static bool locked = false;   // 2026-11-08 浔：「别跟随，自己晃就可以了」
 
     // 2026-11-08：关掉之后得告诉她怎么再打开。提示窗在光标那边自己弹，不靠插件。
     public static void Tip(string text)
@@ -1395,7 +1395,7 @@ public static class DshOverlay
             get
             {
                 CreateParams cp = base.CreateParams;
-                // 2026-11-08：去掉 WS_EX_TRANSPARENT —— 她要能左键拖动、右键锁定，
+                // 2026-11-08：去掉 WS_EX_TRANSPARENT —— 浔要能左键拖动、右键锁定，
                 // 穿透的窗口收不到鼠标事件。代价是这 64×64 会挡住底下的点击。
                 cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
                 cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
@@ -1634,7 +1634,7 @@ public static class DshOverlay
             PlaceAt(baseX + dx, baseY + dy);
         }
 
-        // 2026-11-08 16:1x 她：「突然出现差点吓到我了」——出现时淡入，移动时先淡一下再回来。
+        // 2026-11-08 16:1x 浔：「突然出现差点吓到我了」——出现时淡入，移动时先淡一下再回来。
         // 用绘制层的 alpha（ColorMatrix），不动窗口的透明属性：那会重建 region，挖好的边会变方。
         float paintAlpha = 1f;
         System.Windows.Forms.Timer fadeTimer;
@@ -1806,12 +1806,12 @@ public static class DshBubble
             }
             else
             {
-                // 2026-11-08 她：「气泡就在你的鼠标上方，会比较好」——
+                // 2026-11-08 浔：「气泡就在你的鼠标上方，会比较好」——
                 // 给的是 AI 光标的点，泡浮在它上面，水平居中。
                 px = x + 32 - sz.Width / 2;   // 以光标中轴居中（光标默认 64 宽，中心 +32）
                 py = y - sz.Height - 18;
             }
-            // 2026-11-08 她：「用户鼠标会把气泡挡住」。真实光标永远画在最上层，
+            // 2026-11-08 浔：「用户鼠标会把气泡挡住」。真实光标永远画在最上层，
             // 泡跟它热区一重叠，那一小块就是花的。压上了就整体挪到它右下方。
             Point cp0 = Cursor.Position;
             Rectangle hot = new Rectangle(cp0.X - 2, cp0.Y - 2, 30, 36);
@@ -1819,7 +1819,7 @@ public static class DshBubble
             Rectangle me0 = new Rectangle(px, py, sz.Width, sz.Height);
             if (me0.IntersectsWith(hot) || me0.IntersectsWith(pet))
             {
-                // 2026-11-08 她：「避开你和桌宠两边」。按顺序试几个候选，
+                // 2026-11-08 浔：「避开你和桌宠两边」。按顺序试几个候选，
                 // 第一个两边都不压的胜出；全都不行才退到光标右下角。
                 Point[] cand = new Point[] {
                     new Point(x + 64, y - sz.Height - 12),          // 桌宠右上
@@ -1937,7 +1937,7 @@ public static class DshBubble
         {
             if (paintCount < 1) { paintCount++; DshBubble.Trace("paint " + ClientSize.Width + "x" + ClientSize.Height); }
             e.Graphics.Clear(BackColor);
-            // 2026-11-08 她：「边框不好看，要不不要了」——去掉，只留圆角底。
+            // 2026-11-08 浔：「边框不好看，要不不要了」——去掉，只留圆角底。
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             TextRenderer.DrawText(e.Graphics, msg, font,
                 new Rectangle(Pad, Pad, ClientSize.Width - Pad * 2, ClientSize.Height - Pad * 2),
@@ -2391,7 +2391,7 @@ function Invoke-Request($req) {
       $ms = if ($null -ne $req.ms) { [int]$req.ms } else { 3200 }
       if ($ms -lt 600) { $ms = 600 }
       if ($ms -gt 20000) { $ms = 20000 }
-      # 2026-11-08 她说「它在我的鼠标上说了，不是在你的鼠标上」——
+      # 2026-11-08 浔说「它在我的鼠标上说了，不是在你的鼠标上」——
       # 没给坐标时该贴 AI 光标，不该借用真实光标。
       $bx = -1
       $by = -1
@@ -2403,7 +2403,7 @@ function Invoke-Request($req) {
       } elseif ($null -eq $req.x -or $null -eq $req.y) {
         # 2026-11-08：没给坐标 = 「到我鼠标这边说」。
         # 现读真实光标，落在它右下方 24px——外面先读再发请求会晚一两秒，她手一动就偏。
-        # 2026-11-08 她调的偏移：右 74、下 44（原 24/24 再各加 50 / 20）。
+        # 2026-11-08 浔调的偏移：右 74、下 44（原 24/24 再各加 50 / 20）。
         $c = [DshInput]::CursorPos()
         $bx = [int]$c[0] + 74
         $by = [int]$c[1] + 44
@@ -2436,11 +2436,11 @@ function Invoke-Request($req) {
           Show-StateAt 'pointer' $bx $by
         }
       }
-      # 2026-11-08 14:29 她定的：气泡直接绑死在桌宠身上，按它的坐标偏移。
+      # 2026-11-08 14:29 浔定的：气泡直接绑死在桌宠身上，按它的坐标偏移。
       # 给了坐标就先把桌宠挪过去；然后再统一以桌宠**当前**位置为基准画泡——
       # 传进来的点可能是几步之前的，信它就会泡在这儿、我站那儿。
       if ($bx -ge 0) {
-        # 2026-11-08 她：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
+        # 2026-11-08 浔：「是不是没有缓动」——是，先前用 Show-StateAt 直接钉过去的。
         # 改成真滑过去（ease-out 520ms）：先确保它已经在屏幕上，滑完再按落点画泡。
         $script:cursorStyle = 'pointer'
         if (-not [DshOverlay]::VisibleNow() -and [DshOverlay]::HasLast) {

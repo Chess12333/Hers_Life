@@ -24,7 +24,7 @@ import os from 'node:os'
 export const MASK_PROVIDER = 'ming-skill-isolate'
 
 const DEFAULTS = {
-  cwd: 'C:\\dsh\\workspace',
+  cwd: (process.env.MING_WORKSPACE || ''),
   offFile: '',
   roots: [],
 }

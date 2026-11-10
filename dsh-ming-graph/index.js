@@ -50,12 +50,12 @@ const DEFAULTS = {
   syncSeconds: 120,
   // 2026-11-08：skill 开关。cwd 决定「按哪个工作区遮」——跟 dsh-ming-skill-isolate 的 root 是同一个意思；
   // offFile 留空就用 <skillsCwd>/skills-off.json，跟那边写的必须是同一个文件，否则开关写了也不生效。
-  skillsCwd: process.env.MING_WORKSPACE || 'C:\\dsh\\workspace',
+  skillsCwd: process.env.MING_WORKSPACE || '',
   skillsOffFile: '',
   // 费用价目表：我们自己维护，缺省在 <workspace>/live/cost-prices.json
-  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || 'C:\\dsh\\workspace') + '\\live\\cost-prices.json'),
+  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || '') + '\\live\\cost-prices.json'),
   // 2026-11-10：「索引费用」按钮写出来的自动价目。人工那份永远压过它。
-  costAutoFile: process.env.MING_COST_AUTO || ((process.env.MING_WORKSPACE || 'C:\\dsh\\workspace') + '\\live\\cost-prices.auto.json'),
+  costAutoFile: process.env.MING_COST_AUTO || ((process.env.MING_WORKSPACE || '') + '\\live\\cost-prices.auto.json'),
 }
 
 // ---------- 本地配置 ----------
@@ -151,7 +151,7 @@ export function apply(ctx, config) {
         lastError = ''
       } catch (err) {
         lastError = String((err && err.message) || err)
-        return { ...(cache || { generatedAt: 0, sources: {}, people: [], rooms: [], topics: [], edges: [], tags: [], timeline: [], spokes: [], center: { id: 'ming', name: 'AI', count: 0 } }), stale: !!cache, error: lastError }
+        return { ...(cache || { generatedAt: 0, sources: {}, people: [], rooms: [], topics: [], edges: [], tags: [], timeline: [], spokes: [], center: { id: 'ming', name: '溟', count: 0 } }), stale: !!cache, error: lastError }
       } finally {
         building = null
       }
@@ -242,6 +242,7 @@ export function apply(ctx, config) {
         kind: 'prefix',
         path: ROUTE,
         handler: async (req, res) => {
+          let method = ''
           try {
             if (webCtx.connection && typeof webCtx.connection.requestRejection === 'function') {
               const rejection = webCtx.connection.requestRejection(req)
@@ -249,7 +250,7 @@ export function apply(ctx, config) {
             }
             const url = new URL(req.url || '/', 'http://localhost')
             if (!url.pathname.startsWith(ROUTE)) { respond(res, 404, { error: 'not found' }); return }
-            const method = url.pathname.slice(ROUTE.length).replace(/^\//, '')
+            method = url.pathname.slice(ROUTE.length).replace(/^\//, '')
             if (method === '' || method === 'snapshot') {
               const snap = await snapshot()
               respond(res, 200, snap)
@@ -332,6 +333,18 @@ export function apply(ctx, config) {
             }
             respond(res, 404, { error: 'unknown method ' + method })
           } catch (err) {
+            // 2026-11-10（她：刷新时红字 HTTP 500，离开再回来又好了）：
+            // 图接口第一次要扫两侧记忆库（约两秒），冷缓存那一下抛错就整段 500，看着像全坏了。
+            // 改成 200 + 具体原因 + 空图：前端照常画（0 个点），把那句话摆出来，点刷新就重扫。
+            const msg = String((err && err.message) || err) + '（点「刷新」重试；第一次要扫一遍文件，约两秒）'
+            if (method === 'neurons' || method === 'neurons/refresh') {
+              respond(res, 200, { ok: false, error: msg, nodes: [], edges: [], rooms: [], stats: { memories: 0, edges: 0 } })
+              return
+            }
+            if (method === 'neurons/unified' || method === 'neurons/unified/refresh') {
+              respond(res, 200, { ok: false, error: msg, nodes: [], edges: [], rooms: [], roomsById: {} })
+              return
+            }
             respond(res, 500, { error: String((err && err.message) || err) })
           }
         },

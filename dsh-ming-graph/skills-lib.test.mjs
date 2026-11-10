@@ -13,7 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { listSkills, toggleSkill, parseFrontmatter } from './skills-lib.mjs'
 
-const cwd = 'C:\\dsh\\workspace'
+const cwd = (process.env.MING_WORKSPACE || '')
 const offFile = path.join(os.tmpdir(), 'ming-skills-off.test.json')
 try { fs.unlinkSync(offFile) } catch {}
 
@@ -40,7 +40,7 @@ const fake = {
     return [
       { name: 'humanizer', description: '服务给的描述', source: 'user-dsh', provider: 'filesystem' },
       { name: 'dsh-plugin-dev', description: '插件开发', source: 'bundled', provider: 'pkg' },
-      { name: 'awake', description: '（本工作区已隔离——AI关掉的，模型不可见）', source: 'custom', provider: 'ming-skill-isolate' },
+      { name: 'awake', description: '（本工作区已隔离——溟关掉的，模型不可见）', source: 'custom', provider: 'ming-skill-isolate' },
     ]
   },
 }

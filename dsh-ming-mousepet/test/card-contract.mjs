@@ -35,7 +35,7 @@ const height = (bounds) => {
 try {
   await engine.ensure()
 
-  const opened = await engine.request('card', { op: 'open', title: 'AI', x: 260, y: 240 }, 15000)
+  const opened = await engine.request('card', { op: 'open', title: '溟', x: 260, y: 240 }, 15000)
   check('开卡片', Boolean(opened?.ok && opened?.open), `bounds=${opened?.bounds}`)
   check('bounds 是四段数字', String(opened?.bounds || '').split(',').length === 4, opened?.bounds)
   const h1 = height(opened?.bounds)

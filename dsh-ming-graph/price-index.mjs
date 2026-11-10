@@ -504,7 +504,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   const dry = process.argv.includes('--dry')
   const offline = process.argv.includes('--offline')
   const only = arg('model', '')
-  const WS = process.env.MING_WORKSPACE || 'C:\\dsh\\workspace'
+  const WS = process.env.MING_WORKSPACE || ''
   const manualFile = path.join(WS, 'live', 'cost-prices.json')
   const autoFile = path.join(WS, 'live', 'cost-prices.auto.json')
 
