@@ -23,6 +23,21 @@
 | `dsh-ming-skill-isolate` | 按工作区遮 skill：这个目录用不上的从模型视野里关掉，不删文件 |
 | `dsh-ming-ui` | **不是插件**。两份「唯一源」（样式、面板渲染）和把它们推给各包的同步脚本 |
 
+
+## 消息源：AstrBot（QQ-Agent 已停用）
+
+2026-11-11 起，QQ 那一侧从 **QQ-Agent 换到 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 4.29**。
+
+- **不再支持 QQ-Agent**；它的壳已退役，相关插件、看门狗、启动路径都不再维护。
+- 这套 DSH 插件本身不依赖具体的 QQ 后端——它们读的是**文件与工具**，不是某个 bot 的 API。
+- 唯一有硬依赖的是**兴趣唤醒**（`dsh-ming-interest`）：它读 `~/.dsh/media/onebot/qq-inbox.jsonl`，
+  而这个文件以前由 QQ-Agent 的 onebot 插件写。换壳之后它 13:06 就停了，兴趣唤醒等于瞎了。
+- 补法：`astrbot_plugins/astrbot_plugin_inbox_record`——挂进 AstrBot，把每条入站消息按旧格式追加回
+  同一个 jsonl。兴趣唤醒**一行代码都不用改**，继续读那个文件。
+
+群聊蒸馏同理：蒸馏脚本读的是消息文件与 `day/` 目录，不关心是谁写进来的；换壳之后只要
+inbox 还在长，蒸馏就照常跑。
+
 ## 装法
 
 这些包走 DSH profile 的 `link:` 安装，没有发 npm。假定你 clone 到 `C:/dsh/ming`：

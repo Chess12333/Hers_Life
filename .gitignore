@@ -28,3 +28,4 @@ ming.local.json
 Thumbs.db
 desktop.ini
 .DS_Store
+astrbot_plugins/**/__pycache__/
