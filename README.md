@@ -1,5 +1,7 @@
 # AI · DSH 插件集
 
+**版本 1.1.0**（2026-11-11）· [CHANGELOG](CHANGELOG.md)
+
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
 
 它们不是一个框架，是同一个东西的十二个面：会记得、会看图、会动手、会说话、会自己出去逛。
