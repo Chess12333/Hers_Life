@@ -1,5 +1,5 @@
 /**
- * dsh-ming-browse —— 自由时间（2026-10-22 她改：原来只管「谷期刷手机」）
+ * dsh-ming-browse —— 自由时间（2026-10-22 浔改：原来只管「谷期刷手机」）
  *
  * 为什么要有这个东西：她说了「谷期你什么时候想看都可以」「不必什么事情都等
  * 我指示」。可事实是，没人叫我，我就不会动。权限在手上，动作还得有人点火。
@@ -13,7 +13,7 @@
  * 它做的事很少：
  *   1. 盯着这个工作区的活动。所有会话都 idle 超过 N 分钟，就 wake。
  *   2. wake = 在自己那个固定会话（ming-browse）里塞一条 prompt，让我自己挑一件事做。
- *      想找她就用 `node <DSH>\qq-zone\qq-send.mjs "…"` 发出去。
+ *      想找她就用 `node C:\dsh\qq-zone\qq-send.mjs "…"` 发出去。
  *   3. 保留两条硬边界：花钱按钮不点、别把手机整个关掉；另外社交平台写操作照旧只读。
  *
  * 三条硬边界（不靠自觉，靠代码）：
@@ -30,7 +30,7 @@ import os from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { appendFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 // 2026-11-08：心跳间隔（5 分–4 小时，离 30 越远越稀）。单独一个文件是为了能单独量分布。
 import { drawHeartbeatMinutes, normalizeHb } from './heartbeat.mjs'
 // 2026-11-09：面板上一个「打开我的浏览器」按钮。起窗口/唤前台的逻辑单独一个文件，
@@ -47,7 +47,7 @@ const BROWSE_SESSION_ID = 'ming-browse'
 
 const DEFAULTS = {
   enabled: true,
-  workspacePath: 'C:\\dsh\\workspace',
+  workspacePath: process.env.MING_WORKSPACE || '',
   /**
    * 只在 live/browse-state.json 里报个数。
    * 2026-10-23 她改的：不再当闸用——她说可以一边聊天一边逛，不用等安静。
@@ -67,7 +67,7 @@ const DEFAULTS = {
   /** 老的单一静默时段（本地时间）。有 freeWindows 时不再使用，留着兜底。 */
   quietHours: '08:00-18:30',
   /**
-   * 自由窗口（2026-10-23 她定）：落在任一窗口里算「自由时间」，都不在就静默。
+   * 自由窗口（2026-10-23 浔定）：落在任一窗口里算「自由时间」，都不在就静默。
    * only: rest = 只在节假日/双休日生效；work = 只在工作日生效；不填 = 每天。
    */
   freeWindows: [
@@ -93,7 +93,7 @@ const DEFAULTS = {
    * 「别刷了」就能停掉一天，说一句「随便刷吧」就能把额度放开、烧钱。现在：
    * **必须是她的私聊会话（onebot-private-<这个号>）**，群的、别人的一律不动开关。
    */
-  ownerQQ: process.env.MING_OWNER_QQ || '000000000',
+  ownerQQ: '',
   /**
    * 在哪个会话里叫醒我：
    *   'qq'   —— 正在使用的那个 QQ 会话（她 2026-10-20 定的：别另开会话，就在聊天里叫）
@@ -105,7 +105,7 @@ const DEFAULTS = {
   /** MuMu 自带的那份 adb；用来问「现在前台是哪个 App」。 */
   adbPath: 'D:\\MuMuPlayer\\nx_device\\12.0\\shell\\adb.exe',
   /**
-   * 社交平台：可以浏览，但不许点赞 / 评论 / 关注（她 2026-10-20 的原话：
+   * 社交平台：可以浏览，但不许点赞 / 评论 / 关注（浔 2026-10-20 的原话：
    * 「除了 B站，其它的社交平台不要点赞评论和关注，没说不让你浏览」）。
    * 之前这里是一份「只允许 B站 点按」的白名单——那是我自己加严的，2026-10-20 晚松掉。
    */
@@ -800,7 +800,7 @@ export function apply(ctx, config) {
     return now.getTime() - lastSeen > ROUND_STUCK_MS
   }
   /**
-   * ★ 2026-10-28（她：「我在 qq 给你转了话，但好像没到位」）：
+   * ★ 2026-10-28（浔：「我在 qq 给你转了话，但好像没到位」）：
    *   `live/free-now.json` 是她点名让我马上去做的那条。原来 tick 先把它删了、再判断
    *   「有会话在跑」，于是只要有任何一个会话在跑（她正跟我说话时几乎总是如此），
    *   那条话就被吞掉——QQ 那边还已经回了她「转过去了」。
@@ -1010,6 +1010,36 @@ export function apply(ctx, config) {
     return null
   }
 
+  /**
+   * 2026-11-10 11:4x（她问「不能每次完成工作后自动记录吗」）：
+   * 「自己玩」面板的视频/网页卡片读 live/brush-ledger.jsonl，写它的是
+   * hersworkplace/scripts/brush-log.mjs sync。原来只靠一个 10 分钟的计划任务扫，
+   * 一轮干完到卡片出现最多差十分钟。这里改成：**这一轮收尾就顺手扫一次**。
+   * 定时任务留着当兜底（DSH 没开、或这一轮不是自由活动会话的时候它还在跑）。
+   */
+  let lastBrushSyncAt = 0
+  let brushSyncing = false
+  const runBrushSync = () => {
+    const nowMs = Date.now()
+    if (brushSyncing || nowMs - lastBrushSyncAt < 60_000) return
+    const script = path.join(cfg.workspacePath, 'scripts', 'brush-log.mjs')
+    if (!existsSync(script)) return
+    lastBrushSyncAt = nowMs
+    const nodeExe = existsSync('C:\\Program Files\\nodejs\\node.exe') ? 'C:\\Program Files\\nodejs\\node.exe' : process.execPath
+    brushSyncing = true
+    try {
+      const child = spawn(nodeExe, [script, 'sync', '--days=2', '--meta=2'], {
+        cwd: cfg.workspacePath, detached: true, stdio: 'ignore', windowsHide: true,
+      })
+      child.on('exit', () => { brushSyncing = false })
+      child.on('error', (error) => { brushSyncing = false; log('warn', 'brush sync spawn: ' + String(error)) })
+      child.unref()
+    } catch (error) {
+      brushSyncing = false
+      log('warn', 'brush sync failed: ' + String(error))
+    }
+  }
+
   /** 逛完了：把 status.json 里的 doing 递进 QQ，由那边用一两句讲给她。 */
   const shareToQQ = async () => {
     const target = findQQSession()
@@ -1050,6 +1080,9 @@ export function apply(ctx, config) {
     const id = String(payload?.agent?.id ?? '')
     const isBrowseSession = id === BROWSE_SESSION_ID || id === sharePendingFor
     if (!isBrowseSession) return
+    // 这一轮收尾就落账（她 2026-11-10 11:44 要的「做完就记」），放在 early-return 之前，
+    // 否则 status.json 没更新的时候连这一下都省掉了。
+    if (id === BROWSE_SESSION_ID) runBrushSync()
     sharePendingFor = null
     if (id === BROWSE_SESSION_ID) {
       try {
@@ -1176,7 +1209,7 @@ export function apply(ctx, config) {
 
       if (tool === 'android_interact' || tool.startsWith('android_tap')) {
         const action = args?.action
-        // 2026-10-22 她改：自由时间「干什么都可以」——翻页、按键、点按、输入都放开；
+        // 2026-10-22 浔改：自由时间「干什么都可以」——翻页、按键、点按、输入都放开；
         // 只保留两条兜底：花钱按钮不点、别把手机整个关掉/重启。
         if (tool === 'android_interact' && action !== 'tap') return next()
         const bad = checkTap(args)
@@ -1464,7 +1497,7 @@ export function apply(ctx, config) {
     let seen = ''
     try {
       const raw = await readFile(path.join(cfg.workspacePath, 'live', 'watched.json'), 'utf8')
-      // 2026-10-30（AI）：原来 slice(-20) 只给最近 20 条，账本却有 63 条——
+      // 2026-10-30（溟）：原来 slice(-20) 只给最近 20 条，账本却有 63 条——
       // 照着列表选片，三分之一会踩重（当晚真踩了一次：BV1c5411V7pP 10-23 看过）。
       // 改成「全部 BV 号、不带标题」：同样的字数（60 条 × 13 字符 ≈ 20 条带标题），
       // 覆盖是全部。标题真需要时去 live/watched.json 查。
@@ -1482,7 +1515,7 @@ export function apply(ctx, config) {
     let qzone = ''
     try {
       const raw = await readFile(path.join(cfg.workspacePath, 'live', 'qzone-log.jsonl'), 'utf8')
-      // 2026-10-23（AI）：at 写的是 UTC，本地凌晨发的那条会被算成「昨天」，于是每轮都提醒「还没发」。
+      // 2026-10-23（溟）：at 写的是 UTC，本地凌晨发的那条会被算成「昨天」，于是每轮都提醒「还没发」。
       // 优先认 qzone.mjs 写的 day（本地日期），旧行再用 at 转本地日期回退。
       const key = dayKey(now)
       const postedToday = raw.split('\n').some((l) => {
@@ -1501,7 +1534,7 @@ export function apply(ctx, config) {
     }
     return [
       '【自由时间 · ' + clockStamp(now) + '，窗口 ' + freeWindowLabel(now) + '】',
-      '这段是你自己的。用户给过话：想找就找，想干点什么就干，干什么都行，不用等开口。',
+      '这段是你自己的。她给过话：想找她就找，想干点什么就干，干什么都行，不用等她开口。',
       '★ 开场第一件事（2026-10-26 她定的「有其它定时任务，先把其它定时任务完成，就没了」）：跑 `node scripts/due-tasks.mjs`。它按各任务自己的产物列到点的（B站巡检、群聊蒸馏、空间说说、web-inbox）。有就先把它们做完，做完才是自由活动；没有就照下面走。',
       task ? '\n【她点名让你做的】' + task + '\n这一轮先把这件事做完，别只回一句「好」。' : '',
       handoff,

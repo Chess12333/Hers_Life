@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { buildGraph, expand, describeChain, mergedIds, conflictCandidates, REPLACES } from './graph.js';
+import { ragSearch } from './rag.js';
 import {
   readRows as readRecallRows,
   record as recordRecall,
@@ -40,10 +41,29 @@ const corePath = () => join(dshHome(), 'memory', 'MEMORY.md');
 const notesDir = () => join(dshHome(), 'memory', 'notes');
 const indexPath = () => join(dshHome(), 'memory', 'index.json');
 
+/** 身份称呼（2026-11-10，浔点头「一起抽」）。
+ *  跟 dsh-ming-memory 共用 ~/.dsh/ming-memory.json，其次读 ~/.dsh/core-memory.json。
+ *  默认是通用名（大肥鱼 / 主人），不是溟——谁装这套插件都不该被叫成别人。
+ *  改配置要重启 DSH 才生效（跟别的插件一样）。 */
+let IDENT = null
+function identityNames() {
+  if (IDENT) return IDENT
+  const readJson = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')) } catch { return null } }
+  const home = dshHome()
+  const a = readJson(join(home, 'ming-memory.json')) || {}
+  const b = readJson(join(home, 'core-memory.json')) || {}
+  const pick = (k, d) => {
+    const v = (b[k] !== undefined ? b[k] : a[k])
+    return typeof v === 'string' && v.trim() ? v.trim() : d
+  }
+  IDENT = { self: pick('selfName', '大肥鱼'), user: pick('userName', '主人') }
+  return IDENT
+}
+
 const TEMPLATE = [
   '# DSH 核心记忆',
   '',
-  '> 由 dsh-ming-core-memory（AI的 fork）维护，并注入每个会话的系统提示。保持精炼（建议 6KB 内）。',
+  '> 由 dsh-ming-core-memory（' + identityNames().self + '的 fork）维护，并注入每个会话的系统提示。保持精炼（建议 6KB 内）。',
   '> 可用 memory_core 工具增删改，也可手工编辑（插件每次组装时同步读取，立即可见）。',
   '> 只装事实，不装人。',
   '',
@@ -333,7 +353,7 @@ async function loadGraph() {
 
 function errText(e) { return '操作失败：' + (e && e.message ? e.message : String(e)); }
 
-/** 写入审计：每次落盘记一行，用户可随时 `type memory\audit.jsonl` 看AI到底存了什么。 */
+/** 写入审计：每次落盘记一行，用户可随时 `type memory\audit.jsonl` 看溟到底存了什么。 */
 const auditPath = () => join(dshHome(), 'memory', 'audit.jsonl');
 async function audit(line) {
   try {
@@ -382,7 +402,7 @@ function buildSectionText() {
     ).join('\n');
     const persona = buildPersonaText();
     return [
-      '# 跨会话记忆',
+      '# 跨会话记忆（' + identityNames().self + ' · 本机）',
       '',
       '你在本机的所有会话共享以下持久记忆。核心记忆常驻注入；归档记忆仅列索引，用 memory_search / memory_read 按需取用。',
       '',
@@ -394,10 +414,10 @@ function buildSectionText() {
       '## 最近归档记忆（新→旧，最多 12 条）',
       recent || '（暂无归档记忆）',
       '',
-      '## 使用政策',
+      '## 使用政策（' + identityNames().self + '改过 · 与' + identityNames().user + '的约定一致）',
       '- 这个库只装「机器、环境、项目、工具、做法」这类事实。它是工具箱，不是人像。',
       '- 不写关于「人」的判断：身份、偏好画像、情绪、健康、关系、私人生活，以及未经明确同意的对话转述。这类内容属于用户自己的日记，不属于这里。',
-      '- 用户说「记住这个」时，先判断属于哪一类：属于人的那一类，就回一句「这条我不存，你要是想留，写进你自己的日记文件里」，不要落盘。',
+      '- 用户说「记住这个」时，先判断属于哪一类：属于人的那一类，就回一句「这条我不存，你要是想留，写进 工作区 的日记里」，不要落盘。',
       '- 不要为了「以后可能有用」而主动囤积。没有明确事实、没有明确要求，就不写。',
       '- 保存的内容必须自包含：未来会话看不到当前对话，要写清楚背景。',
       '- 不要保存：一次性细节、敏感信息（密码/凭据/token）、能从代码或文件轻易恢复的信息。',
@@ -444,6 +464,46 @@ function briefOf(body, max = 160) {
 }
 
 const toolDefs = [
+  {
+    name: 'rag_recall',
+    description: '按意思在本地语义库里找回原话和旧文（不是结论）。三层：doc=我写过的字（日记/见闻/learned/reading/live）、web=DSH 网页会话、qq=QQ 群与私聊（含旧壳 25 万条）。memory_search 查的是「我下过的结论」（关键词），这个查的是「原话」（向量）——想知道她说过什么、那段我怎么写的，用这个。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        query: { type: 'string', description: '要查什么，可以是一句描述，不用原话' },
+        layer: { type: 'string', enum: ['all', 'doc', 'web', 'qq'], description: '查哪一层，默认 all' },
+        k: { type: 'integer', description: '返回几段，默认 5，最多 15' },
+        since: { type: 'string', description: '只要这个日期之后的（YYYY-MM-DD），可空' },
+        until: { type: 'string', description: '只要这个日期之前的（YYYY-MM-DD），可空' },
+      },
+      required: ['query'],
+    },
+    output: outputText,
+    async execute(args) {
+      const query = typeof args.query === 'string' ? args.query.trim() : '';
+      if (!query) return 'rag_recall 失败：query 不能为空。';
+      const layer = ['all', 'doc', 'web', 'qq'].includes(args.layer) ? args.layer : 'all';
+      const k = typeof args.k === 'number' && args.k > 0 ? Math.min(Math.floor(args.k), 15) : 5;
+      const since = typeof args.since === 'string' ? args.since.trim() : '';
+      const until = typeof args.until === 'string' ? args.until.trim() : '';
+      try {
+        const r = await ragSearch(query, { layer, k, since, until });
+        if (!r) return '语义索引不可用：本地嵌入服务 127.0.0.1:18091 没起来，或者向量文件还没建。这时改用 memory_search（关键词）或 grep。';
+        if (!r.hits.length) return '语义库里没搜到跟「' + query + '」相近的段（查了 ' + r.layers.join('/') + '）。';
+        const lines = r.hits.map((h, i) => {
+          const where = h.layer === 'doc'
+            ? String(h.file || '').replace(/^C:\\dsh\\工作区\\/, '')
+            : (h.chatKey || h.title || '');
+          const body = String(h.text || '').replace(/\n/g, ' ⏎ ');
+          return (i + 1) + '. [' + h.score.toFixed(3) + '] ' + h.layer + ' · ' + where + '\n   ' + body.slice(0, 300) + (body.length > 300 ? '…' : '');
+        });
+        return '按意思搜到 ' + r.hits.length + ' 段（层：' + r.layers.join('/') + '）：\n' + lines.join('\n');
+      } catch (e) {
+        return 'rag_recall 出错：' + (e && e.message ? e.message : String(e));
+      }
+    },
+  },
   {
     name: 'memory_write',
     description: '保存一条归档记忆（episodic note），跨所有会话持久。适用：环境事实、项目决策与约定、工具与路径、可复现的做法。内容要自包含（未来会话看不到当前对话）。**不适用于关于用户的判断、偏好画像、私人内容**——那类东西属于用户自己的日记。',
@@ -675,7 +735,7 @@ const toolDefs = [
             target.body = text;
           }
           const next = renderCore(parsed);
-          // 2026-10-31（AI，照架构评审 4.3）：**写超了要拒绝，不要先落盘再截断。**
+          // 2026-10-31（溟，照架构评审 4.3）：**写超了要拒绝，不要先落盘再截断。**
           //   注入那段是 `core.slice(0, 3000)`（UTF-16 code unit），所以这里用同一个口径量：
           //   next.length。超了就返回结构化错误、保留旧文件，绝不写一个「尾巴会被切掉一半」的版本。
           //   2026-10-30 踩过：体检脚本按"去空白的可见字"量出 2929，真身 3018，末条被切半句。
@@ -928,7 +988,7 @@ const toolDefs = [
         return await enqueue(async () => {
           const notes = await loadIndex();
           const clean = ref.replace(/\.md$/, '');
-          // 精确全等优先（2026-10-25 AI修）：id 全等时它唯一，不该因为「它同时也是别人的前缀」被判歧义
+          // 精确全等优先（2026-10-25 溟修）：id 全等时它唯一，不该因为「它同时也是别人的前缀」被判歧义
           const exact = notes.filter((n) => n.id === clean);
           const matches = exact.length > 0 ? exact : notes.filter((n) => n.id.indexOf(clean) === 0);
           if (matches.length === 0) return '删除失败：未找到「' + ref + '」。可用 memory_list 浏览全部。';
@@ -1067,4 +1127,4 @@ export function apply(ctx) {
 }
 
 // 只给手动/脚本调试用（bench、自测）：插件运行时不会碰它。
-export const __debug = { bagTokens, queryTokens, scoreNote, loadBag, bagSig };
+export const __debug = { bagTokens, queryTokens, scoreNote, loadBag, bagSig, identityNames };

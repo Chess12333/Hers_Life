@@ -34,7 +34,7 @@
 ## 现在怎么改、怎么验
 
 ```
-cd C:/dsh/dsh-ming-graph
+cd <workspace>/dsh-ming-graph
 node build.mjs            # 拼 client.js，跑三道门
 node build.mjs --check    # 只问一句：client.js 是最新的吗（过期退出码 1）
 ```
@@ -53,7 +53,7 @@ DSH 那边要刷新页面才看得到（client 半端是构建物，不是热更
 ## 历史
 
 - `sync.mjs` / `sync-panels.mjs`：2026-11-08 删。它们推的拷贝已经全删了，留着等于留一条会骗人的路。
-- `_patch-*.mjs`：2026-11-07 给各插件补「面板只读接口」时用的一次性脚本，已挪进 `<DSH>\backup\ui-patches-20261108\`。
+- `_patch-*.mjs`：2026-11-07 给各插件补「面板只读接口」时用的一次性脚本，已挪进 `<workspace>\backup\ui-patches-20261108\`。
 
 ---
 

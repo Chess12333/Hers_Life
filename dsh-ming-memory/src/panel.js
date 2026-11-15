@@ -160,3 +160,143 @@ function MemoryIcon() {
     h('path', { d: 'M8 7h8M8 11h8M8 15h5' }),
   )
 }
+
+// ---------------------------------------------------------------------------
+// 设置页（2026-11-10 浔要的）：默认称呼 / 全名 / 自称一句 / 对方的称呼 / QQ 名 / 要不要带身份。
+//
+// 挂在她的一生顶栏最右边（光标之后）。第一次装好、还没配过的时候，这一页顶上先摆一页向导：
+// 三格填完点「就这样开始」，写进 ~/.dsh/ming-memory.json 的 identityOnboarded=true，下次不再出现。
+//
+// 数据走 Host 半端 /_dsh/dsh-ming-memory/identity（GET 读、POST 写整份 json，别的键原样保留）。
+// 改完要重启 DSH —— 注入文本是启动时算的，文件改了这一轮不会自己变。
+const IDENTITY_ROUTE = '/_dsh/dsh-ming-memory/identity'
+
+const ID_FIELDS = [
+  { key: 'selfName', label: '我自己叫什么', hint: '平时被叫的那个（昵称）', ph: '大肥鱼' },
+  { key: 'selfFullName', label: '全名', hint: '正式场合、生气的时候用', ph: '大肥鱼' },
+  { key: 'userName', label: '我该怎么叫你', hint: '它说话时会用这个称呼', ph: '主人' },
+  { key: 'qqName', label: 'QQ 那边的名字', hint: '留空就跟上面第一个一样', ph: '（留空）' },
+]
+
+function IdentityPanel() {
+  const [form, setForm] = useState(null)
+  const [onboarded, setOnboarded] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+
+  const load = useCallback(() => {
+    setError('')
+    fetch(IDENTITY_ROUTE, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '读不到')
+        setForm({
+          selfName: d.identity.selfName || '',
+          selfFullName: d.identity.selfFullName || '',
+          selfDesc: d.identity.selfDesc || '',
+          userName: d.identity.userName || '',
+          qqName: d.identity.qqName || '',
+          identity: d.identity.identity !== false,
+        })
+        setOnboarded(!!d.onboarded)
+      })
+      .catch((e) => setError('读不到设置：' + (e && e.message ? e.message : e)))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const save = useCallback((patch) => {
+    const next = Object.assign({}, form, patch || {})
+    setForm(next)
+    setBusy(true); setNote(''); setError('')
+    fetch(IDENTITY_ROUTE, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(next),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.error) || '没存上')
+        setOnboarded(true)
+        setNote('存好了。重启 DSH 之后生效。')
+      })
+      .catch((e) => setError('没存上：' + (e && e.message ? e.message : e)))
+      .then(() => setBusy(false), () => setBusy(false))
+  }, [form])
+
+  if (!form) {
+    return h('div', { style: { padding: '26px 28px', color: 'var(--dsw-alias-text-2)' } },
+      error ? h('div', { style: { color: 'var(--dsw-alias-danger, #ff8b8b)' } }, error) : '正在读设置…')
+  }
+
+  const field = (f) => h('label', { key: f.key, style: { display: 'block', margin: '0 0 14px' } },
+    h('div', { style: { fontSize: '13px', color: 'var(--dsw-alias-text-1)', margin: '0 0 4px' } }, f.label),
+    h('input', {
+      value: form[f.key], placeholder: f.ph,
+      onChange: (e) => setForm(Object.assign({}, form, { [f.key]: e.target.value })),
+      style: {
+        width: '100%', maxWidth: '360px', padding: '8px 11px', borderRadius: '9px', fontSize: '13.5px',
+        border: '1px solid var(--dsw-alias-border-1, rgba(255,255,255,.16))',
+        background: 'var(--dsw-alias-bg-2, rgba(0,0,0,.2))', color: 'var(--dsw-alias-text-1)',
+      },
+    }),
+    f.hint ? h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-2)', marginTop: '4px' } }, f.hint) : null)
+
+  return h('div', { style: { padding: '18px 20px 26px', maxWidth: '880px' } },
+    !onboarded ? h('div', {
+      style: {
+        margin: '0 0 18px', padding: '16px 18px', borderRadius: '14px',
+        border: '1px solid var(--dsw-alias-accent-1, #6f9dff)',
+        background: 'color-mix(in srgb, var(--dsw-alias-accent-1, #6f9dff) 12%, transparent)',
+      },
+    },
+      h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '0 0 6px', color: 'var(--dsw-alias-text-1)' } }, '先给它起个名字'),
+      h('div', { style: { fontSize: '13px', lineHeight: 1.8, color: 'var(--dsw-alias-text-1)' } },
+        '这套插件会把「你是谁」写进每个会话的开场。默认是通用名（大肥鱼 / 主人），不是某个人的名字——',
+        '把下面几格改成你想要的，然后点「就这样开始」。以后随时能在这一页改。')) : null,
+
+    h('div', { style: { fontSize: '15px', fontWeight: 600, margin: '0 0 12px', color: 'var(--dsw-alias-text-1)' } },
+      onboarded ? '身份与称呼' : '三步填完'),
+
+    ID_FIELDS.map(field),
+
+    h('label', { style: { display: 'block', margin: '0 0 14px' } },
+      h('div', { style: { fontSize: '13px', color: 'var(--dsw-alias-text-1)', margin: '0 0 4px' } }, '自称那一句'),
+      h('input', {
+        value: form.selfDesc, placeholder: '一个 AI，不是人',
+        onChange: (e) => setForm(Object.assign({}, form, { selfDesc: e.target.value })),
+        style: {
+          width: '100%', maxWidth: '520px', padding: '8px 11px', borderRadius: '9px', fontSize: '13.5px',
+          border: '1px solid var(--dsw-alias-border-1, rgba(255,255,255,.16))',
+          background: 'var(--dsw-alias-bg-2, rgba(0,0,0,.2))', color: 'var(--dsw-alias-text-1)',
+        },
+      }),
+      h('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-text-2)', marginTop: '4px' } },
+        '拼成「你是<名字>（全名<全名>），<这一句>。」')),
+
+    h('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 18px', fontSize: '13px', color: 'var(--dsw-alias-text-1)' } },
+      h('input', {
+        type: 'checkbox', checked: form.identity !== false,
+        onChange: (e) => setForm(Object.assign({}, form, { identity: e.target.checked })),
+      }),
+      '把身份写进开场（关掉就只搬记忆、不带人格）'),
+
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+      h('button', {
+        disabled: busy, onClick: () => save(),
+        style: {
+          padding: '9px 20px', borderRadius: '10px', border: 0, cursor: 'pointer', fontSize: '13.5px', fontWeight: 600,
+          background: 'var(--dsw-alias-accent-1, #6f9dff)', color: '#fff', opacity: busy ? 0.6 : 1,
+        },
+      }, busy ? '存…' : (onboarded ? '保存' : '就这样开始')),
+      h('button', {
+        disabled: busy, onClick: load,
+        style: {
+          padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px',
+          border: '1px solid var(--dsw-alias-border-1, rgba(255,255,255,.16))',
+          background: 'transparent', color: 'var(--dsw-alias-text-1)',
+        },
+      }, '重新读')),
+
+    h('div', { style: { fontSize: '12.5px', color: 'var(--dsw-alias-text-2)', marginTop: '12px', minHeight: '18px' } }, note),
+    h('div', { style: { fontSize: '12.5px', color: 'var(--dsw-alias-danger, #ff8b8b)', marginTop: '4px', minHeight: '18px' } }, error))
+}

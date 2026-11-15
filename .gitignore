@@ -29,3 +29,6 @@ Thumbs.db
 desktop.ini
 .DS_Store
 astrbot_plugins/**/__pycache__/
+
+# 测试跑出来的时长采样（>1MB）
+dsh-ming-mousepet/test/live-duration-*.json

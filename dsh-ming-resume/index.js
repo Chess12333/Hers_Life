@@ -26,10 +26,10 @@ export const name = 'ming-resume'
 
 const STEER_SOURCE = 'plugin:dsh-onebot'
 const DEFAULTS = {
-  root: 'C:\\dsh\\workspace',
+  root: process.env.MING_WORKSPACE || '',
   adbPath: 'D:\\MuMuPlayer\\nx_device\\12.0\\shell\\adb.exe',
   serial: '127.0.0.1:7555',
-  /** 插话时把正在播的视频暂停，答完再接着播（2026-10-20 她定的）。 */
+  /** 插话时把正在播的视频暂停，答完再接着播（2026-10-20 浔定的）。 */
   pauseMediaOnInterrupt: true,
 }
 
@@ -65,7 +65,7 @@ function isSteer(msg) {
   }
 }
 
-// ---------- 插话就暂停视频，答完接着播（2026-10-20 她定的） ----------
+// ---------- 插话就暂停视频，答完接着播（2026-10-20 浔定的） ----------
 // 她的原话：插话的时候暂停播放，「一定要暂停住」，等我回完她、她忙完了再继续播。
 // 为什么不能只靠提示词：按不按得住要看设备当前是不是真的在播；这里先查状态再按，
 // 按完了再查一遍确认——没停住就换一个键再按，并把结果告诉模型。

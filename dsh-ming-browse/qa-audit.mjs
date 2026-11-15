@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { apply } from './index.js'
 
-const OWNER = process.env.MING_OWNER_QQ || '000000000'
+const OWNER = '0000000'
 const fails = []
 const ok = (cond, label, extra = '') => {
   console.log((cond ? 'PASS ' : 'FAIL ') + label + (extra ? '  — ' + extra : ''))
@@ -91,24 +91,24 @@ const wrap = (qq, body) => `<user_message qq="${qq}" nickname="x">\n${body}\n</u
 // ------------------------------------------------ 1. 开关只认她私聊
 await clean()
 
-await fire('onebot-group-000000000', wrap('123456', '别刷了'))
+await fire('onebot-group-0000000', wrap('123456', '别刷了'))
 ok(!existsSync(pauseFile), '群里陌生人说「别刷了」→ 不停', '文件被写了')
 
-await fire('onebot-group-000000000', wrap(OWNER, '别刷了'))
+await fire('onebot-group-0000000', wrap(OWNER, '别刷了'))
 ok(!existsSync(pauseFile), '她自己发在群里也不算（群里容易看错主语）', '文件被写了')
 
 await fire('onebot-private-123456', wrap('123456', '随便刷吧'))
 ok(!existsSync(unlimitedFile), '陌生人私聊说「随便刷吧」→ 不放开额度', '文件被写了')
 
-await fire('onebot-private-000000000', wrap(OWNER, '别刷了'))
+await fire('onebot-private-0000000', wrap(OWNER, '别刷了'))
 ok(existsSync(pauseFile), '她私聊说「别刷了」→ 停今天', '文件没写')
 
 await clean()
-await fire('onebot-private-000000000', wrap(OWNER, '可以刷了'))
+await fire('onebot-private-0000000', wrap(OWNER, '可以刷了'))
 ok(!existsSync(pauseFile), '她私聊说「可以刷了」→ 恢复', '文件还在')
 
 // 她私聊说「随便刷吧」应当真的放开（别把闸修成聋子）
-await fire('onebot-private-000000000', wrap(OWNER, '不限量'))
+await fire('onebot-private-0000000', wrap(OWNER, '不限量'))
 ok(existsSync(unlimitedFile), '她私聊说「不限量」→ 额度真放开了（别把闸修成聋子）', '文件没写')
 await clean()
 

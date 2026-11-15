@@ -48,5 +48,5 @@ try {
  for($i=0;$i -lt 25;$i++){Sample 'idle';Start-Sleep -Milliseconds 200}
 } finally {Post 'settings' @{cursorSize=64}}
 $report=@{pid=$owner;monitors=$monitors;foregroundBefore=$fgBefore;foregroundAfter=[LiveWin]::GetForegroundWindow().ToInt64();finalDebug=(GetDebug);samples=$rows}
-$report|ConvertTo-Json -Depth 8|Set-Content 'C:/dsh/dsh-ming-mousepet/test/live-accept-result.json' -Encoding UTF8
+$report|ConvertTo-Json -Depth 8|Set-Content '<workspace>/dsh-ming-mousepet/test/live-accept-result.json' -Encoding UTF8
 $report|ConvertTo-Json -Depth 8 -Compress

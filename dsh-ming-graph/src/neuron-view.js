@@ -297,8 +297,13 @@
       const r = Math.sqrt(Math.max(0, 1 - y * y))
       const th = GOLD * i
       c.anchor = { x: Math.cos(th) * r, y, z: Math.sin(th) * r }
-      // 大头多占地方：角半径按 sqrt(占比)
-      c.theta = Math.min(0.9, Math.max(0.13, 1.15 * Math.sqrt(c.list.length / total)))
+      // 2026-11-15 15:1x：铺满整个球面。原来 min(0.9, 1.15*sqrt(占比)) 把最大簇卡在 51°，
+      // 球冠只盖 19% 球面，剩下八成是空的——看着就是「一个半球 + 一堆散点」。
+      // 球冠面积比 f=(1−cosθ)/2，反解 cosθ=1−2f：N 个簇的面积加起来正好一整个球。
+      {
+        const share = Math.max(0, Math.min(1, c.list.length / total))
+        c.theta = Math.acos(Math.max(-0.97, 1 - 2 * share))
+      }
     })
 
     for (const c of shell) {
@@ -396,6 +401,8 @@
     const title = document.createElement('h3'); title.className = 'nv-title'; title.textContent = opts.title || '记忆神经元'
     const meta = document.createElement('span'); meta.className = 'nv-meta'
     meta.textContent = `${stat.memories || 0} 条记忆 · ${stat.projects || 0} 个项目 · ${stat.edges || 0} 条边（${Object.entries(stat.byKind || {}).map(([k, v]) => `${KIND_LABEL[k] || k} ${v}`).join(' / ')}）· 孤立 ${stat.orphans || 0}`
+    // 2026-11-15：点数上限生效时，把「画了多少 / 一共多少」印在同一行
+    if (stat.note) meta.textContent += ' · ' + stat.note
     const spacer = document.createElement('div'); spacer.className = 'nv-spacer'
     const search = document.createElement('input')
     search.className = 'nv-input'; search.placeholder = '搜标题 / 正文里的词'

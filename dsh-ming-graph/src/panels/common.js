@@ -13,7 +13,7 @@
 
 // 2026-11-07 21:23：版本号改成「构建那一刻」——它就是判据：面板上印的时间对不上，
 // 说明浏览器拿的还是旧 bundle（今天为此白改过两次）。
-const MG_VERSION = '2026-11-08 02:17'
+const MG_VERSION = '2026-11-15 15:25'
 
 // 侧栏那个名字（2026-11-07 22:0x 她说的）：自己用叫「她的一生」，对外发布要另一个名字，
 // 两者不该靠改代码切换——写死一个，发布前改一遍、自己用又改回来，迟早漏。
@@ -68,6 +68,72 @@ const PAGE_CSS = `
   border-bottom:1px solid var(--dsw-alias-separator-secondary);background:var(--dsw-alias-bg-layer-2, rgba(127,127,127,.08))}
 .mg-tools .mg-input{flex:0 1 260px;min-width:140px}
 .mg-tools-l{font-size:11.5px;color:var(--dsw-alias-label-tertiary);margin-right:2px}
+.mg-num{min-width:auto;padding:3px 6px;font-size:12px;cursor:pointer}
+/* ---- 2026-11-15：展示页（默认落地页；不读记忆库、不建图） ---- */
+.mg-home{padding:20px 22px;overflow:auto;height:100%}
+.mg-home-h{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary);letter-spacing:.01em}
+.mg-home-i{font-style:normal;font-size:11px;font-weight:400;letter-spacing:.08em;color:var(--dsw-alias-label-tertiary);margin-left:2px}
+.mg-home-sub{margin-top:7px;font-size:12.5px;line-height:1.78;color:var(--dsw-alias-label-secondary);max-width:660px}
+.mg-home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:16px;max-width:900px}
+.mg-card{border:1px solid var(--dsw-alias-separator-secondary);border-radius:10px;padding:12px 13px;cursor:pointer;
+  background:var(--dsw-alias-bg-layer-2, rgba(127,127,127,.06));transition:border-color .16s ease,background .16s ease,transform .08s ease}
+.mg-card:hover{border-color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-hover, rgba(127,127,127,.12))}
+.mg-card:active{transform:translateY(1px)}
+.mg-card b{display:block;font-size:13.5px;font-weight:600;color:var(--dsw-alias-label-primary);margin-bottom:5px}
+.mg-card span{display:block;font-size:11.5px;line-height:1.72;color:var(--dsw-alias-label-tertiary)}
+.mg-home-stat{margin-top:18px;font-size:12.5px;line-height:1.8;color:var(--dsw-alias-label-secondary)}
+.mg-home-tip{margin-top:6px;font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.mg-home-err{margin-top:14px;font-size:12.5px;line-height:1.7;color:var(--dsw-alias-state-error-primary,#ff6b6b)}
+.mg-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:16px;max-width:760px}
+.mg-kpi-i{border:1px solid var(--dsw-alias-separator-secondary);border-radius:10px;padding:10px 12px;
+  background:var(--dsw-alias-bg-layer-2, rgba(127,127,127,.06))}
+.mg-kpi-i b{display:flex;align-items:baseline;gap:6px;font-size:22px;font-weight:700;line-height:1.15;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}
+.mg-kpi-i b i{width:7px;height:7px;border-radius:50%;opacity:.85;transform:translateY(-2px)}
+.mg-kpi-i span{display:block;margin-top:3px;font-size:11.5px;color:var(--dsw-alias-label-tertiary)}
+.mg-home-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px;max-width:900px}
+.mg-pane{border:1px solid var(--dsw-alias-separator-secondary);border-radius:10px;padding:10px 12px;min-height:112px}
+.mg-pane h4{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--dsw-alias-label-tertiary)}
+.mg-row{display:flex;gap:8px;align-items:baseline;padding:4px 0;font-size:12px;line-height:1.6}
+.mg-row b{flex:0 0 auto;font-weight:500;font-size:11px;padding:1px 6px;border-radius:999px;border:1px solid var(--dsw-alias-separator-secondary);color:var(--dsw-alias-label-tertiary)}
+.mg-row b.ok{color:#14b8a6;border-color:rgba(20,184,166,.4)}
+.mg-row b.bad{color:var(--dsw-alias-state-error-primary,#ff6b6b);border-color:rgba(255,107,107,.4)}
+.mg-row span{color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-empty{font-size:11.5px;color:var(--dsw-alias-label-tertiary);padding:4px 0}
+/* ---- 2026-11-15 15:3x：展示页做成看板（照「上下文洞察」那套的形状：数字砖 + 图 + 表） ---- */
+.mg-tile{border:1px solid var(--dsw-alias-separator-secondary);border-radius:10px;padding:10px 12px 9px;background:var(--dsw-alias-bg-layer-2, rgba(127,127,127,.06))}
+.mg-tile-l{display:block;font-size:11.5px;letter-spacing:.02em;color:var(--dsw-alias-label-tertiary)}
+.mg-tile-n{display:flex;align-items:baseline;gap:3px;margin-top:4px;font-size:24px;font-weight:700;line-height:1.1;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}
+.mg-tile-n i{font-style:normal;font-size:11px;font-weight:400;color:var(--dsw-alias-label-tertiary)}
+.mg-tile-s{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:10.5px;color:var(--dsw-alias-label-tertiary);opacity:.8}
+.mg-tile-s em{width:6px;height:6px;border-radius:2px}
+.mg-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px;max-width:1000px}
+.mg-bars{display:flex;align-items:flex-end;gap:4px;height:86px;margin-top:8px}
+.mg-bar{position:relative;flex:1;height:100%;border-radius:3px;background:rgba(127,127,127,.10);overflow:hidden}
+.mg-bar i{position:absolute;left:0;right:0;bottom:0;display:block;border-radius:3px;background:linear-gradient(180deg,#14b8a6,#0e8f83)}
+.mg-axis{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}
+.mg-axis-r{opacity:.75}
+.mg-donut-wrap{display:flex;align-items:center;gap:14px;margin-top:6px}
+.mg-donut{position:relative;flex:0 0 auto;width:96px;height:96px;border-radius:50%}
+.mg-donut:after{content:'';position:absolute;inset:23%;border-radius:50%;background:var(--dsw-alias-bg-base,#12151c);box-shadow:inset 0 0 0 1px rgba(127,127,127,.10)}
+.mg-donut i{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-style:normal;line-height:1.15}
+.mg-donut b{font-size:17px;font-weight:700;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}
+.mg-donut span{font-size:9.5px;color:var(--dsw-alias-label-tertiary)}
+/* 注意别叫 .mg-legend / .mg-lg —— 费用页那两个类名已经占了（是色块图例），会互相盖 */
+.mg-dlegend{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.mg-dlg{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.mg-dlg em{width:8px;height:8px;border-radius:2px}
+.mg-dlg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mg-dlg b{font-weight:500;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
+.mg-heat{display:flex;gap:3px;margin-top:8px}
+.mg-heat-c{display:flex;flex-direction:column;gap:3px}
+.mg-heat-i{width:9px;height:9px;border-radius:2px;background:rgba(127,127,127,.10)}
+.mg-heat-i.lv1{background:rgba(20,184,166,.28)}
+.mg-heat-i.lv2{background:rgba(20,184,166,.48)}
+.mg-heat-i.lv3{background:rgba(20,184,166,.70)}
+.mg-heat-i.lv4{background:rgba(20,184,166,.95)}
+.mg-heat-i.future{opacity:.22}
+.mg-axis-heat{justify-content:flex-start}
+.mg-axis-heat i{margin-left:2px}
 .mg-meta{font-size:12.5px;color:var(--dsw-alias-label-secondary);line-height:1.6;letter-spacing:.01em}
 .mg-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 14px;background:var(--dsw-alias-bg-secondary, rgba(127,127,127,.07));border-bottom:1px solid var(--dsw-alias-separator-primary, rgba(150,150,170,.45));box-shadow:inset 0 -1px 0 rgba(0,0,0,.18);transition:background .18s ease}
 .mg-brand{display:inline-flex;align-items:baseline;gap:7px;margin-right:10px;font-size:16px;font-weight:700;letter-spacing:.01em;color:var(--dsw-alias-label-primary);white-space:nowrap}

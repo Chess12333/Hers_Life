@@ -31,7 +31,7 @@ if (!tools.memory_merge) { console.error('FAIL: memory_merge 没注册'); proces
 // 三条散落的事实（模拟「同一件事散成好几条」）
 const w1 = await tools.memory_write.execute({
   title: '出站箱串号：两个实例共用一个包（2026-11-02）',
-  content: '浅水区的字从某个人的号发出去。原因：plugins 是包级目录，两个大脑扫同一个出站箱。',
+  content: '浅水区的字从泠岚的号发出去。原因：plugins 是包级目录，两个大脑扫同一个出站箱。',
   tags: ['出站箱', 'QA'], source: 'direct_observation',
 });
 const w2 = await tools.memory_write.execute({

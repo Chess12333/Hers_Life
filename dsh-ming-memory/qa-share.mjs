@@ -30,26 +30,26 @@ await m.created(qqA.agent)
 await m.created(webA.agent)
 await m.created(grpA.agent)
 
-m.user(qqS, '她在 QQ 说的第一句话。')
-m.assistant(qqS, 'AI在 QQ 回的第一句。')
+m.user(qqS, '浔在 QQ 说的第一句话。')
+m.assistant(qqS, '溟在 QQ 回的第一句。')
 m.user(grpS, '群里别人说的话，不该进私聊视角。')
 m.user(otherS, '这句来自 trpg_web，绝对不该被记录')
 
 await m.preStep(webA.agent)
 const t1 = webA.text()
-check('Web 看得见 QQ 那边说了什么', t1.includes('别的会话里的对话') && t1.includes('她在 QQ 说的第一句话'))
-check('也看得见我在那边回的那句', t1.includes('AI在 QQ 回的第一句'))
+check('Web 看得见 QQ 那边说了什么', t1.includes('别的会话里的对话') && t1.includes('浔在 QQ 说的第一句话'))
+check('也看得见我在那边回的那句', t1.includes('溟在 QQ 回的第一句'))
 check('群 → 私聊单向：私聊视角看得见群里的话', t1.includes('群里别人说的话'))
 check('群里的话带群号标签', /群 123456789/.test(t1))
 check('别的工程目录一条不读', !t1.includes('trpg_web'))
 
 await m.preStep(webA.agent)
 const t2 = webA.text()
-check('同一段不重复塞第二步（读完就划掉）', !t2.includes('她在 QQ 说的第一句话'))
+check('同一段不重复塞第二步（读完就划掉）', !t2.includes('浔在 QQ 说的第一句话'))
 
 await m.preStep(grpA.agent)
 const g1 = grpA.text()
-check('群视角看不到私聊的话（私聊绝不进群）', !g1.includes('她在 QQ 说的第一句话'))
+check('群视角看不到私聊的话（私聊绝不进群）', !g1.includes('浔在 QQ 说的第一句话'))
 
 check('QQ 那边看不到自己的话（只给别人的）', !qqA.text().includes('别的会话里的对话'))
 
@@ -58,16 +58,16 @@ const feed = readFeed(ROOT)
 const qqEntry = feed['onebot-private-10001'] || {}
 const qqItems = Array.isArray(qqEntry.items) ? qqEntry.items : []
 check('feed.json 落盘', !!feed['onebot-private-10001'])
-check('feed 里两边原话都在', qqItems.some((i) => i.r === '她') && qqItems.some((i) => i.r === 'AI'))
+check('feed 里两边原话都在', qqItems.some((i) => i.r === '浔') && qqItems.some((i) => i.r === '溟'))
 check('别的工程目录没进 feed', !feed['trpg'])
 check('群是单独一间房（scope）', feed['onebot-group-123456789'] && feed['onebot-group-123456789'].scope === 'group:123456789',
   JSON.stringify(feed['onebot-group-123456789'] && feed['onebot-group-123456789'].scope))
 check('私聊归 dm 那间房', (qqEntry.scope || '') === 'dm', JSON.stringify(qqEntry.scope))
 
 // 2026-11-08：注入段被当成她的话记下来——我在另一个窗口里编的「调试预算」按钮，
-// 就是这样绕回本会话、再变成「她说过」的。她的话后面追加的注入块必须剥掉。
+// 就是这样绕回本会话、再变成「浔说过」的。她的话后面追加的注入块必须剥掉。
 const injS = sessionFor('web-inject-1', ROOT)
-m.user(injS, '这是她真打的一句。\n\n【别的会话里的对话 · 新增】\n- [web 22:10] 她：我在另一个会话里编的调试预算按钮\n（只给新的一句；更早的已经在前几步给过。）')
+m.user(injS, '这是她真打的一句。\n\n【别的会话里的对话 · 新增】\n- [web 22:10] 浔：我在另一个会话里编的调试预算按钮\n（只给新的一句；更早的已经在前几步给过。）')
 await sleep(1300)
 const injEntry = readFeed(ROOT)['web-inject-1'] || {}
 const injText = (Array.isArray(injEntry.items) ? injEntry.items : []).map((i) => i.t).join(' | ')

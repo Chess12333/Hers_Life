@@ -34,11 +34,11 @@ export const inject = ['agents', 'timer']
 
 const DEFAULTS = {
   enabled: true,
-  workspacePath: 'C:\\dsh\\workspace',
+  workspacePath: process.env.MING_WORKSPACE || '',
   /** onebot 的入站录制文件（recordInbound: true 才存在）。 */
-  inboxPath: (process.env.USERPROFILE || '') + '\\.dsh\\media\\onebot\\qq-inbox.jsonl',
+  inboxPath: process.env.MING_INBOX || '',
   /** onebot 的 chatId → sessionId 映射，用来找「群自己的那个会话」。 */
-  chatSessionsPath: (process.env.USERPROFILE || '') + '\\.dsh\\media\\onebot\\chat-sessions.json',
+  chatSessionsPath: process.env.MING_CHAT_SESSIONS || '',
   /** 兴趣清单（工作区相对路径）。 */
   interestsFile: 'live\\interests.json',
   /** 每次唤醒追加一行，可查。 */
@@ -402,6 +402,15 @@ export function apply(ctx, config) {
         wakesLastHour: wakeTimes.filter((t) => now.getTime() - t < 3_600_000).length,
         maxPerHour: cfg.maxPerHour,
         running: [...running],
+      }
+      // 2026-11-15 14:3x：AstrBot 版（astrbot_plugin_ming_interest）已经接管叫醒。
+      // 这边只剩面板那个 HTTP 口；再轮询会把那份 state 覆盖回「没有命中兴趣的」，
+      // 面板就永远显示一句假话——认到 engine=astrbot 就整轮不动。
+      try {
+        const cur = JSON.parse(await readFile(statePath, 'utf8'))
+        if (cur && cur.engine === 'astrbot') return
+      } catch {
+        /* 读不到就照旧跑 */
       }
       if (existsSync(offPath)) return note({ ...base, skip: 'paused by ' + cfg.offFlag })
 

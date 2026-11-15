@@ -284,7 +284,9 @@ export function applyBilibiliFramesTool(ctx, service, timeoutMs) {
             if (exec.parent !== undefined) {
                 exec.deferContext(createUserMessage({
                     content: framesContent(value),
-                    source: { kind: 'plugin', plugin: 'dsh-plugin-bilibili' },
+                    // v4 会话格式不收 kind:'plugin'（2026-11-15 修：报「format v4 message requires a
+                    // producer-owned source kind」，自由活动取帧时一直跳）。迁移器把第三方插件源写成 plugin:<插件名>。
+                    source: { kind: 'plugin:dsh-ming-bilibili-account' },
                 }));
             }
             return value;

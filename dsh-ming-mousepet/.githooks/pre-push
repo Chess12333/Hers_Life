@@ -1,0 +1,63 @@
+#!/bin/sh
+# 推送前的隐私闸（2026-11-07 22:2x）
+#
+# 为什么会在这儿：11-07 晚上发现仓库从第一次推送起就带着本机号码、群号，
+# 还有两个内嵌整图数据的预览 HTML（整群人的 QQ 号 + 昵称）。历史改写过一次，
+# 但「下次还会犯」这件事没被挡住——这个钩子就是那道闸。
+#
+# 启用（每个 clone 跑一次）：
+#   git config core.hooksPath .githooks
+#   然后把要拦的词写进 ~/.dsh/git-privacy-patterns（一行一个，纯字符串）
+#
+# ★ 名单为什么不放仓库里：闸的名单本身也是一份号码表。第一版把它写在这，
+#   结果钩子把自己拦下了——正确的做法是名单留在本机，仓库里只有查的动作。
+#
+# 它拦三样：
+#   1. 名单文件里的词（号码 / 本机路径 …）
+#   2. 仓库里的 .html（预览页常把整图数据内嵌进去）
+#   3. 超过 1 MB 的文件（多半是数据转储或截图，不该进代码仓）
+
+set -u
+
+PAT_FILE="${MING_PRIVACY_PATTERNS:-$HOME/.dsh/git-privacy-patterns}"
+fail=0
+
+if [ -f "$PAT_FILE" ]; then
+  echo "· 查隐私名单（$PAT_FILE）…" >&2
+  hits=$(git grep -F -n -f "$PAT_FILE" HEAD -- . 2>/dev/null || true)
+  if [ -n "$hits" ]; then
+    echo "✗ 这些位置命中了名单里的词：" >&2
+    echo "$hits" | cut -c1-160 | head -20 >&2
+    echo "  → 改成从本机配置读，或者删掉这行。" >&2
+    fail=1
+  fi
+else
+  echo "· 没找到名单文件（$PAT_FILE），跳过第 1 项" >&2
+fi
+
+echo "· 查 .html…" >&2
+htmls=$(git ls-tree -r --name-only HEAD | grep -E '\.html$' || true)
+if [ -n "$htmls" ]; then
+  echo "✗ 仓库里有 html（预览页会内嵌整图数据）：" >&2
+  echo "$htmls" | head -10 >&2
+  echo "  → 加进 .gitignore，生成物不入库。" >&2
+  fail=1
+fi
+
+echo "· 查大文件（>1MB）…" >&2
+big=$(git ls-tree -r -l HEAD | awk '$4 > 1048576 {print $4"  "$5}')
+if [ -n "$big" ]; then
+  echo "✗ 超过 1MB 的文件：" >&2
+  echo "$big" | head -10 >&2
+  echo "  → 数据/截图不进仓库。" >&2
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "" >&2
+  echo "推送被拦下。确认无误要硬推：git push --no-verify" >&2
+  exit 1
+fi
+
+echo "✓ 过闸" >&2
+exit 0

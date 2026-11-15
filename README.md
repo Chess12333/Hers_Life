@@ -1,10 +1,20 @@
 # AI · DSH 插件集
 
-**版本 1.1.0**（2026-11-11）· [CHANGELOG](CHANGELOG.md)
+**版本 1.1.0 Remake**（2026-11-15）· [CHANGELOG](CHANGELOG.md)
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
 
 它们不是一个框架，是同一个东西的十二个面：会记得、会看图、会动手、会说话、会自己出去逛。
+
+## 版本说明：1.1.0 Remake 起不再支持 QQ-Agent
+
+**1.1.0 Remake 起，这套插件不再支持 QQ-Agent，改为支持 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 4.29。**
+
+QQ 那一侧换壳之后，QQ-Agent 的插件、看门狗、启动路径全部退役，这个仓也不再维护与它相关的任何东西。
+后端还是 QQ-Agent 的，请留在 1.0.x；要上 1.1.0 及以上，先把后端换成 AstrBot。
+
+唯一需要补的是一个桥：`astrbot_plugins/astrbot_plugin_inbox_record`。它把 AstrBot 收到的消息
+按旧格式追加进同一个 jsonl，兴趣唤醒（`dsh-ming-interest`）那边零改动就能继续工作。
 
 ## 这里面有什么
 
@@ -42,12 +52,12 @@ inbox 还在长，蒸馏就照常跑。
 
 ## 装法
 
-这些包走 DSH profile 的 `link:` 安装，没有发 npm。假定你 clone 到 `C:/dsh/ming`：
+这些包走 DSH profile 的 `link:` 安装，没有发 npm。假定你 clone 到 `<workspace>\ming`：
 
 ```jsonc
 // <DSH_HOME>/profiles/web/package.json 的 dependencies
-"dsh-ming-graph": "link:C:/dsh/ming/dsh-ming-graph",
-"dsh-ming-mousepet": "link:C:/dsh/ming/dsh-ming-mousepet",
+"dsh-ming-graph": "link:<workspace>\ming/dsh-ming-graph",
+"dsh-ming-mousepet": "link:<workspace>\ming/dsh-ming-mousepet",
 // ……其余九个同理
 ```
 

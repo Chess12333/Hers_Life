@@ -127,9 +127,9 @@ node test/pet-test.mjs
 
 ## 光标页的源在哪（2026-11-10）
 
-界面**只有一份**：`C:/dsh/dsh-ming-ui/src/cursor-page.js`。
+界面**只有一份**：`<workspace>/dsh-ming-ui/src/cursor-page.js`。
 它被 `sync-cursor-page.mjs` 原样注入到 `client.js` 的标记区（`// >>> 共享光标页` … `// <<< 共享光标页`）。
 
-- 改界面：改源 → `node C:/dsh/dsh-ming-ui/sync-cursor-page.mjs`
-- 验有没有漂：`node C:/dsh/dsh-ming-ui/sync-cursor-page.mjs --check`（可以挂进构建门口）
+- 改界面：改源 → `node <workspace>/dsh-ming-ui/sync-cursor-page.mjs`
+- 验有没有漂：`node <workspace>/dsh-ming-ui/sync-cursor-page.mjs --check`（可以挂进构建门口）
 - **别手改 client.js 里那一段**——下一次同步会被覆盖，而且两边会长得不一样。

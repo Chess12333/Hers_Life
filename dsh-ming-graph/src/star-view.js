@@ -72,6 +72,8 @@
     const chN = stat.chapters || nodes.filter((n) => n.chapter).length || 0
     const diaryN = stat.diaries || nodes.filter((n) => n.kind === 'diary').length
     title.textContent = `星图 · ${stat.unified || nodes.length} 个节点 · ${chN} 章 · ${diaryN} 篇日记`
+    // 2026-11-15：点数上限生效时，在这行末尾标出「显示多少 / 一共多少」
+    if (stat.note) title.textContent += ' · ' + stat.note
     const sp = document.createElement('span'); sp.className = 'sp'
     const hint = document.createElement('span'); hint.textContent = '拖动转 · 滚轮缩放 · 点一颗看原话'; hint.style.opacity = '0.7'
     const lg = document.createElement('span'); lg.className = 'svx-legend'

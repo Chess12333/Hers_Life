@@ -13,8 +13,8 @@ import { spawn, execFile } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
-const FFPLAY = process.env.MING_FFPLAY || 'ffplay'
-const ROOT = 'C:\\dsh\\workspace\\live\\voice'
+const FFPLAY = '%USERPROFILE%\/AppData\/Local\/Microsoft\/WinGet\/Packages\/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\/ffmpeg-8.1.1-full_build\/bin\/ffplay.exe'
+const ROOT = '<workspace>\/live\/voice'
 
 const text = (process.argv[2] || '').trim()
 const voice = (process.argv[3] || 'zh-CN-XiaoxiaoNeural').trim()

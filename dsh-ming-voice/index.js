@@ -11,20 +11,20 @@
  * 引擎优先 Edge TTS（微软那套免费在线合成，中文音色自然、不需要 API key）；
  * 断网时退回 Windows 自带的 SAPI（Huihui，机器味重但离线可用）。
  *
- * 2026-10-20 建。她要的是「语音发送功能」，这是那条线的第一段。
+ * 2026-10-20 建。浔要的是「语音发送功能」，这是那条线的第一段。
  */
 import { execFile } from 'node:child_process'
 import { mkdir, stat, readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
 export const name = 'ming-voice'
-// 2026-10-24（AI）：原来没声明 inject，apply 里直接 ctx.tools.register(...)，
+// 2026-10-24（溟）：原来没声明 inject，apply 里直接 ctx.tools.register(...)，
 // 宿主抛 "cannot get property \"tools\" without inject"，整个插件起不来
 // （manager.log 里 2026-10-20 15:19 两条就是这么来的），于是被 disabled 到现在。
 export const inject = ['tools']
 
 const DEFAULTS = {
-  root: 'C:\\dsh\\workspace',
+  root: '<workspace>',
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: '+0%',
   python: 'python',

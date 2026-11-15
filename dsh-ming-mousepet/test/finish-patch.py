@@ -1,5 +1,5 @@
 from pathlib import Path
-p=Path('C:/dsh/dsh-ming-mousepet/sidecar.ps1')
+p=Path('<workspace>/dsh-ming-mousepet/sidecar.ps1')
 s=p.read_text(encoding='utf-8-sig')
 a=s.index('            // 2026-11-08：用光标所在那块屏，不是主屏。',s.index('public BubbleForm'))
 b=s.index('            DshBubble.Trace("bubble at ',a)

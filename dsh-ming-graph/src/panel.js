@@ -41,6 +41,194 @@ function mingExtInstall() {
   if (Array.isArray(q) && q.length) q.splice(0).forEach(mingExtAdd)
 }
 
+// 2026-11-15：展示页只吃这两个函数写下的「上次读数」，自己不读记忆库。
+// 存的只有数字和时间，不存任何内容；localStorage 里就算清掉，展示页也只是少一行字。
+function readGraphStats() {
+  try { return JSON.parse(window.localStorage.getItem('ming.graph.lastStats') || 'null') } catch (e) { return null }
+}
+function saveGraphStats(patch) {
+  try {
+    const cur = readGraphStats() || {}
+    window.localStorage.setItem('ming.graph.lastStats', JSON.stringify(Object.assign(cur, patch, { at: Date.now() })))
+  } catch (e) {}
+}
+
+// 展示页（2026-11-15 她说的「top 栏第一栏加一个展示页」）：
+// 纯静态——不 fetch、不建图、不挂 canvas。想看图再点卡片进去。
+// 2026-11-15 15:3x：她拿「上下文洞察」那套给我看，说参考它 —— 展示页照着那个形状来：
+// 一排数字砖 + 两张图 + 一张表，全部 CSS 画，不挂 canvas。
+function mgYmd(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+}
+
+function OverviewPanel(props) {
+  const onGo = (props && props.onGo) || function () {}
+  const [ov, setOv] = useState(null)
+  const [ovErr, setOvErr] = useState('')
+  const [jobs, setJobs] = useState(null)
+
+  // 数据口是 /overview：只数目录、读几份文件的头（实测二十几毫秒）。不碰 /neurons，也不建图。
+  useEffect(() => {
+    let alive = true
+    fetch(API + '/overview', { cache: 'no-store' })
+      .then((r) => {
+        if (r.status === 404) throw new Error('宿主还是旧版：/overview 还没注册，重启 DSH 后这页才有数')
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return r.json()
+      })
+      .then((d) => { if (alive) { setOv(d); setOvErr('') } })
+      .catch((e) => { if (alive) setOvErr(String((e && e.message) || e)) })
+    // 最近在办的活：账本是 jsonl，读一下就有
+    fetch(API + '/acp', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && d.ok) setJobs((d.jobs || []).slice(0, 4)) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const now = new Date()
+  const week = '日一二三四五六'[now.getDay()]
+  const c = (ov && ov.counts) || {}
+  const dayMap = new Map(((ov && ov.byDay) || []).map((x) => [x.d, x.n]))
+
+  // 近 14 天：每天新增几条归档记忆
+  const bars = []
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+    const k = mgYmd(d)
+    bars.push({ k, n: dayMap.get(k) || 0 })
+  }
+  const barMax = Math.max(1, ...bars.map((b) => b.n))
+
+  // 近 10 周热力：一格一天
+  const heat = []
+  {
+    const endD = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startD = new Date(endD.getTime() - (endD.getDay() + 7 * 9) * 86400000)
+    for (let w = 0; w < 10; w++) {
+      const col = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startD.getTime() + (w * 7 + i) * 86400000)
+        const n = dayMap.get(mgYmd(d)) || 0
+        const lv = n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n > 0 ? 1 : 0
+        col.push({ k: mgYmd(d), n, lv, future: d > endD })
+      }
+      heat.push(col)
+    }
+  }
+
+  // 标签环：记忆落在哪些标签上（前八）
+  const COLORS = ['#14b8a6', '#e0803a', '#5b8def', '#e05a8a', '#a78bfa', '#c9cdd4', '#f0b429', '#8b8f96']
+  const tags = (ov && ov.tagsTop) || []
+  const tagSum = tags.reduce((s, x) => s + x.n, 0) || 1
+  let acc = 0
+  const segs = tags.map((x, i) => {
+    const from = (acc / tagSum) * 360
+    acc += x.n
+    return { t: x.t, n: x.n, from, to: (acc / tagSum) * 360, color: COLORS[i % COLORS.length] }
+  })
+  const donut = segs.length
+    ? 'conic-gradient(' + segs.map((s) => s.color + ' ' + s.from.toFixed(1) + 'deg ' + s.to.toFixed(1) + 'deg').join(',') + ')'
+    : 'rgba(127,127,127,.18)'
+
+  const KPIS = [
+    [c.notes, '归档记忆', '条', '#14b8a6'],
+    [c.diaries, '日记', '篇', '#c9cdd4'],
+    [c.people, '群友', '个', '#e05a8a'],
+    [c.chapters, '记忆卡', '章', '#5b8def'],
+  ]
+  const CARDS = [
+    ['neuron', '神经元', '每条记忆一个点，边带「凭什么连」。切过去才读记忆库。'],
+    ['star', '星图', '按章分臂、按日排环，点一颗星看原话。'],
+    ['memory', '记忆', '归档列表，点一行看正文。最轻。'],
+  ]
+
+  return h('div', { className: 'mg-home' },
+    h('div', { className: 'mg-home-h' }, '她的一生', h('i', { className: 'mg-home-i' }, ' hers life')),
+    h('div', { className: 'mg-home-sub' },
+      now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') +
+      ' 周' + week + ' · 这一页不建图，只数数：数字和图表都从盘上的文件现算，读一次二十几毫秒。'),
+
+    ovErr ? h('div', { className: 'mg-home-err' }, ovErr) : null,
+
+    h('div', { className: 'mg-kpi' },
+      KPIS.map(([n, label, unit, color]) => h('div', { key: label, className: 'mg-tile' },
+        h('span', { className: 'mg-tile-l' }, label),
+        h('b', { className: 'mg-tile-n' }, ov ? String(n || 0) : '…', h('i', null, unit)),
+        h('span', { className: 'mg-tile-s' }, h('em', { style: { background: color } }),
+          label === '归档记忆' ? 'memory/notes' : label === '日记' ? 'diary/' : label === '群友' ? 'people/_index' : '记忆卡'),
+      ))),
+
+    h('div', { className: 'mg-charts' },
+      h('section', { className: 'mg-pane' },
+        h('h4', null, '近 14 天 · 新增记忆'),
+        h('div', { className: 'mg-bars' },
+          bars.map((b) => h('div', { key: b.k, className: 'mg-bar', title: b.k + ' · ' + b.n + ' 条' },
+            h('i', { style: { height: Math.max(2, Math.round((b.n / barMax) * 80)) + 'px' } })))),
+        h('div', { className: 'mg-axis' },
+          h('span', null, bars[0].k.slice(5)), h('span', { className: 'mg-axis-r' }, '最多 ' + barMax + ' 条'), h('span', null, '今天')),
+      ),
+      h('section', { className: 'mg-pane' },
+        h('h4', null, '记忆的标签'),
+        h('div', { className: 'mg-donut-wrap' },
+          h('div', { className: 'mg-donut', style: { background: donut } },
+            h('i', null, h('b', null, ov ? String(c.notes || 0) : '…'), h('span', null, '条记忆'))),
+          // 图例用行内样式：这一段上出现过「类名撞车被盖掉」的坑，行内样式不跟别人抢
+          h('div', { style: { flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 } },
+            segs.length
+              ? segs.map((s) => h('div', { key: s.t, style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, lineHeight: 1.6 } },
+                h('em', { style: { flex: '0 0 8px', width: 8, height: 8, borderRadius: 2, background: s.color } }),
+                h('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--dsw-alias-label-secondary)' } }, s.t),
+                h('b', { style: { marginLeft: 'auto', fontWeight: 500, color: 'var(--dsw-alias-label-tertiary)' } }, s.n)))
+              : h('div', { className: 'mg-empty' }, ov ? '没有标签' : '读着呢…')),
+        ),
+      ),
+    ),
+
+    h('div', { className: 'mg-charts' },
+      h('section', { className: 'mg-pane' },
+        h('h4', null, '近 10 周 · 写过多少'),
+        h('div', { className: 'mg-heat' },
+          heat.map((col, wi) => h('div', { key: 'w' + wi, className: 'mg-heat-c' },
+            col.map((d) => h('i', {
+              key: d.k,
+              className: 'mg-heat-i lv' + d.lv + (d.future ? ' future' : ''),
+              title: d.k + ' · ' + d.n + ' 条',
+            }))))),
+        h('div', { className: 'mg-axis mg-axis-heat' },
+          h('span', null, '少'), h('i', { className: 'mg-heat-i lv0' }), h('i', { className: 'mg-heat-i lv1' }),
+          h('i', { className: 'mg-heat-i lv2' }), h('i', { className: 'mg-heat-i lv3' }), h('i', { className: 'mg-heat-i lv4' }), h('span', null, '多')),
+      ),
+      h('section', { className: 'mg-pane' },
+        h('h4', null, '最近在办的活'),
+        jobs === null
+          ? h('div', { className: 'mg-empty' }, '读着呢…')
+          : (jobs.length
+            ? jobs.map((j) => h('div', { key: j.id, className: 'mg-row' },
+              h('b', { className: j.state === 'failed' ? 'bad' : (j.state === 'done' ? 'ok' : '') },
+                j.state === 'done' ? '办完' : j.state === 'failed' ? '失败' : (j.stale ? '搁着' : '在跑')),
+              h('span', null, String(j.task || j.id || '').slice(0, 42))))
+            : h('div', { className: 'mg-empty' }, '账本空着')),
+        h('h4', { style: { marginTop: '12px' } }, '最近写的'),
+        (ov && (ov.recentDiaries || []).length)
+          ? ov.recentDiaries.slice(0, 2).map((d) => h('div', { key: 'd' + d.date, className: 'mg-row' },
+            h('b', null, d.date.slice(5)), h('span', null, d.title)))
+          : null,
+        (ov && (ov.recentNotes || []).length)
+          ? ov.recentNotes.slice(0, 2).map((n) => h('div', { key: 'n' + n.id, className: 'mg-row' },
+            h('b', null, (n.tags && n.tags[0]) || '笔记'), h('span', null, n.title)))
+          : null,
+      ),
+    ),
+
+    h('div', { className: 'mg-home-grid' },
+      CARDS.map(([k, t, d]) => h('div', { key: k, className: 'mg-card', onClick: () => onGo(k) },
+        h('b', null, t), h('span', null, d))),
+    ),
+  )
+}
+
 function NeuronPanel() {
   const holder = useRef(null)
   const viewRef = useRef(null)
@@ -48,7 +236,10 @@ function NeuronPanel() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [info, setInfo] = useState(null)
-  const [view, setView] = useState('neuron')      // neuron | star
+  // 2026-11-15 15:2x 她说的：打开默认落在「展示」页。原来一进来就是神经元——
+  // 那一页要读一遍记忆库（约两秒）再每帧刷一遍点，开着就一直在吃性能。
+  // view: show | neuron | star | memory | browse | interest | voice | acp | cost | ext:xxx
+  const [view, setView] = useState('show')
   // 2026-11-07 21:4x：一个选中态穿过三个视图（神经元的搜索 / 星图点星 / 记忆列表）。
   // selRef 是给「挂载那一刻」用的：星图 effect 的闭包里拿不到最新的 selId。
   const [selId, setSelId] = useState('')
@@ -64,6 +255,60 @@ function NeuronPanel() {
   // 把 HTTP 状态、拿到几个节点、mount 有没有抛错直接写在面板上。
   const [starInfo, setStarInfo] = useState('')
   const [starData, setStarData] = useState(null)
+
+  // 2026-11-15：点数上限（神经元 / 星图共用，存本地）。0 = 全部。
+  // 神经元每帧要刷一遍点，星图每个点是一个 div——1271 个一起上是会卡的，给个旋钮。
+  const LIMIT_CHOICES = [200, 400, 600, 1000, 1500, 0]
+  const [limit, setLimit] = useState(() => {
+    try {
+      const v = Number(window.localStorage.getItem('ming.graph.limit'))
+      return Number.isFinite(v) && v >= 0 ? v : 600
+    } catch (e) { return 600 }
+  })
+  const limitRef = useRef(limit)
+  useEffect(() => { limitRef.current = limit }, [limit])
+  // 神经元那份原始数据留在内存里：切走再切回来不用重新读盘
+  const neuronData = useRef(null)
+  // 展示页上的数字：只从 localStorage 读上次的读数，展示页自己不碰记忆库
+  const [showStats, setShowStats] = useState(() => readGraphStats())
+
+  // 按上限挑点：人 / 项目永远留，其次日记，剩下按时间新的优先
+  function limitGraph(d) {
+    const max = limitRef.current
+    const all = (d && d.nodes) || []
+    if (!max || all.length <= max) return d
+    // 结构点（人 / 项目 / 日记）不裁——它们是核球和时间环，裁掉图就散了。
+    // 只裁记忆：先留连得多的（不然线全断，剩一屏孤立点），再按时间新的。
+    const struct = all.filter((n) => n.kind !== 'memory')
+    const mem = all.filter((n) => n.kind === 'memory')
+    const deg = new Map()
+    for (const e of (d.edges || [])) {
+      deg.set(e.a, (deg.get(e.a) || 0) + 1)
+      deg.set(e.b, (deg.get(e.b) || 0) + 1)
+    }
+    const room = Math.max(0, max - struct.length)
+    const picked = mem.slice()
+      .sort((a, b) => ((deg.get(b.id) || 0) - (deg.get(a.id) || 0)) || ((b.at || 0) - (a.at || 0)))
+      .slice(0, room)
+    const keep = new Set(struct.map((n) => n.id))
+    for (const n of picked) keep.add(n.id)
+    const nodes = all.filter((n) => keep.has(n.id))
+    const edges = (d.edges || []).filter((e) => keep.has(e.a) && keep.has(e.b))
+    return Object.assign({}, d, {
+      nodes, edges,
+      stats: Object.assign({}, d.stats || {}, { note: '显示 ' + nodes.length + '/' + all.length + ' 点' }),
+    })
+  }
+
+  // 挂神经元：用内存里那份数据 + 当前点数上限
+  function mountNeuron() {
+    const d = neuronData.current
+    if (!d || !holder.current) return
+    if (!window.__MingNeuronView) { setErr('渲染层没装上（neuron-view 未加载）'); setStatus('error'); return }
+    if (viewRef.current && viewRef.current.destroy) viewRef.current.destroy()
+    viewRef.current = window.__MingNeuronView.mount(holder.current, limitGraph(d), { onSelect: setSelId })
+    if (selRef.current && viewRef.current.select) { try { viewRef.current.select(selRef.current) } catch (e) {} }
+  }
 
   // 2026-11-08：top 栏两件事的状态。pop 是哪个浮层开着（'' / 'skill' / 'cost'）。
   const [pop, setPop] = useState('')
@@ -173,15 +418,18 @@ function NeuronPanel() {
   }
 
   // 2026-11-08 15:27：切到「费用」页就拉一次，别等两分钟轮询。
-  useEffect(() => { if (view === 'cost') loadCost() }, [view, loadCost])
-
+  // 2026-11-15：原来是「面板一挂载就拉 + 每两分钟轮询」——/cost 要扫七万行 sqlite，
+  // 而展示页根本用不着。改成只在费用页开着的时候拉，切走就停。
   useEffect(() => {
-    // 清单进面板就拉一次（很便宜：一次文件读 + 一次服务调用）；费用两分钟一次，
-    // 比下面那条 60 秒的账本轮询低频——面板不是账单页，看个大概就够。
-    loadSkills(false)
+    if (view !== 'cost') return
     loadCost()
     const t = setInterval(loadCost, 120000)
     return () => clearInterval(t)
+  }, [view, loadCost])
+
+  useEffect(() => {
+    // 清单很便宜（一次文件读 + 一次服务调用），进面板就拉一次：top 栏那个按钮要显示数。
+    loadSkills(false)
   }, [])
 
   // force=false 走缓存；force=true 走 /neurons/refresh（Host 重读文件、重新加载 neuron.js）
@@ -195,11 +443,11 @@ function NeuronPanel() {
         if (d && d.roomLabels) { try { window.__MING_ROOMS = d.roomLabels } catch (e) {} }
         if (d && d.error) { setErr(String(d.error)); setStatus('error'); return }
         if (!window.__MingNeuronView) { setErr('渲染层没装上（neuron-view 未加载）'); setStatus('error'); return }
-        if (viewRef.current && viewRef.current.destroy) viewRef.current.destroy()
         // 2026-11-07 22:2x：选中态穿过三个视图——神经元点一个点，切到星图/记忆能对上同一条。
-        viewRef.current = window.__MingNeuronView.mount(holder.current, d, { onSelect: setSelId })
-        if (selRef.current && viewRef.current.select) { try { viewRef.current.select(selRef.current) } catch (e) {} }
+        neuronData.current = d
+        mountNeuron()
         setStatus('ready')
+        saveGraphStats({ memories: (d.stats && d.stats.memories) || 0, edges: (d.stats && d.stats.edges) || 0, nodes: (d.nodes || []).length })
         setErr('')
         setInfo({
           at: d.generatedAt || 0,
@@ -212,11 +460,25 @@ function NeuronPanel() {
       .finally(() => setBusy(false))
   }, [])
 
+  // 2026-11-15：神经元不再在挂载时就建。只有真切到那一页才读 /neurons（Host 要扫一遍记忆库）。
+  // 已经读过一次的数据留在 neuronData 里，切回来只是重挂，不再读盘；改点数也只是重挂。
   useEffect(() => {
-    load(false)
-    return () => {
+    if (view !== 'neuron') {
       if (viewRef.current && viewRef.current.destroy) { viewRef.current.destroy(); viewRef.current = null }
+      return
     }
+    if (neuronData.current) {
+      const t = setTimeout(mountNeuron, 0)
+      return () => clearTimeout(t)
+    }
+    load(false)
+  }, [view, limit])
+
+  // 展示页每回来一次，重读一遍上次的读数（别让她看见过期数字还以为坏了）
+  useEffect(() => { if (view === 'show') setShowStats(readGraphStats()) }, [view])
+
+  useEffect(() => () => {
+    if (viewRef.current && viewRef.current.destroy) { viewRef.current.destroy(); viewRef.current = null }
   }, [])
 
   // top 栏 → 渲染层：数据不动，只改「看什么」
@@ -295,7 +557,9 @@ function NeuronPanel() {
         if (!SV) { setStarErr('星图渲染层没装上（star-view 未加载）'); setStarState('error'); return }
         try {
           if (starRef.current && starRef.current.destroy) starRef.current.destroy()
-          starRef.current = SV.mount(starHost.current, d, { onSelect: setSelId, initialId: selRef.current })
+          setStarData(d)
+          saveGraphStats({ nodes: nNodes })
+          starRef.current = SV.mount(starHost.current, limitGraph(d), { onSelect: setSelId, initialId: selRef.current })
           const st = (starRef.current.stats && starRef.current.stats()) || {}
           setStarInfo('节点 ' + nNodes + ' · 已画 ' + (st.dots || 0) + ' 点 · ' + (st.size ? st.size[0] + '×' + st.size[1] : '') + ' · ' + ((d.stats && d.stats.source) || ''))
           setStarState('ready')
@@ -306,7 +570,7 @@ function NeuronPanel() {
       })
       .catch((e) => { if (alive) { setStarErr(String((e && e.message) || e)); setStarState('error') } })
     return () => { alive = false }
-  }, [view, reloadTick])
+  }, [view, reloadTick, limit])
 
 
   const when = info && info.at ? new Date(info.at).toLocaleTimeString('zh-CN', { hour12: false }) : ''
@@ -330,8 +594,11 @@ function NeuronPanel() {
       h('span', { className: 'mg-brand' }, '她的一生', h('i', null, 'hers life')),
       // tab 分两组：竖线左边是记下来的，右边是我干活用的。
       h('div', { className: 'mg-seg' },
-        [['neuron', '神经元'], ['star', '星图'], ['memory', '记忆'], ['|'],
+        // 2026-11-15：第一栏是「展示」——默认就落在这儿，不读记忆库也不画图。
+        [['show', '展示'], ['neuron', '神经元'], ['star', '星图'], ['memory', '记忆'], ['|'],
           ['browse', '自己玩'], ['interest', '兴趣'], ['voice', '声音'],
+          // 2026-11-15 14:3x：她问「转到 DSH 的活跑在哪」——只有 jsonl，没有界面。这里给它一个页。
+          ['acp', '委托'],
           // 2026-11-10 她定的：「桌宠也去掉吧，就保留光标就可以了」。
           // 桌宠那页是本机专用的，光标页才是"谁装谁有"的那一个——自己用和发出去要同一套。
           ['cost', '费用'], ['|']]
@@ -425,8 +692,29 @@ function NeuronPanel() {
             }, t)),
           )
           : null,
+        // 2026-11-15：点数上限。神经元和星图都认这个数，改了立刻重挂。
+        (view === 'neuron' || view === 'star')
+          ? h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+            h('span', { className: 'mg-tools-l' }, '点数'),
+            h('select', {
+              className: 'mg-input mg-num',
+              value: String(limit),
+              title: '图上最多画几个点：人 / 项目 / 日记不裁，记忆先留连得多的、再留新的。',
+              onChange: (e) => {
+                const v = Number(e.target.value) || 0
+                setLimit(v)
+                try { window.localStorage.setItem('ming.graph.limit', String(v)) } catch (err) {}
+              },
+            }, LIMIT_CHOICES.map((v) => h('option', { key: 'L' + v, value: String(v) }, v ? String(v) : '全部'))),
+          )
+          : null,
       )
       : null,
+
+    // 2026-11-15：展示页（默认落地页）。不读记忆库、不建图，开得快。
+    h('div', { key: 'show', className: 'mg-holder', style: view === 'show' ? null : { display: 'none' } },
+      view === 'show' ? h(OverviewPanel, { stats: showStats, onGo: setView }) : null,
+    ),
 
     // 2026-11-07 12:37：报错 `Cannot set properties of null (setting 'innerHTML')`。
     // 根因：星图那个 div 是条件渲染的，effect 跑的那一瞬 ref 还是 null，mount 里 host.innerHTML 就炸在这。
@@ -456,6 +744,9 @@ function NeuronPanel() {
     ),
     h('div', { key: 'resume' + reloadTick, className: 'mg-holder', style: view === 'resume' ? null : { display: 'none' } },
       view === 'resume' ? h(ResumePanel) : null,
+    ),
+    h('div', { key: 'acp' + reloadTick, className: 'mg-holder', style: view === 'acp' ? null : { display: 'none' } },
+      view === 'acp' ? h(AcpPanel) : null,
     ),
     // 外部页签（2026-11-09）：所有挂进来的共用一个 holder，只渲染当前那一个。
     h('div', { key: 'ext' + reloadTick, className: 'mg-holder', style: String(view).indexOf('ext:') === 0 ? null : { display: 'none' } },

@@ -1,4 +1,4 @@
-param([string]$Source = 'C:/dsh/dsh-ming-mousepet/sidecar.ps1')
+param([string]$Source = '<workspace>/dsh-ming-mousepet/sidecar.ps1')
 $ErrorActionPreference = 'Stop'
 $s = [IO.File]::ReadAllText($Source)
 $tokens=$null; $errors=$null

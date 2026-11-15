@@ -38,7 +38,7 @@ lib/neuron.mjs   readDshNotes / readQqObservations / buildNeuron / buildUnified 
 现在反过来——memory 负责读、负责算，graph 只负责画。
 
 代价（写在这儿，免得下次踩）：graph 是按**相对路径** `../dsh-ming-memory/lib/…` 找到它的，
-两个仓必须并排放在同一个父目录下（默认 `<DSH>\`）。profile 的 node_modules 是按真路径加载的，
+两个仓必须并排放在同一个父目录下（默认 `<workspace>\`）。profile 的 node_modules 是按真路径加载的，
 包名在那个位置解析不到。接线断没断跑 `node ../dsh-ming-graph/wiring-check.mjs`，它也挂在 `scripts/health.mjs` 里。
 
 ## 和 graph 的边界
@@ -154,6 +154,33 @@ lib/neuron.mjs   readDshNotes / readQqObservations / buildNeuron / buildUnified 
 | `MING_ROOT` | 等同 `config.root`，优先于空配置 |
 | `MING_QQ_DATA` | 外端（QQ bot 框架）的 `data/` 目录，用于读那边最近的对话 |
 
+## 身份称呼可配（2026-11-10）
+
+原来「溟」「浔」写死在代码里：谁装这份插件，他的 AI 都会被叫成溟。现在这几个键可选，**默认是通用名（大肥鱼 / 主人）**，第三方装上不会顶着别人的名字：
+
+```json
+{
+  "root": "C:\\谁的\\档案目录",
+  "selfName": "大肥鱼",
+  "selfFullName": "大肥鱼",
+  "selfDesc": "一个 AI，不是人",
+  "userName": "主人",
+  "qqName": "",
+  "identity": true
+}
+```
+
+- `selfName` / `selfFullName` / `selfDesc`：注入文本里的自称（标题、「你是X（全名Y），…」、状态块标题）。
+- `userName`：跟谁说话（「或 X 替你留下的」「不是 X 此刻说的话」）。
+- `qqName`：QQ 那边的昵称，留空就跟 `selfName` 一样。
+- `identity: false`：不注入「你是X…」那段身份，只留档案目录、日记和三条底线——给「只想搬记忆、不想搬人格」的人。
+
+这份配置**同时被 `dsh-ming-core-memory` 读**（它注入的「# 跨会话记忆（X · 本机）」「## 使用政策（X 改过 · 与 Y 的约定一致）」跟着走）；core-memory 自己也认 `~/.dsh/core-memory.json`，同名键优先。
+
+本机那份 `~/.dsh/ming-memory.json` 显式写了 `selfName: 溟`、`userName: 浔`、`qqName: 小鲸鱼`，所以这台一个字没变。
+
+改完要重启 DSH。注意 `selfName` 只影响插件自己拼的那些句子，**档案正文（persona/*.md）原样读**——想换人设就换文件，不是换配置。
+
 ## 自测
 
 `qa-*.mjs` 是假 ctx 的离线测试，不联网、不花钱：
@@ -161,6 +188,7 @@ lib/neuron.mjs   readDshNotes / readQqObservations / buildNeuron / buildUnified 
 ```bash
 node qa-all.mjs        # 跑全部
 node qa-smoke.mjs      # 完整版 / 轻量版 / 子目录三种 cwd
+node qa-names.mjs      # 身份称呼可配：默认不变 / 改名跟着走 / 关身份后不再自称
 node qa-diary-budget.mjs
 node qa-share.mjs      # 跨会话共享
 node qa-clean.mjs      # 「只留对方真的打的字」

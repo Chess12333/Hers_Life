@@ -21,7 +21,9 @@ export const DEFAULTS = {
   dshMemoryDir: path.join(os.homedir(), '.dsh', 'memory'),
   // QQ-Agent 侧的观察库；留空 = 不读 QQ 侧（真实路径放本地配置）
   qqObservations: '',
-  maxNodes: 1200,
+  // 2026-11-15 15:1x：不设上限——她要全部展示。原来 1200 是画出来的截断，
+  // 光 QQ 观察就有 8952 条。给一个大数兜底（不是真无上限，是防内存炸）。
+  maxNodes: 30000,
   refPerNode: 3,      // 每个节点最多记几条「引用」边，防爆炸
   coKeyPerNode: 3,    // 每个节点最多记几条「共词」边
 }

@@ -1,5 +1,5 @@
 from pathlib import Path
-p=Path('C:/dsh/dsh-ming-mousepet/sidecar.ps1')
+p=Path('<workspace>/dsh-ming-mousepet/sidecar.ps1')
 s=p.read_text(encoding='utf-8-sig')
 s=s.replace('    static Thread thread = null;', '    public static void OnUi(Action action)\n    {\n        Start();\n        form.BeginInvoke(action);\n    }\n    static Thread thread = null;',1)
 s=s.replace('            LastX = r.Left; LastY = r.Top; HasLast = true;\n        }','            LastX = r.Left; LastY = r.Top; HasLast = true;\n        }\n        DshBubble.FollowAll();',1)

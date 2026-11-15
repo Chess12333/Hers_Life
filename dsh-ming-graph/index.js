@@ -17,7 +17,7 @@ import path from 'node:path'
 import os from 'node:os'
 import * as neuronStatic from '../dsh-ming-memory/lib/neuron.mjs'
 import {
-  readDsh, readQQ, readPeople, readDiaries, build, MEMORY_DEFAULTS,
+  readDsh, readQQ, readPeople, readDiaries, build, parseFront, MEMORY_DEFAULTS,
 } from '../dsh-ming-memory/lib/model.mjs'
 import { fileURLToPath } from 'node:url'
 import { mergePeople } from './people-merge.mjs'
@@ -43,6 +43,21 @@ let costIndexing = null
 
 export const name = 'dsh-ming-graph'
 
+// 工作区：环境变量优先；没有就从本机配置的 diaryDir（<ws>\diary）推，再退 workspace 键。
+// 2026-11-15 14:4x：面板第一版上线就撞上这件事——宿主进程里根本没有 MING_WORKSPACE，
+// 而本机配置只写了 diaryDir，于是 /acp 读不到账本。同一个坑也让 cost 页的价目表一直指着 '\live\...'。
+function resolveWorkspace() {
+  if (process.env.MING_WORKSPACE) return process.env.MING_WORKSPACE
+  try {
+    const f = process.env.MING_GRAPH_CONFIG || path.join(os.homedir(), '.dsh', 'ming-graph.json')
+    const j = JSON.parse(readFileSync(f, 'utf8'))
+    if (j && j.workspace) return String(j.workspace)
+    if (j && j.diaryDir) return path.dirname(String(j.diaryDir).replace(/[\\/]+$/, ''))
+  } catch { /* 没本机配置就空着，下面的报错会说明 */ }
+  return ''
+}
+const WORKSPACE = (() => { const w = resolveWorkspace(); return w ? path.normalize(w) : '' })()
+
 const DEFAULTS = {
   // 记忆侧默认值（notes 目录、QQ 观察库、群友索引、记忆卡、日记目录）在 memory 那边，
   // 这里展开它，本机配置照旧覆盖（~/.dsh/ming-graph.json）
@@ -50,12 +65,12 @@ const DEFAULTS = {
   syncSeconds: 120,
   // 2026-11-08：skill 开关。cwd 决定「按哪个工作区遮」——跟 dsh-ming-skill-isolate 的 root 是同一个意思；
   // offFile 留空就用 <skillsCwd>/skills-off.json，跟那边写的必须是同一个文件，否则开关写了也不生效。
-  skillsCwd: process.env.MING_WORKSPACE || '',
+  skillsCwd: WORKSPACE,
   skillsOffFile: '',
   // 费用价目表：我们自己维护，缺省在 <workspace>/live/cost-prices.json
-  costPricesFile: process.env.MING_COST_PRICES || ((process.env.MING_WORKSPACE || '') + '\\live\\cost-prices.json'),
+  costPricesFile: process.env.MING_COST_PRICES || (WORKSPACE ? WORKSPACE + '\\live\\cost-prices.json' : ''),
   // 2026-11-10：「索引费用」按钮写出来的自动价目。人工那份永远压过它。
-  costAutoFile: process.env.MING_COST_AUTO || ((process.env.MING_WORKSPACE || '') + '\\live\\cost-prices.auto.json'),
+  costAutoFile: process.env.MING_COST_AUTO || (WORKSPACE ? WORKSPACE + '\\live\\cost-prices.auto.json' : ''),
 }
 
 // ---------- 本地配置 ----------
@@ -109,11 +124,157 @@ function withRoomLabels(data, cfg) {
 
 const ROUTE = '/_dsh/dsh-ming-graph'
 
+// ---------- 委托账本（2026-11-15 14:3x 加） ----------
+// QQ 侧的 dsh_ask / ming_delegate 转过来的活一直只有文件、没有界面：
+// 想看一条活跑到哪了，得自己 cat 三本 jsonl。这里把它读成一份快照给面板画。
+// 只读，不改账本——账本归 ACP 那套插件写。
+// 2026-11-15 15:2x：展示页要一点真东西，但不能再去读一遍记忆库（/neurons 那条要扫两侧，
+// 冷启动两秒起）。这里只「数目录 + 读最近几个文件的头」：几十毫秒，不建图、不读 QQ 观察库。
+// 30 秒缓存——展示页反复进出不该反复读盘。
+let ovCache = null
+let ovCacheAt = 0
+export async function readOverview(cfg) {
+  if (ovCache && Date.now() - ovCacheAt < 30000) return ovCache
+  const out = {
+    ok: true,
+    at: Date.now(),
+    counts: { notes: 0, diaries: 0, people: 0, chapters: 0 },
+    recentDiaries: [],
+    recentNotes: [],
+    errors: [],
+  }
+  // 归档记忆：readDsh 会把 282 份笔记全读一遍——实测 28ms，比 /neurons 那套便宜两个数量级。
+  // 顺手按「创建日」和标签分好，展示页的柱子和环都用这一份，不再多读一次盘。
+  try {
+    const notes = await readDsh(cfg)
+    out.counts.notes = notes.length
+    const byDay = new Map()
+    const tags = new Map()
+    for (const n of notes) {
+      const d = String(n.created || '').slice(0, 10)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) byDay.set(d, (byDay.get(d) || 0) + 1)
+      for (const t of (n.tags || [])) tags.set(t, (tags.get(t) || 0) + 1)
+    }
+    out.byDay = [...byDay.entries()].map(([d, n]) => ({ d, n })).sort((a, b) => (a.d < b.d ? -1 : 1))
+    out.tagsTop = [...tags.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ t, n }))
+    out.recentNotes = notes.slice()
+      .sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')))
+      .slice(0, 6)
+      .map((n) => ({ id: n.id, title: String(n.title || n.id).slice(0, 80), tags: (n.tags || []).slice(0, 4), at: String(n.created || '') }))
+  } catch (e) { out.errors.push('notes: ' + String((e && e.message) || e)) }
+
+  // 日记：只取最近五天，标题取正文里第一个「## 」
+  try {
+    const dir = cfg.diaryDir || ''
+    const files = (await fs.readdir(dir)).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))
+    out.counts.diaries = files.length
+    for (const f of files.sort().reverse().slice(0, 5)) {
+      let title = f.replace(/\.md$/, '')
+      try {
+        const txt = (await fs.readFile(path.join(dir, f), 'utf8')).slice(0, 4000)
+        const m = /^##\s+(.+)$/m.exec(txt)
+        if (m) title = m[1].trim().slice(0, 40)
+      } catch { /* 读不到就用日期当标题 */ }
+      out.recentDiaries.push({ date: f.replace(/\.md$/, ''), title })
+    }
+  } catch (e) { out.errors.push('diary: ' + String((e && e.message) || e)) }
+
+  // 群友索引 + 记忆卡章数（两个小文件，读不到就空着，不算错）
+  try {
+    const j = JSON.parse(await fs.readFile(cfg.peopleIndex || '', 'utf8'))
+    out.counts.people = Object.keys(j.byId || {}).length
+  } catch { /* 没配群友索引 */ }
+  try {
+    const card = await fs.readFile(cfg.memoryCard || '', 'utf8')
+    out.counts.chapters = (card.match(/^##\s+/gm) || []).length
+  } catch { /* 没记忆卡 */ }
+
+  ovCache = out
+  ovCacheAt = Date.now()
+  return out
+}
+
+async function readAcp(wsHint) {
+  const ws = wsHint || WORKSPACE
+  if (!ws) return { ok: false, error: '没配工作区：~/.dsh/ming-graph.json 写 diaryDir 或 workspace，或设环境变量 MING_WORKSPACE', jobs: [], calls: [], counts: {} }
+  const live = path.join(ws, 'live')
+  const jsonl = (name) => {
+    try {
+      return readFileSync(path.join(live, name), 'utf8')
+        .split('\n').filter(Boolean)
+        .map((l) => { try { return JSON.parse(l) } catch { return null } })
+        .filter(Boolean)
+    } catch { return [] }
+  }
+  const files = {}
+  try {
+    const dir = path.join(live, 'dsh-acp-results')
+    for (const f of await fs.readdir(dir)) {
+      if (!f.endsWith('.txt')) continue
+      try {
+        const st = await fs.stat(path.join(dir, f))
+        files[f.replace(/\.txt$/, '')] = { bytes: st.size, at: st.mtime.toISOString() }
+      } catch { /* 单个文件读不到不影响整张表 */ }
+    }
+  } catch { /* 没有结果目录就是还没有结论，不算错 */ }
+
+  const ledger = jsonl('dsh-acp-ledger.jsonl')
+  // 账本里 status 是好几拨写入方各写各的：running / queued / done / failed / empty / 空。
+  // 直接照着显示会得到「23 条在跑」这种假象——那是三天里没人回填，不是真在跑。
+  // 所以这里归成四类，再用「多久没动」把陈旧的挑出来。
+  const norm = (s) => {
+    const v = String(s || '').toLowerCase()
+    if (v === 'done' || v === 'ok' || v === 'success') return 'done'
+    if (v === 'failed' || v === 'fail' || v === 'error') return 'failed'
+    if (v === 'running' || v === 'queued' || v === 'pending') return 'active'
+    return 'unknown'
+  }
+  const atMs = (at) => {
+    const t = Date.parse(String(at || '').replace(' ', 'T'))
+    return Number.isFinite(t) ? t : 0
+  }
+  const STALE_MS = 6 * 3600 * 1000
+  const now = Date.now()
+  const jobs = ledger.map((e) => {
+    const state = norm(e.status)
+    const t = atMs(e.at)
+    return {
+      id: e.id,
+      at: e.at,
+      raw: e.status || '',
+      state,
+      stale: state === 'active' && t > 0 && now - t > STALE_MS,
+      ageHours: t > 0 ? Math.round((now - t) / 360000) / 10 : null,
+      mode: e.mode || '',
+      by: e.by || '',
+      task: String(e.task || '').slice(0, 300),
+      result: files[e.id] || null,
+    }
+  }).reverse()
+
+  const calls = jsonl('dsh-acp-calls.jsonl').slice(-40).reverse().map((e) => ({
+    at: e.at,
+    ok: !!e.ok,
+    seconds: Math.round((e.seconds || 0) * 10) / 10,
+    err: String(e.err || '').slice(0, 200),
+    task: String(e.task || '').slice(0, 140),
+  }))
+
+  const counts = { active: 0, stale: 0, done: 0, failed: 0, unknown: 0 }
+  for (const j of jobs) {
+    if (j.state === 'active') { if (j.stale) counts.stale += 1; else counts.active += 1 }
+    else if (j.state === 'done') counts.done += 1
+    else if (j.state === 'failed') counts.failed += 1
+    else counts.unknown += 1
+  }
+  return { ok: true, at: new Date().toISOString(), counts, jobs, calls }
+}
+
 // ---------- 读盘 / 算模型已经搬走（2026-11-08） ----------
 // 这批函数过去住在这儿，导致「记忆的实现」落在「展示的插件」里。
 // 现在它们在 dsh-ming-memory/lib/model.mjs：memory 负责读、负责算，这个插件只负责把它画出来。
 // 同一天搬过去的还有 neuron.js（建图 + 统一节点模型），见 memory/lib/neuron.mjs。
-export const __internals = { build, readDsh, readQQ, readPeople, DEFAULTS }
+export const __internals = { build, readDsh, readQQ, readPeople, DEFAULTS, readAcp }
 
 // ---------- 服务 ----------
 export function apply(ctx, config) {
@@ -262,6 +423,11 @@ export function apply(ctx, config) {
               respond(res, 200, snap)
               return
             }
+            // 2026-11-15：展示页的数据口——只数目录、读几个文件头，跟 /neurons 不是一个量级。
+            if (method === 'overview') {
+              respond(res, 200, await readOverview(cfg))
+              return
+            }
             if (method === 'neurons' || method === 'neurons/refresh') {
               if (method === 'neurons/refresh') { nKey = ''; nCache = null; neuronImpl = null; neuronImplStamp = '' }
               respond(res, 200, withRoomLabels(await neuronSnapshot(), cfg))
@@ -290,6 +456,10 @@ export function apply(ctx, config) {
                 offFile: cfg.skillsOffFile,
                 service: skillsService,
               }))
+              return
+            }
+            if (method === 'acp') {
+              respond(res, 200, await readAcp(cfg.workspace || WORKSPACE))
               return
             }
             if (method === 'cost' || method === 'cost/refresh') {

@@ -2,4 +2,4 @@
     - id: ming-resume
       name: 'dsh-ming-resume'
       config:
-        root: '<DSH>\workspace'
+        root: '<PUT_YOUR_WORKSPACE>'

@@ -13,7 +13,7 @@ import { BilibiliError } from './types.js'
 import { wbiSign } from './wbi.js'
 
 /** 凭证文件默认位置；配置项 credentialFile 覆盖它。 */
-export const SOCIAL_DEFAULT_CREDENTIAL_FILE = (process.env.USERPROFILE || '') + '/.dsh/bili-duty/bili_credential.json'
+export const SOCIAL_DEFAULT_CREDENTIAL_FILE = require('node:path').join(require('node:os').homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
 /** 相邻两次请求的最小间隔（ms）。B 站 -412 风控就是被连打出来的。 */
 export const SOCIAL_MIN_INTERVAL_MS = 1500
 /** 工具层默认超时。 */

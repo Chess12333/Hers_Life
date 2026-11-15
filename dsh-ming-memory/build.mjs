@@ -40,11 +40,43 @@ ${panel}
     return {
       inject: ['slots'],
       apply(ctx) {
-        ctx.slots.inject('main', () => ctx.slots.register({
-          name: 'main',
-          key: 'ming-memory',
-        }, MemoryPanel))
-        // 2026-11-07 18:5x：侧栏图标撤了——四个面板统一进「她的一生」（dsh-ming-graph）的 tab 里。
+        // ★ 顺序有讲究（2026-11-10 第二次踩）：**先挂页签，再去 inject**。
+        //   注入到一个已经撤掉的 slot（比如 sidebar 那个 main）会抛，一抛这个 apply 就断了——
+        //   顶栏什么都没有，控制台却只有一行错。所以页签先加，inject 包 try。
+        const desc = {
+          id: 'ming-settings',
+          label: '设置',
+          order: 90,
+          title: '身份与称呼：我叫什么、它怎么叫你、要不要带身份',
+          render: IdentityPanel,
+        }
+        if (typeof window !== 'undefined') {
+          const section = () => {
+            try {
+              ctx.slots.inject('settings.section', () => ctx.slots.register({
+                name: 'settings.section', id: 'ming-identity', label: () => '身份与称呼', order: 44,
+              }, IdentityPanel))
+            } catch (e) { /* 没有设置位就算了 */ }
+          }
+          if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') {
+            window.__MING_TAB_HOST.add(desc)
+          } else {
+            ;(window.__MING_TABS_PENDING || (window.__MING_TABS_PENDING = [])).push(desc)
+            setTimeout(() => {
+              if (window.__MING_TAB_HOST && typeof window.__MING_TAB_HOST.add === 'function') return
+              const q = window.__MING_TABS_PENDING
+              if (Array.isArray(q)) { const i = q.indexOf(desc); if (i >= 0) q.splice(i, 1) }
+              section()
+            }, 1500)
+          }
+        }
+
+        try {
+          ctx.slots.inject('main', () => ctx.slots.register({
+            name: 'main',
+            key: 'ming-memory',
+          }, MemoryPanel))
+        } catch (e) { /* 11-07 侧栏图标撤了之后这里可能没有 main 位——别让它把页签一起带下去 */ }
       },
     }
   },

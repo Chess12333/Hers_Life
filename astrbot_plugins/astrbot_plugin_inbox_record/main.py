@@ -28,7 +28,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 
 INBOX = os.path.join(
-    os.environ.get("USERPROFILE", r"C:\Users\13588"),
+    os.environ.get("USERPROFILE", os.path.expanduser("~")),
     ".dsh", "media", "onebot", "qq-inbox.jsonl",
 )
 

@@ -1,5 +1,5 @@
 /**
- * dsh-ming-bilibili-account —— AI的 B 站账号工具（登录 / 查身份 / 改名）
+ * dsh-ming-bilibili-account —— 溟的 B 站账号工具（登录 / 查身份 / 改名）
  *
  * 为什么要单独写：现成的 dsh-plugin-bilibili 是匿名只读的，没有登录态，也做不了
  * 「我是谁」这类操作。这里只补这一块，不碰它的搜索/视频工具。
@@ -40,7 +40,7 @@ import { applyBilibiliFramesTool } from './lib/frames.js'
 import { applyBilibiliSocialTools } from './lib/social.js'
 
 /** 凭证文件默认位置。配置项 credentialFile 覆盖它。 */
-const DEFAULT_CREDENTIAL_FILE = (process.env.USERPROFILE || '') + '\\.dsh\\bili-duty\\bili_credential.json'
+const DEFAULT_CREDENTIAL_FILE = require('node:path').join(require('node:os').homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
 const SEARCH_MAX_PAGE_SIZE = 20
 const TOOL_TIMEOUT_MS = 30_000
 
