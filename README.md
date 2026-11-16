@@ -1,6 +1,8 @@
 # AI · DSH 插件集
 
-**版本 1.1.0 Remake**（2026-11-15）· [CHANGELOG](CHANGELOG.md)
+**版本 1.1.1**（2026-11-16）· [CHANGELOG](CHANGELOG.md)
+
+> 要让别的 agent 跟着记账：格式、目录名、哪份文件被谁读，见 **[RECORDS.md](RECORDS.md)**。
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
 
@@ -44,7 +46,7 @@ QQ 那一侧换壳之后，QQ-Agent 的插件、看门狗、启动路径全部�
   而这个文件以前由 QQ-Agent 的 onebot 插件写。换壳之后它 13:06 就停了，兴趣唤醒等于瞎了。
 - 补法：`astrbot_plugins/astrbot_plugin_inbox_record`——挂进 AstrBot，把每条入站消息按旧格式追加回
   同一个 jsonl。兴趣唤醒**一行代码都不用改**，继续读那个文件。
-  **只在一台实例上装**（2026-11-11 定的：只溟这边写）。同一个群里跑两个 bot 时，
+  **只在一台实例上装**（2026-11-11 定的：只写一份）。同一个群里跑两个 bot 时，
   两边都装会把同一条消息写两遍，兴趣唤醒会当成两次事件。
 
 群聊蒸馏同理：蒸馏脚本读的是消息文件与 `day/` 目录，不关心是谁写进来的；换壳之后只要
