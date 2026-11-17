@@ -10,7 +10,7 @@
  *
  * 做法：agent/pre-step 里看一眼这一步进来的消息，如果里面有 QQ 通道的插话
  * （source.kind === 'plugin:dsh-onebot'，这是 bridge.steerMessage 的唯一写法），
- * 就追加一条极短指令：先答她，然后回到 live/status.json 里记着的那件事。
+ * 就追加一条接续提示：普通插话后回到原任务；停止、暂停或改任务时服从新指令。
  *
  * 边界：
  *   · 找不到 status.json 就只说「回到你被打断前的事」，不编具体内容。
@@ -63,6 +63,20 @@ function isSteer(msg) {
   } catch {
     return false
   }
+}
+
+// 只识别明确的停止/换任务指令来取消自动续播；一般自然语言意图仍由模型结合最新消息判断。
+// 不用“包含停止二字”判断，避免把「不要停止」「停止按钮在哪」或引用的话误当命令。
+function requestsPause(msg) {
+  const text = (Array.isArray(msg?.content) ? msg.content : [])
+    .filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n')
+    .replace(/^\s*<user_message[^>]*>/i, '').replace(/<\/user_message>\s*$/i, '').trim()
+  return text.split(/[，,。！!？?；;\n]/).some((part) => {
+    const s = part.trim()
+    return /^(?:(?:请|麻烦你)\s*)?(?:(?:先)?(?:停下|停一下|暂停|停止|取消)(?=$|[吧了来]|原任务|这|当前|任务|视频|播放|浏览|工作)|(?:先)?(?:别|不要|不用|不必|无需)(?:再)?(?:继续|恢复|做了|执行|播放|播了))/.test(s)
+      || /^(?:please\s+)?(?:stop|pause|cancel)(?:\s+(?:it|this|that|the\s+(?:task|video|playback)))?\s*$/i.test(s)
+      || /^(?:(?:请|麻烦你)\s*)?(?:换(?:个|一个)?任务|改做别的)(?:吧|了)?$/.test(s)
+  })
 }
 
 // ---------- 插话就暂停视频，答完接着播（2026-10-20 浔定的） ----------
@@ -133,8 +147,11 @@ export function apply(ctx, config) {
     return pending
   }
   const resumeIfPausedByUs = payload => serialMedia(async () => {
+    // 取消的回合不一定会发 turn-stopping；后续任何一步都可清掉其续播权。
+    if (mediaOwner?.signal?.aborted) { mediaOwner = null; return }
     if (!mediaOwner || mediaOwner.agentId !== payload?.agent?.id || mediaOwner.turn !== payload?.turn) return
     mediaOwner = null
+    if (payload.signal?.aborted) return
     await resumeMedia(cfg)
   })
   ctx.on('agent/turn-stopping', async payload => {
@@ -157,6 +174,11 @@ export function apply(ctx, config) {
       for (const m of fresh) if (m.id) reminded.add(m.id)
       while (reminded.size > 200) reminded.delete(reminded.values().next().value)
 
+      const holdMedia = fresh.some(requestsPause)
+      if (holdMedia) await serialMedia(async () => {
+        if (mediaOwner?.agentId === payload?.agent?.id) mediaOwner = null
+      })
+
       const task = await readStatus(cfg)
 
       // 2026-11-07 19:1x：给「记忆接续」面板留一行痕迹——被打断过几次、每次打断时在干什么。
@@ -172,14 +194,19 @@ export function apply(ctx, config) {
       let mediaNote = ''
       if (cfg.pauseMediaOnInterrupt && payload?.agent?.id && Number.isInteger(payload?.turn)) {
         const result = await serialMedia(async () => {
+          if (mediaOwner?.signal?.aborted) mediaOwner = null
           if (mediaOwner) return 'owned'
           if (payload.signal?.aborted) return 'unknown'
           const result = await pauseMedia(cfg)
-          if (result === 'paused') mediaOwner = { agentId: payload.agent.id, turn: payload.turn }
+          if (result === 'paused' && !holdMedia && !payload.signal?.aborted) {
+            mediaOwner = { agentId: payload.agent.id, turn: payload.turn, signal: payload.signal }
+          }
           return result
         })
         if (result === 'paused') {
-          mediaNote = '视频我已经按暂停了，先答她；答完这一轮会自动接着播。'
+          mediaNote = holdMedia
+            ? '视频已暂停；本插件不会自动续播，等待新的播放指令。'
+            : '视频我已经按暂停了，先答她；普通插话结束后会自动接着播。'
         } else if (result === 'idle') {
           mediaNote = '现在没有在播的东西，不用管播放。'
         } else if (result === 'unknown') {
@@ -190,10 +217,11 @@ export function apply(ctx, config) {
       }
 
       const text = [
-        '【插话·先答再回去】她刚打断了你。',
-        '1) 先用一两句答她这一句，别答成长篇。',
-        '2) 然后立刻回到你被打断前在做的事' + (task ? '：' + task : '（你原先进程里那件，别当成新任务重开）') + '。',
-        '3) 不要问她「要不要继续」，直接继续。',
+        '【插话·按最新指令接续】她刚打断了你。',
+        '1) 先回应她最新的消息；最新的停止、暂停、取消或改任务要求优先。',
+        '2) 只有普通插话、她没有改变安排时，才接着做被打断前的事' + (task ? '：' + task : '（你原先进程里那件）') + '。',
+        '3) 若她要求停止、暂停或换任务，就按新要求处理，不要自动回到旧任务；状态文件只是旧进度，不是继续执行的授权。',
+        holdMedia ? '她这次有明确的停止、暂停或换任务指令，不要把它当成普通插话。' : '',
         mediaNote ? '4) ' + mediaNote : '',
       ].filter(Boolean).join('\n')
 
@@ -258,3 +286,6 @@ export function apply(ctx, config) {
     }))
   })
 }
+
+// 使用真实模块测试媒体状态机；不启动设备或改变运行依赖。
+export const __internals = { requestsPause }

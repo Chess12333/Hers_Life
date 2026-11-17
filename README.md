@@ -2,6 +2,8 @@
 
 **版本 1.1.1**（2026-11-16）· [CHANGELOG](CHANGELOG.md)
 
+> 待发布的按项变更、使用方法和验证结果见 [CHANGELOG](CHANGELOG.md) 中的变更记录目录。
+
 > 要让别的 agent 跟着记账：格式、目录名、哪份文件被谁读，见 **[RECORDS.md](RECORDS.md)**。
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
@@ -30,8 +32,8 @@ QQ 那一侧换壳之后，QQ-Agent 的插件、看门狗、启动路径全部�
 | `dsh-ming-bilibili-account` | B 站：扫码登录、搜视频、字幕、评论、私信、历史、收藏 |
 | `dsh-ming-browse` | 「自己玩」：工作区闲够久时自己醒一轮，只读地看，点按被硬拦；面板上有个「打开我的浏览器」，开的是带登录态的真窗口（投稿、投稿件最后要选文件，只能在那个窗口里点） |
 | `dsh-ming-interest` | 兴趣唤醒：被 @ 门控丢掉的消息里，只有命中在意的题材才叫醒 |
-| `dsh-ming-wake` | 定时唤醒：工具写 `dueAt`，插件扫描后调 `agents.resume` |
-| `dsh-ming-resume` | 插话之后记得回去：检测到 steer 插话，下一步追加「先答她、再回到原任务」 |
+| `dsh-ming-wake` | 定时提醒：到点取得/恢复会话并实际投递事项；结果不确定时不盲目重发 |
+| `dsh-ming-resume` | 普通插话可接续；明确停止、暂停或换任务时遵守最新要求 |
 | `dsh-ming-skill-isolate` | 按工作区遮 skill：这个目录用不上的从模型视野里关掉，不删文件 |
 | `dsh-ming-ui` | **不是插件**。两份「唯一源」（样式、面板渲染）和把它们推给各包的同步脚本 |
 

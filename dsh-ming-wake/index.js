@@ -4,7 +4,7 @@
  * 诊断记录：
  *   14:40 apply 跑到了，但 `cannot get property "tools" without inject` —— Cordis 的服务必须先 inject。
  *   所以工具注册要包进 ctx.inject(['tools'], ...)，定时器包进 ctx.inject(['timer','agents'], ...)。
- * sessionId 由调用方显式给：execute 里拿不到 agents（那是另一个 inject 域）。
+ * sessionId 优先由调用方显式给；未给时从工具执行上下文取当前会话。
  *
  * 2026-11-12 00:0x 改成**队列**。
  * 起因：读 not-zai/self-nudge 的 README，它写「把所有到点的全删掉、只响第一个」
@@ -40,7 +40,7 @@ export function apply(ctx, config) {
     appendFile(logPath, JSON.stringify({ at: new Date().toISOString(), ...obj }) + '\n', 'utf8').catch(() => {})
   }
 
-  // Single-process mutation queue: never hold it while calling agents.resume.
+  // Single-process mutation queue: never hold it while activating or messaging an agent.
   let mutations = Promise.resolve()
   const mutate = (fn) => {
     const result = mutations.then(fn)
@@ -50,15 +50,20 @@ export function apply(ctx, config) {
 
   // 读：新版是 { items: [] }；旧版是单个对象 —— 包成一条，别把人之前排的那次黑了。
   const loadItems = async () => {
-    let raw
+    let text
     try {
-      raw = JSON.parse(await readFile(armPath, 'utf8'))
-    } catch {
-      return []
+      text = await readFile(armPath, 'utf8')
+    } catch (e) {
+      if (e.code === 'ENOENT') return []
+      throw e
     }
+    const raw = JSON.parse(text)
     if (raw && Array.isArray(raw.items)) return raw.items
-    if (raw && (raw.armId || raw.dueAt)) return [raw]
-    return []
+    if (raw && (raw.armId || raw.dueAt)) {
+      // 最早的单条格式没有 status；不能把旧提醒静默搁置，也不能重发已完成的。
+      return [{ ...raw, status: raw.status || (raw.firedAt ? 'fired' : 'armed') }]
+    }
+    throw new Error('wake-arm.json 格式不正确；原文件已保留，请先检查提醒队列。')
   }
 
   const saveItems = async (items) => {
@@ -85,30 +90,27 @@ export function apply(ctx, config) {
           name: 'ming_wake_arm',
           description:
             '排一次「几分钟后叫醒我」，追加进 live/wake-arm.json 的队列（不是覆盖）。'
-            + '插件每 15 秒扫一次，到点调 agents.resume。'
-            + '**只叫醒，不说话**——醒来看到的是宿主给的通用提示，想留话就自己写进 live/ 里。',
+            + '插件每 15 秒扫一次，到点把 reason 投递到目标会话，作为下一轮输入。'
+            + '已投递不代表事情已完成；目标会话正在忙时会排在后面。',
           parameters: {
             type: 'object',
             additionalProperties: false,
             properties: {
               minutes: { type: 'number', description: '几分钟后（0.5 = 30 秒）' },
-              reason: { type: 'string', description: '醒来要干什么（自己看，宿主不会转述给模型）' },
-              sessionId: { type: 'string', description: '要叫醒的会话 id（必填，插件拿不到当前会话）' },
+              reason: { type: 'string', description: '醒来要干什么；到点会交给目标会话' },
+              sessionId: { type: 'string', description: '要叫醒的会话 id；省略时使用当前工具调用的会话' },
             },
             required: ['minutes', 'reason'],
           },
           output: { schema: { type: 'string' }, render: (_a, v) => [{ type: 'text', text: String(v) }] },
-          async execute(args) {
+          async execute(args, exec) {
             const minutes = Number(args && args.minutes)
             const reason = String((args && args.reason) || '').trim()
-            // 这里原来还有 `|| process.env.DSH_SESSION_ID` 兜底，是个死分支：
-            // 宿主确实会注入 DSH_SESSION_ID，但只注进 **shell 执行环境**（dsh-shell-env
-            // 每次执行时构造 values 传给子进程），插件跑在主进程里，process.env 上没有它。
-            // 2026-11-08 查 dsh-shell-env/lib/index.js:89 确认。留着只会让人以为有兜底。
-            const sid = String((args && args.sessionId) || '').trim()
+            const agent = exec && exec.agent
+            const sid = String((args && args.sessionId) || agent?.session?.header?.id || agent?.session?.id || agent?.id || '').trim()
             if (!Number.isFinite(minutes) || minutes <= 0) return 'minutes 得是正数。'
             if (!reason) return 'reason 不能空。'
-            if (!sid) return '拿不到 sessionId（args 和 DSH_SESSION_ID 都是空的）。'
+            if (!sid) return '拿不到当前会话，请显式提供 sessionId。'
             const rec = {
               armId: randomUUID(),
               status: 'armed',
@@ -141,6 +143,24 @@ export function apply(ctx, config) {
   ctx.inject(['timer', 'agents'], (sctx) => {
     sctx.effect(() => {
       log({ kind: 'timer-started' })
+      const resolveAgent = async (sessionId) => {
+        const live = sctx.agents.get?.(sessionId)
+        if (live) return live
+        const fallback = async () => {
+          // 新宿主走自己的会话恢复入口，保留频道配置；旧宿主继续兼容原来的 resume。
+          const controller = sctx.get?.('sessionController')
+          if (controller && typeof controller.resolveAgent === 'function') {
+            const resolved = await controller.resolveAgent(sessionId)
+            if (resolved.error) throw resolved.error
+            return resolved.agent
+          }
+          const handle = await sctx.agents.resume({ resumeSessionId: sessionId })
+          return handle.agent
+        }
+        return typeof sctx.waterfall === 'function'
+          ? sctx.waterfall('schedule/resolve-agent', sessionId, fallback)
+          : fallback()
+      }
       let running = false
       const tick = async () => {
         if (running) return
@@ -175,13 +195,27 @@ export function apply(ctx, config) {
           if (!due) return
           let outcome
           try {
-            await sctx.agents.resume({ resumeSessionId: due.sessionId })
-            outcome = { status: 'fired', firedAt: Date.now() }
-            log({ kind: 'resumed', target: due.sessionId, armId: due.armId })
+            const agent = await resolveAgent(due.sessionId)
+            if (!agent || typeof agent.followup !== 'function') throw new Error('目标会话不支持 followup，提醒未投递。')
+            const message = {
+              id: randomUUID(),
+              role: 'user',
+              content: [{ type: 'text', text: '【定时提醒】先前安排的时间到了：' + due.reason
+                + '\n这是自动提醒，不是用户刚说的话。若较新的指令已取消或改变这件事，以较新的指令为准。' }],
+              source: { kind: 'plugin:ming-wake' },
+            }
+            await agent.followup(message)
+            const sessions = sctx.get?.('sessions')
+            if (sessions && typeof sessions.flush === 'function' && agent.session) {
+              if (!await sessions.flush(agent.session)) throw new Error('提醒已交给会话，但持久化未确认。')
+            }
+            // 保留 fired 字段兼容旧记录；它只表示投递成功，不冒充模型执行完成。
+            outcome = { status: 'fired', firedAt: Date.now(), messageId: message.id }
+            log({ kind: 'delivered', target: due.sessionId, armId: due.armId, messageId: message.id })
           } catch (e) {
             // A thrown call does not prove the remote action did not happen.
             outcome = { status: 'unknown', error: String((e && e.message) || e) }
-            log({ kind: 'resume-unknown', target: due.sessionId, armId: due.armId })
+            log({ kind: 'delivery-unknown', target: due.sessionId, armId: due.armId })
           }
           await mutate(async () => {
             const items = await loadItems()
@@ -195,7 +229,7 @@ export function apply(ctx, config) {
           running = false
         }
       }
-      return sctx.timer.interval(() => tick().catch(() => {}), TICK_MS)
+      return sctx.timer.interval(() => tick().catch((e) => log({ kind: 'tick-failed', error: String(e) })), TICK_MS)
     })
   })
 }
