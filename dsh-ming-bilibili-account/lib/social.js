@@ -9,11 +9,13 @@
  * 依赖只用 node 内置 + 同目录的 wbi.js / types.js。
  */
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
 import { BilibiliError } from './types.js'
 import { wbiSign } from './wbi.js'
 
 /** 凭证文件默认位置；配置项 credentialFile 覆盖它。 */
-export const SOCIAL_DEFAULT_CREDENTIAL_FILE = require('node:path').join(require('node:os').homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
+export const SOCIAL_DEFAULT_CREDENTIAL_FILE = join(homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
 /** 相邻两次请求的最小间隔（ms）。B 站 -412 风控就是被连打出来的。 */
 export const SOCIAL_MIN_INTERVAL_MS = 1500
 /** 工具层默认超时。 */

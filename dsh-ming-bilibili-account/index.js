@@ -21,6 +21,8 @@ export const inject = ['tools', 'systemPrompt', 'credentials']
 // —— B站取数：从 dsh-plugin-bilibili 搬过来的 provider 与五个工具（原样 vendored）——
 import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
 import {
   BilibiliOfficialProvider,
   BILIBILI_DEFAULT_BASE_URL,
@@ -40,7 +42,7 @@ import { applyBilibiliFramesTool } from './lib/frames.js'
 import { applyBilibiliSocialTools } from './lib/social.js'
 
 /** 凭证文件默认位置。配置项 credentialFile 覆盖它。 */
-const DEFAULT_CREDENTIAL_FILE = require('node:path').join(require('node:os').homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
+const DEFAULT_CREDENTIAL_FILE = join(homedir(), '.dsh', 'bili-duty', 'bili_credential.json')
 const SEARCH_MAX_PAGE_SIZE = 20
 const TOOL_TIMEOUT_MS = 30_000
 
