@@ -7,7 +7,7 @@
 // 为什么需要：现在索引只有 live/ 里那一份。重建一次写坏了，就没有「上一代」可回。
 // J.6 要求「保留至少上一代用于回退」，且「切代不能只写一半」。
 //
-// 布局（与交接书建议一致，读取端暂不改，避免动正在用的检索）：
+// 布局（2026-11-17 起读端也认这个指针：指针指的那一代完整、且不比 live 旧，就从那一代读）：
 //   live/rag-index/
 //     current.json                 → {generation, at, layers:{doc:{...},web:...,qq:...}}
 //     generations/<generation>/
@@ -281,7 +281,7 @@ if (cmd === 'snapshot') {
     generation: gen,
     at: new Date().toISOString(),
     layers: Object.fromEntries(Object.entries(r).map(([n, v]) => [n, { rowCount: v.rowCount, dimensions: v.dimensions }])),
-    note: 'snapshot of live/; reader still reads live/, this is for rollback',
+    note: 'snapshot of live/; reader (dsh-ming-core-memory/lib/rag.js) reads this generation when it is complete and not older than live/ 的清单',
   }
   const tmp = CURRENT + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify(cur, null, 2), 'utf8')
@@ -310,7 +310,7 @@ if (cmd === 'rollback') {
   const next = { ...(cur || {}), generation: want, at: new Date().toISOString(), rolledBackFrom: pre }
   fs.writeFileSync(CURRENT + '.tmp', JSON.stringify(next, null, 2), 'utf8')
   fs.renameSync(CURRENT + '.tmp', CURRENT)
-  console.log('已回退到：' + want + '（读端仍在读 live/，需要让它重载才生效）')
+  console.log('已回退到：' + want + '（读端按 current.json 取那一代；让它重载才生效）')
   process.exit(0)
 }
 

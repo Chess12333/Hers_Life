@@ -33,6 +33,15 @@ const SNAP = path.join(LIVE, 'inject-account.json')
 const LEDGER = flag('ledger') || path.join(os.homedir(), '.dsh', 'dsh-bottom-info-bar', 'usage-ledger.sqlite')
 const LAST = Number(flag('last', '1')) || 1
 
+// 2026-11-17（核查 K-2）：账本里缺字段时**不能写成 0**——0 是「量到了，就是零」，
+// 缺是「没这个数」。两种不同的东西，混在一起看报告的人就会以为真没用量。
+const numOrNull = (v) => {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+const fmt = (v, unit = '') => (v === null ? '无数据' : v + unit)
+
 function readSnapshot() {
   try { return JSON.parse(fs.readFileSync(SNAP, 'utf8')) } catch { return null }
 }
@@ -58,10 +67,10 @@ function readLedger(n) {
           model: p.model || '',
           provider: p.provider || '',
           sessionId: p.sessionId || '',
-          input: Number(p.input) || 0,
-          cacheRead: Number(p.cacheRead) || 0,
-          cacheWrite: Number(p.cacheWrite) || 0,
-          output: Number(p.output) || 0,
+          input: numOrNull(p.input),
+          cacheRead: numOrNull(p.cacheRead),
+          cacheWrite: numOrNull(p.cacheWrite),
+          output: numOrNull(p.output),
           status: p.status || '',
         }
       }),
@@ -121,10 +130,12 @@ console.log('')
 if (!led.ok) {
   console.log('【② 实际请求】读不到账本：' + led.why)
 } else {
-  console.log('【② 实际请求】最近 ' + led.rows.length + ' 轮（来自 usage-ledger.sqlite）')
+  // 2026-11-17（K-2）：这两块是**并排**看的，不是同一轮对账——账本没有和组装快照共用的
+  // requestId / sessionId 关联字段。别让人从版式上以为它们已经配对了。
+  console.log('【② 实际请求】最近 ' + led.rows.length + ' 条账本记录（未关联：不保证与上面那次组装是同一轮）')
   for (const r of led.rows) {
-    console.log('  ' + r.at + '  ' + r.model + '  输入 ' + r.input + ' tok（缓存命中 ' + r.cacheRead
-      + ' / 写入 ' + r.cacheWrite + '）输出 ' + r.output + ' tok'
+    console.log('  ' + r.at + '  ' + r.model + '  输入 ' + fmt(r.input, ' tok') + '（缓存命中 ' + fmt(r.cacheRead)
+      + ' / 写入 ' + fmt(r.cacheWrite) + '）输出 ' + fmt(r.output, ' tok')
       + (r.status && r.status !== 'completed' ? '  [' + r.status + ']' : ''))
     if (r.sessionId) console.log('    session ' + r.sessionId)
   }

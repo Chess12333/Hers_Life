@@ -30,6 +30,67 @@ const LAYERS = {
 
 const cache = new Map() // layer -> { sig, vecs, ids, rows }
 
+// 2026-11-17（核查 R09）：快照目录的指针。
+//   live/rag-index/current.json      → {generation, at, layers:{...}}
+//   live/rag-index/generations/<gen>/<layer>/{vectors.f32,ids.json,corpus.jsonl,manifest.json}
+// 指针指到的那一代是**不可变目录**，从它读就不会撞上生成器正在写的半份 live 文件。
+const GEN_ROOT = LIVE ? join(LIVE, 'rag-index') : ''
+const CURRENT = GEN_ROOT ? join(GEN_ROOT, 'current.json') : ''
+
+function statOk(p) {
+  try { statSync(p); return true } catch { return false }
+}
+
+/** 指针说的那一代（不保证完整；调用方自己验）。 */
+function generationDir() {
+  if (!CURRENT) return ''
+  let cur
+  try { cur = JSON.parse(readFileSync(CURRENT, 'utf8')) } catch { return '' }
+  const gen = cur && cur.generation
+  // 只认裸名字：别让指针里的 ../ 把读端带出 generations/
+  if (!gen || typeof gen !== 'string' || /[\\/]|\.\./.test(gen)) return ''
+  return join(GEN_ROOT, 'generations', gen)
+}
+
+/** live/ 里那一份（老路径）。 */
+function liveFiles(name) {
+  const spec = LAYERS[name]
+  return {
+    emb: join(LIVE, spec.emb),
+    ids: join(LIVE, spec.ids),
+    corpus: spec.corpus ? join(LIVE, spec.corpus) : null,
+    manifest: join(LIVE, spec.manifest),
+  }
+}
+
+/**
+ * 这一层该从哪儿读。四条路都写清：
+ *   generation            —— 指针这一代完整、且不比 live 旧 → 从不可变代读（推荐）
+ *   stale-generation      —— 指针这一代完整但 live 的清单更新 → 退回 live（不拿旧索引糊弄）
+ *   incomplete-generation —— 指针这一代缺文件 → 退回 live，并记一条 issue
+ *   live                  —— 没有指针 / 老工作区 → 照旧读 live（零配置可迁）
+ */
+function layerFiles(name) {
+  const gen = generationDir()
+  if (!gen) return { mode: 'live', ...liveFiles(name) }
+  const dir = join(gen, name)
+  const genFiles = {
+    emb: join(dir, 'vectors.f32'),
+    ids: join(dir, 'ids.json'),
+    corpus: LAYERS[name].corpus ? join(dir, 'corpus.jsonl') : null,
+    manifest: join(dir, 'manifest.json'),
+  }
+  const need = [genFiles.emb, genFiles.ids, genFiles.manifest, ...(genFiles.corpus ? [genFiles.corpus] : [])]
+  if (!need.every(statOk)) return { mode: 'incomplete-generation', generation: gen, ...liveFiles(name) }
+  // 快照之后 live 又重建过 = 这一代已经过期；查旧代比混代好，但不如查新的。
+  let stale = false
+  try {
+    stale = statSync(liveFiles(name).manifest).mtimeMs > statSync(genFiles.manifest).mtimeMs
+  } catch { stale = false }
+  if (stale) return { mode: 'stale-generation', generation: gen, ...liveFiles(name) }
+  return { mode: 'generation', generation: gen, ...genFiles }
+}
+
 /**
  * 2026-11-17（J-2）：索引清单。
  *
@@ -38,8 +99,8 @@ const cache = new Map() // layer -> { sig, vecs, ids, rows }
  * 有清单则至少核三件：schema/layer 对不对、维度跟查询端一不一样、条数对不对。
  * **维度相同不代表模型相同**，所以模型名不同也拒（不同向量空间的点积不能混排）。
  */
-function readManifest(name) {
-  const p = join(LIVE, LAYERS[name].manifest)
+function readManifest(name, manifestPath) {
+  const p = manifestPath || join(LIVE, LAYERS[name].manifest)
   let raw
   try {
     raw = readFileSync(p, 'utf8')
@@ -110,16 +171,18 @@ function sigOf(files) {
 function loadLayer(name) {
   if (!LIVE) throw new Error('未配置 MING_WORKSPACE')
   const spec = LAYERS[name]
-  const embPath = join(LIVE, spec.emb)
-  const idsPath = join(LIVE, spec.ids)
-  const corpusPath = spec.corpus ? join(LIVE, spec.corpus) : null
-  const manifestPath = join(LIVE, spec.manifest)
+  // 2026-11-17（R09）：路径不再写死 live/ —— 指针指向完整且不过期的一代时，从那一代读。
+  const where = layerFiles(name)
+  const embPath = where.emb
+  const idsPath = where.ids
+  const corpusPath = where.corpus
+  const manifestPath = where.manifest
   const files = [embPath, idsPath, ...(corpusPath ? [corpusPath] : []), manifestPath]
-  const sig = sigOf(files)
+  const sig = where.mode + ':' + sigOf(files)
   const hit = cache.get(name)
   if (hit && hit.sig === sig) return hit
 
-  const manifest = readManifest(name) // 没有清单返回 null（旧格式）
+  const manifest = readManifest(name, manifestPath) // 没有清单返回 null（旧格式）
 
   const buf = readFileSync(embPath)
   if (buf.byteLength % (4 * DIM) !== 0) throw new Error('向量文件不完整或维度不符')
@@ -161,7 +224,7 @@ function loadLayer(name) {
     issues = [{ layer: name, code: 'manifest-missing', severity: 'info' }]
   }
 
-  const entry = { sig, vecs, ids, rows, n, issues, generation: manifest ? String(manifest.generation || '') : '' }
+  const entry = { sig, vecs, ids, rows, n, issues, source: where.mode, generation: manifest ? String(manifest.generation || '') : (where.generation || '') }
   cache.set(name, entry)
   return entry
 }

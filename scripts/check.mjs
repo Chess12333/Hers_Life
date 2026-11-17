@@ -54,6 +54,7 @@ const CHECKS = [
   { id: 'browse/permissions', suite: 'offline', cwd: 'dsh-ming-browse', cmd: ['node', 'qa-permissions.mjs'], why: 'H-3 执行前检查：默认 LEGACY 不变、只浏览按类别拒' },
   { id: 'core-memory/rag-availability', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-rag-availability.mjs'], why: 'J-1 来源标签与三态（PR#5 语义不许退化）' },
   { id: 'core-memory/rag-manifest', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-rag-manifest.mjs'], why: 'J-2 索引清单：旧格式照读、清单不符就报、不混向量空间' },
+  { id: 'core-memory/rag-generation', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-rag-generation.mjs'], why: 'J-1 读端认指针：一代四个文件一起读，代不完整就退回 live（核查 R09）' },
   { id: 'core-memory/status', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-status.mjs'], why: '记忆状态与截断' },
   { id: 'core-memory/tools', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-tools.mjs'], why: '工具注册与返回形状' },
   { id: 'core-memory/index-check', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-index-check.mjs'], why: '索引体检/重建预览（a7533f1 新增）' },
