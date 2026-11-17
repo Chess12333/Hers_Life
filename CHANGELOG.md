@@ -14,6 +14,23 @@ check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
 
 ## 待发布
 
+### 核查回执 R01–R09（2026-11-17 第二轮）
+
+外部核查在 `bd97e1c` 上发现九处「零件好、接线不对」，本轮逐条修：
+
+- **R01 B 站账号**：真实入口接上 `lib/account.mjs`（内存/凭证服务/文件一个来源）；恢复失败不再留「显示已登录但 provider 没换」；退出与迟到扫码结果按代次判定；social 不再自己读文件。新增 `qa-entry.mjs`（真入口 + 假宿主/假网络，8 项）。
+- **R02 工具分类**：`bilibili_comment_post` 这类写操作不再被宽泛前缀认成只读（随只浏览模式整体删除一并生效）。
+- **R03 扩展设置页**：`options.html` 补进仓库（`.gitignore` 加精确例外），新增 `qa-extension-files.mjs` 验 manifest 引用的文件都在。
+- **R04 inbox 身份**：claimed/handled 回执带上与入站一致的 `platform/botAccountId/conversation/eventId`；消费者只在唯一可关联时回接，其余记 orphan。
+- **R05 正式答案**：思考过程不再当回复外发（reasoning-only → 不外发，记为 `reasoning-only`）。
+- **R06 转发去重**：tick 不重入（busy 直接返回）；记账改成「游标 + id 集合」，801 条已处理不再重放；箱子用稳定 jobId。
+- **R07 旧取文入口**：sidecar 不再默认启动 47322；`onWebPick` 默认关闭（`legacyWebPick` 显式开）。
+- **R08 取文生命周期**：待处理状态落 `pending.json` 可恢复；自动路径「明确答了才结账」，失败留原因并可 retry；consume 按 id 校验，不匹配 409。
+- **R09 索引一致性**：读端认 `rag-index/current.json`，从不可变代目录一次读齐；代不完整/过期退回 live。生成链仍未公开。
+- **K 小修**：未知用量显示「无数据」而不是 0；账本与组装写明「未关联」。
+
+口径：以上都是**离线/合成**验证（真入口 + 假宿主、假网络）；真人扫码、Chrome 实装、干净 DSH 安装、真实资料评测仍属未验。
+
 - **插件市场索引**（2026-11-17）：`market/index.json`（format 1，12 个包，git 源钉 commit）+ 生成器 `scripts/make-market-index.mjs`。
   以前这些包只有 `link:` 一条装法；现在可以把索引 URL 加进插件市场直接装。**每次发版要重跑生成器**，否则市场停在旧 commit。
 
