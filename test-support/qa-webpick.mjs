@@ -139,6 +139,63 @@ const post = (p, body, tk) => fetch(base + api + p, {
   ok('怪 id 没有穿越目录', files.every((f) => !f.includes('..') && !f.includes('/')), files.join(','))
 }
 
+// —— R08：待处理状态要活过重启，消费要认 id ——
+{
+  wp.markConsumed() // 先把上一段清掉
+  const r = await post('/pick', { requestId: 'r8-a', text: '第一段要重启' }, token)
+  ok('R8 收到一段', r.status === 200)
+  ok('R8 pending 落盘了', existsSync(join(DIR, 'pending.json')))
+  const revived = createWebpick({ dir: DIR, tokenFile: TOKEN_FILE })
+  const s = revived.status()
+  ok('R8 重建接收器后仍知道 A 没处理完', !!s.pending && s.pending.requestId === 'r8-a', JSON.stringify(s.pending))
+  const bad = await post('/consume', { requestId: '不是这条' }, token)
+  ok('R8 消费不匹配 id → 409', bad.status === 409, 'status=' + bad.status)
+  ok('R8 不匹配时原待处理项没被清掉', revived.status().pending?.requestId === 'r8-a')
+  const good = revived.markConsumed('r8-a', 'manual')
+  ok('R8 按 id 消费后清掉', good.ok === true && revived.status().pending === null)
+}
+
+// —— R08：自动路径「成功才结账」「失败留住原因」 ——
+{
+  const serve = async (w) => {
+    const s = http.createServer((req, res) => {
+      const pp = new URL(req.url, 'http://127.0.0.1').pathname
+      const route = pp.replace(/^\/dsh-ming-mousepet\/api\/webpick/, '') || '/'
+      w.handleRequest(req, res, route)
+    })
+    await new Promise((r) => s.listen(0, '127.0.0.1', r))
+    return { s, url: 'http://127.0.0.1:' + s.address().port }
+  }
+  const postTo = (url, path, body, tk) => fetch(url + '/dsh-ming-mousepet/api/webpick' + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(tk ? { 'x-ming-token': tk } : {}) },
+    body: JSON.stringify(body),
+  })
+
+  const dirOk = join(tmp, 'auto-ok')
+  const tfOk = join(tmp, 'token-ok.json')
+  const okAt = createWebpick({ dir: dirOk, tokenFile: tfOk, onPick: async () => ({ ok: true, note: 'spoke' }) })
+  const okSrv = await serve(okAt)
+  const okToken = JSON.parse(readFileSync(tfOk, 'utf8')).token
+  await postTo(okSrv.url, '/pick', { requestId: 'auto-a', text: '答得出来的一段' }, okToken)
+  await new Promise((r) => setTimeout(r, 30))
+  ok('R8 自动答完自动结掉', okAt.status().pending === null, JSON.stringify(okAt.status().pending))
+  okSrv.s.close()
+
+  const dirBad = join(tmp, 'auto-fail')
+  const tfBad = join(tmp, 'token-bad.json')
+  const badAt = createWebpick({ dir: dirBad, tokenFile: tfBad, onPick: async () => ({ ok: false, why: 'busy' }) })
+  const badSrv = await serve(badAt)
+  const badToken = JSON.parse(readFileSync(tfBad, 'utf8')).token
+  await postTo(badSrv.url, '/pick', { requestId: 'auto-b', text: '答不出来的一段' }, badToken)
+  await new Promise((r) => setTimeout(r, 30))
+  const st2 = badAt.status().pending
+  ok('R8 没答成时留着并写明原因', !!st2 && st2.requestId === 'auto-b' && st2.stage === 'failed' && st2.why === 'busy', JSON.stringify(st2))
+  const r3 = await postTo(badSrv.url, '/pick', { requestId: 'auto-c', text: '下一段' }, badToken)
+  ok('R8 上一条失败不挡下一段', r3.status === 200, 'status=' + r3.status)
+  badSrv.s.close()
+}
+
 server.close()
 console.log('\n' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

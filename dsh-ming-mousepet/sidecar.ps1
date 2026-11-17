@@ -4897,7 +4897,11 @@ try {
 
 [DshInput]::StartHotkey()
 # 网页取文的接收端：默认开（只绑 127.0.0.1）
-[DshWebPick]::Start(47322)
+# 2026-11-17（核查 R07）：旧网页取文接收端（47322）默认不再启动。
+#   新口子在 DSH webServer（/dsh-ming-mousepet/api/webpick/pick，要 token 配对）；
+#   这一条不配对，本机任何进程 POST 一段就能写文件、触发桌宠回答。
+#   临时要用老的：发 'webpick on' 命令（下面的开关还在）。
+# [DshWebPick]::Start(47322)
 # 晃一下鼠标：默认开（她要试）。自己动光标的命令期间挂起，见主循环。
 [DshShake]::Configure($true, 'medium')
 

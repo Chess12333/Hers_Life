@@ -76,7 +76,34 @@ export function createWebpick(opts = {}) {
   const onPick = typeof opts.onPick === 'function' ? opts.onPick : null
   const onTake = typeof opts.onTake === 'function' ? opts.onTake : null
   const token = loadOrCreateToken(tokenFile)
-  let pending = null // {requestId, at, chars}
+
+  // 2026-11-17（核查 R08）：pending 原来只在内存里，进程一重启就不知道
+  // 「A 还没处理完」了，B 进来直接把 current.json 指过去，A 就凭空消失。
+  // 现在落一个 pending.json：收到的、处理中的、失败的都记着；重启照样读回来。
+  const pendingFile = path.join(dir, 'pending.json')
+  const loadPending = () => {
+    try {
+      const j = JSON.parse(fs.readFileSync(pendingFile, 'utf8'))
+      if (!j || !j.requestId) return null
+      return {
+        requestId: String(j.requestId),
+        at: String(j.at || ''),
+        chars: Number(j.chars) || 0,
+        stage: String(j.stage || 'received'),
+        why: typeof j.why === 'string' ? j.why : '',
+      }
+    } catch {
+      return null
+    }
+  }
+  const savePending = (p) => {
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+      if (!p) { fs.rmSync(pendingFile, { force: true }); return }
+      fs.writeFileSync(pendingFile, JSON.stringify(p, null, 2), 'utf8')
+    } catch { /* 落盘失败不影响内存里的状态 */ }
+  }
+  let pending = loadPending() // {requestId, at, chars, stage, why?}
 
   const api = {
     /** 给工具/设置页看的只读状态。不含正文。 */
@@ -98,7 +125,18 @@ export function createWebpick(opts = {}) {
       const text = String(body.text || '')
       if (!id || !text) return { status: 400, body: { ok: false, why: 'bad-request' } }
       if (text.length > MAX_TEXT) return { status: 413, body: { ok: false, why: 'too-large', limit: MAX_TEXT } }
-      if (pending) return { status: 409, body: { ok: false, why: 'busy', pendingId: pending.requestId } }
+      if (pending) {
+        if (pending.stage !== 'failed') {
+          return { status: 409, body: { ok: false, why: 'busy', pendingId: pending.requestId, stage: pending.stage } }
+        }
+        // 上一条是「没答成」：它的正文文件还在盘上、失败原因进历史，别拿它挡新的。
+        try {
+          fs.appendFileSync(path.join(dir, 'webpick-history.jsonl'),
+            JSON.stringify({ ...pending, archivedAt: new Date().toISOString() }) + '\n', 'utf8')
+        } catch { /* 历史写不进去也不挡收新的 */ }
+        pending = null
+        savePending(null)
+      }
 
       fs.mkdirSync(dir, { recursive: true })
       const rec = {
@@ -115,10 +153,23 @@ export function createWebpick(opts = {}) {
       const name = id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80) + '.json'
       fs.writeFileSync(path.join(dir, name), JSON.stringify(rec, null, 2), 'utf8')
       fs.writeFileSync(path.join(dir, 'current.json'), JSON.stringify({ requestId: id, at: rec.at, chars: rec.chars, file: name }, null, 2), 'utf8')
-      pending = { requestId: id, at: rec.at, chars: rec.chars }
+      pending = { requestId: id, at: rec.at, chars: rec.chars, stage: 'received', why: '' }
+      savePending(pending)
       // 2026-11-17（她说的「让桌宠来说」）：收到就让桌宠冒一句，不用等我去取。
       // 传整条记录（含正文）：桌宠拿到之后会照老样子「看完说一句」。
-      try { if (onPick) onPick(rec) } catch { /* 桌宠没开也不影响收下 */ }
+      // **成功才把 pending 结掉**：成功 = 桌宠真的答了；busy / 无模型 / 只显示「收到 N 字」
+      // 都算没答完（核查 R08-2），留在 pending 里并写明原因。
+      if (onPick) {
+        Promise.resolve()
+          .then(() => onPick(rec))
+          .then((r) => {
+            // 只有消费者**明确**说「答了（ok:true）」才结掉这条；
+            // 没表态（undefined）就当它还欠着——不许把"收到"当成"已回答"。
+            if (r && r.ok === true) api.markConsumed(rec.requestId, (r && r.note) || 'answered')
+            else if (r && r.ok === false) api.fail(rec.requestId, r.why || 'not-answered')
+          })
+          .catch((e) => api.fail(rec.requestId, String((e && e.message) || e)))
+      }
       return { status: 200, body: { ok: true, requestId: id, chars: rec.chars } }
     },
 
@@ -132,8 +183,10 @@ export function createWebpick(opts = {}) {
       try { body = JSON.parse(raw || '{}') } catch { return { status: 400, body: { ok: false, why: 'bad-json' } } }
       const id = String(body.requestId || '')
       if (!id) return { status: 400, body: { ok: false, why: 'bad-request' } }
-      if (pending && pending.requestId === id) pending = null
-      try { if (onTake) onTake({ requestId: id }) } catch { /* 同上 */ }
+      // 不匹配就明说没清掉任何东西，别回一个含混的 ok（核查 R08-6）。
+      if (!pending) return { status: 409, body: { ok: false, why: 'empty' } }
+      if (pending.requestId !== id) return { status: 409, body: { ok: false, why: 'mismatch', pendingId: pending.requestId } }
+      api.markConsumed(id, 'http-consume')
       return { status: 200, body: { ok: true, consumed: id } }
     },
 
@@ -148,16 +201,40 @@ export function createWebpick(opts = {}) {
       }
     },
 
-    /** 把最新一段标记为已取走（不经过 HTTP，给工具用）。 */
-    markConsumed(requestId) {
-      if (pending && (!requestId || pending.requestId === requestId)) {
-        const id = pending.requestId
-        const chars = pending.chars
-        pending = null
-        try { if (onTake) onTake({ requestId: id, chars }) } catch { /* 同上 */ }
-        return { ok: true, consumed: id }
+    /** 把一段标记为已完成（不经过 HTTP，给工具和自动路径用）。 */
+    markConsumed(requestId, note) {
+      if (!pending) return { ok: false, why: 'empty' }
+      if (requestId && pending.requestId !== requestId) {
+        return { ok: false, why: 'mismatch', pendingId: pending.requestId }
       }
-      return { ok: false, why: 'not-pending' }
+      const id = pending.requestId
+      const chars = pending.chars
+      pending = null
+      savePending(null)
+      try { if (onTake) onTake({ requestId: id, chars, note: note || '' }) } catch { /* 同上 */ }
+      return { ok: true, consumed: id }
+    },
+
+    /** 没答成：留住这条，写明原因，别让下一条把它挤掉。 */
+    fail(requestId, why) {
+      if (!pending) return { ok: false, why: 'empty' }
+      if (requestId && pending.requestId !== requestId) {
+        return { ok: false, why: 'mismatch', pendingId: pending.requestId }
+      }
+      pending = { ...pending, stage: 'failed', why: String(why || 'failed').slice(0, 200) }
+      savePending(pending)
+      return { ok: true, failed: pending.requestId, why: pending.why }
+    },
+
+    /** 失败的那条再答一次（手动入口）：状态回 received，正文还在盘上。 */
+    retry(requestId) {
+      if (!pending) return { ok: false, why: 'empty' }
+      if (requestId && pending.requestId !== requestId) {
+        return { ok: false, why: 'mismatch', pendingId: pending.requestId }
+      }
+      pending = { ...pending, stage: 'received', why: '' }
+      savePending(pending)
+      return { ok: true, requestId: pending.requestId }
     },
 
     /** 路由入口：先给 CORS，再分到上面几个动作。 */

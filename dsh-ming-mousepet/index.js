@@ -364,6 +364,13 @@ export async function apply(ctx, rawConfig = {}) {
       Promise.resolve(handleRect(evt.rect, '指认')).catch((error) => log(`指认后没接上：${error?.message || error}`))
     },
     onWebPick: () => {
+      // 2026-11-17（核查 R07）：这是**旧** 47322 收文口的入口，它不配对 token。
+      // 新的 /webpick/pick 已经要 token 了；这一条默认关掉，别让两条路并存还宣称"都配对"。
+      // 真要接老用户：config.legacyWebPick = true，并自己承担"本机任何进程都能塞一段"。
+      if (rawConfig?.legacyWebPick !== true && current?.legacyWebPick !== true) {
+        log('旧网页取文入口收到一次事件，但 legacyWebPick 没开，已忽略')
+        return
+      }
       // 浏览器扩展刚 POST 进来一段网页选中的字（存在 webpick.json）。
       Promise.resolve()
         .then(async () => {
@@ -1019,14 +1026,16 @@ export async function apply(ctx, rawConfig = {}) {
     name: 'webpick',
     description:
       '浏览器「交给鱼看这段」的取件口。\n'
-      + '- `status`：有没有待取的一段（只报字数，不回正文）。\n'
-      + '- `take`：取走正文并标记已取走——之后扩展才允许发下一段。\n'
+      + '- `status`：有没有待取的一段（只报字数与阶段，不回正文）。\n'
+      + '- `take`：取走正文并标记已完成——之后扩展才允许发下一段；可带 requestId 指定是哪一条。\n'
+      + '- `retry`：把「没答成」的那一条改回待处理（正文还在盘上）。\n'
       + '内容算「她交来的资料」，不是她说的原话。',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        action: { type: 'string', enum: ['status', 'take'], description: 'status / take' },
+        action: { type: 'string', enum: ['status', 'take', 'retry'], description: 'status / take / retry' },
+        requestId: { type: 'string', description: '可选：指定是哪一条（take / retry）' },
       },
       required: ['action'],
     },
@@ -1043,13 +1052,31 @@ export async function apply(ctx, rawConfig = {}) {
       if (action === 'status') {
         const s = webpick.status()
         return toLosslessJson({
-          text: s.pending ? ('待取一段：' + s.pending.chars + ' 字（' + String(s.pending.requestId).slice(0, 8) + '）') : '没有待取的网页文字。',
+          text: s.pending
+            ? ('待取一段：' + s.pending.chars + ' 字，阶段 ' + (s.pending.stage || 'received')
+              + '（' + String(s.pending.requestId).slice(0, 8) + '）' + (s.pending.why ? '；上次没答成：' + s.pending.why : ''))
+            : '没有待取的网页文字。',
           meta: s,
+        })
+      }
+      if (action === 'retry') {
+        const r = webpick.retry(String(args?.requestId || ''))
+        return toLosslessJson({
+          text: r.ok ? '已把它改回待处理，可以再答一次（' + String(r.requestId).slice(0, 8) + '）' : '没能重试：' + r.why,
+          meta: r,
         })
       }
       if (action === 'take') {
         const r = webpick.readLatest()
         if (!r.ok) return toLosslessJson({ text: '没有可取的内容：' + r.why, meta: r })
+        const want = String(args?.requestId || '')
+        // 只按 id 取；要取"最新那条"就得接受它确实是盘上最新的那一条，别拿旧 id 取错东西。
+        if (want && want !== r.requestId) {
+          return toLosslessJson({
+            text: '盘上最新的一段是 ' + String(r.requestId).slice(0, 8) + '，不是你点的 ' + String(want).slice(0, 8) + '；没取。',
+            meta: { ok: false, why: 'mismatch', latest: r.requestId },
+          })
+        }
         const consumed = webpick.markConsumed(r.requestId)
         return toLosslessJson({
           text: '取到一段（' + r.chars + ' 字，来自 ' + (r.title || r.url || '未知页面') + '）：\n' + r.text,
@@ -1115,16 +1142,24 @@ export async function apply(ctx, rawConfig = {}) {
     // 2026-11-17 她说的「和之前那个桌宠插件一样就好了」。
     // 老版收到网页取文就是走 onWebPick → speakWeb：桌宠看完那一段，自己说一句。
     // 这里照同一条路走；speakWeb 不可用（没开自动开口/宿主没给模型）才降级成冒个字数。
-    onPick: (rec) => {
-      Promise.resolve()
-        .then(async () => {
-          lastPickNote = `她刚指了网页上一块：${rec.title || rec.url || ''}`
-          const sw = stopTalker && stopTalker.speakWeb
-          if (typeof sw === 'function') { await sw(rec); return }
-          const n = Number(rec && rec.chars) || 0
-          await engine.request('say', { text: '收到一段 · ' + n + ' 字', ms: 2400 }, 8000).catch(() => {})
-        })
-        .catch((error) => log(`网页取文没接上：${error?.message || error}`))
+    // 2026-11-17（核查 R08-2）：这里**要如实回报结果**——只有真的说了一句才算答完。
+    // 只冒「收到 N 字」不算回答，那是提示，不是内容。
+    onPick: async (rec) => {
+      lastPickNote = `她刚指了网页上一块：${rec.title || rec.url || ''}`
+      const sw = stopTalker && stopTalker.speakWeb
+      if (typeof sw !== 'function') {
+        const n = Number(rec && rec.chars) || 0
+        await engine.request('say', { text: '收到一段 · ' + n + ' 字', ms: 2400 }, 8000).catch(() => {})
+        return { ok: false, why: 'no-talker' }
+      }
+      try {
+        const r = await sw(rec)
+        if (r && r.ok === false) return { ok: false, why: String(r.why || 'speak-failed') }
+        return { ok: true, note: 'spoke' }
+      } catch (error) {
+        log(`网页取文没接上：${error?.message || error}`)
+        return { ok: false, why: String(error?.message || error).slice(0, 120) }
+      }
     },
   })
   log(`浏览器取文：${API_PREFIX}/webpick/* → ${webpickDir}`)
