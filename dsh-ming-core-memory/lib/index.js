@@ -489,8 +489,10 @@ const toolDefs = [
       const until = typeof args.until === 'string' ? args.until.trim() : '';
       try {
         const r = await ragSearch(query, { layer, k, since, until });
-        if (!r) return '语义索引不可用：本地嵌入服务 127.0.0.1:18091 没起来，或者向量文件还没建。这时改用 memory_search（关键词）或 grep。';
-        if (!r.hits.length) return '语义库里没搜到跟「' + query + '」相近的段（查了 ' + r.layers.join('/') + '）。';
+        const issueText = r.issues.map(i => i.layer + '：' + ({ missing: '索引或原文缺失', invalid: '索引或原文损坏/不匹配', unconfigured: '未配置工作区' }[i.status] || '不可用')).join('；');
+        if (r.status === 'unavailable') return '语义检索暂时不可用：' + (r.service === 'unavailable' ? '嵌入服务无法使用。' : issueText + '。') + '这不是“没有相关记忆”的结论。可改用 memory_search（关键词）或查看原文件。';
+        const coverage = r.status === 'partial' ? '注意：本次只查到部分资料，' + issueText + '。不能据此判断全部资料里都没有。\n' : '';
+        if (!r.hits.length) return coverage + '语义库里没搜到跟「' + query + '」相近的段（查了 ' + r.layers.join('/') + '）。';
         const lines = r.hits.map((h, i) => {
           const where = h.layer === 'doc'
             ? String(h.file || '').replace(/^C:\\dsh\\工作区\\/, '')
@@ -498,7 +500,7 @@ const toolDefs = [
           const body = String(h.text || '').replace(/\n/g, ' ⏎ ');
           return (i + 1) + '. [' + h.score.toFixed(3) + '] ' + h.layer + ' · ' + where + '\n   ' + body.slice(0, 300) + (body.length > 300 ? '…' : '');
         });
-        return '按意思搜到 ' + r.hits.length + ' 段（层：' + r.layers.join('/') + '）：\n' + lines.join('\n');
+        return coverage + '按意思搜到 ' + r.hits.length + ' 段（层：' + r.layers.join('/') + '）：\n' + lines.join('\n');
       } catch (e) {
         return 'rag_recall 出错：' + (e && e.message ? e.message : String(e));
       }

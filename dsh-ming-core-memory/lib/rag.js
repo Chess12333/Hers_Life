@@ -10,7 +10,7 @@
 //   web = DSH 网页会话（chat-corpus）
 //   qq  = QQ 群与私聊（qq-corpus，含旧壳 QQ-Agent）
 //
-// 嵌入服务 127.0.0.1:18091（bge-base-zh-v1.5-q8_0），不在时返回 null 由调用方说明，
+// 嵌入服务 127.0.0.1:18091（bge-base-zh-v1.5-q8_0），不在时返回 unavailable 由调用方说明，
 // **不要假装成功**。
 
 import { readFileSync, statSync } from 'node:fs'
@@ -44,6 +44,7 @@ function sigOf(files) {
 }
 
 function loadLayer(name) {
+  if (!LIVE) throw new Error('未配置 MING_WORKSPACE')
   const spec = LAYERS[name]
   const embPath = join(LIVE, spec.emb)
   const idsPath = join(LIVE, spec.ids)
@@ -53,10 +54,15 @@ function loadLayer(name) {
   if (hit && hit.sig === sig) return hit
 
   const buf = readFileSync(embPath)
-  const flat = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4))
-  const n = Math.floor(flat.length / DIM)
+  if (buf.byteLength % (4 * DIM) !== 0) throw new Error('向量文件不完整或维度不符')
+  const flat = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
+  const n = flat.length / DIM
   const vecs = flat.subarray(0, n * DIM)
   const ids = JSON.parse(readFileSync(idsPath, 'utf8'))
+  if (!Array.isArray(ids) || ids.length !== n || !flat.every(Number.isFinite))
+    throw new Error('索引条数或向量内容不匹配')
+  if (!corpusPath && ids.some(it => !it || typeof it !== 'object' || typeof it.text !== 'string'))
+    throw new Error('文档索引缺少正文')
 
   let rows = null
   if (corpusPath) {
@@ -68,6 +74,8 @@ function loadLayer(name) {
         rows.set(r.id, r)
       } catch { /* 坏行跳过 */ }
     }
+    if (ids.some(id => !rows.has(id) || typeof rows.get(id).text !== 'string'))
+      throw new Error('语料缺少对应原文')
   }
   const entry = { sig, vecs, ids, rows, n }
   cache.set(name, entry)
@@ -84,11 +92,12 @@ async function queryVector(text) {
   if (!r.ok) throw new Error('嵌入端 HTTP ' + r.status)
   const j = await r.json()
   const v = j && j.data && j.data[0] && j.data[0].embedding
-  if (!Array.isArray(v) || v.length !== DIM) throw new Error('嵌入端返回维度不对')
+  if (!Array.isArray(v) || v.length !== DIM || !v.every(Number.isFinite)) throw new Error('嵌入端返回无效向量')
   const out = new Float32Array(DIM)
   let norm = 0
   for (let i = 0; i < DIM; i++) { out[i] = v[i]; norm += v[i] * v[i] }
-  norm = Math.sqrt(norm) || 1
+  if (!Number.isFinite(norm) || norm === 0) throw new Error('嵌入端返回空向量')
+  norm = Math.sqrt(norm)
   for (let i = 0; i < DIM; i++) out[i] /= norm
   return out
 }
@@ -129,29 +138,28 @@ function snippetOf(name, entry, index, row) {
 
 /**
  * 按意思搜。
- * @returns {{hits: Array, layers: string[]} | null}  null = 索引或嵌入服务不可用
+ * @returns {{hits: Array, layers: string[], status: string, issues: Array, service: string}}
  */
 export async function ragSearch(query, { layer = 'all', k = 5, since = '', until = '' } = {}) {
   const want = layer === 'all' ? ['doc', 'web', 'qq'] : [layer].filter((x) => LAYERS[x])
   if (!want.length) throw new Error('layer 只认 doc / web / qq / all')
 
-  let q
-  try {
-    q = await queryVector(query)
-  } catch (e) {
-    return null
-  }
-
-  const out = []
-  const used = []
+  const entries = new Map()
+  const issues = []
   for (const name of want) {
-    let entry
     try {
-      entry = loadLayer(name)
-    } catch {
-      continue
+      entries.set(name, loadLayer(name))
+    } catch (e) {
+      issues.push({ layer: name, status: !LIVE ? 'unconfigured' : e.code === 'ENOENT' ? 'missing' : 'invalid' })
     }
-    used.push(name)
+  }
+  const used = [...entries.keys()]
+  if (!used.length) return { hits: [], layers: used, issues, status: 'unavailable', service: 'not_checked' }
+  let q
+  try { q = await queryVector(query) }
+  catch { return { hits: [], layers: used, issues, status: 'unavailable', service: 'unavailable' } }
+  const out = []
+  for (const [name, entry] of entries) {
     const { vecs, n } = entry
     for (let i = 0; i < n; i++) {
       const off = i * DIM
@@ -170,5 +178,5 @@ export async function ragSearch(query, { layer = 'all', k = 5, since = '', until
     }
   }
   out.sort((a, b) => b.score - a.score)
-  return { hits: out.slice(0, k), layers: used }
+  return { hits: out.slice(0, k), layers: used, issues, status: issues.length ? 'partial' : 'ready', service: 'ready' }
 }
