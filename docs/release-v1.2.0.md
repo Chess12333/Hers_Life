@@ -5,7 +5,12 @@
 
 ## 新能力
 
-- **E-2 转发链路**（真跑通）：AstrBot 命中兴趣 → 写 `live/interest-forward.jsonl` → DSH 用宿主模型生成 → 写 `live/qq-outbox` → 出站插件发群。
+- **E-2 转发链路**（真跑通）：**只在一种场景生效**——AstrBot 判定「不接」、但这条消息命中兴趣的时候。
+  流程：AstrBot 命中兴趣 → 写 `live/interest-forward.jsonl` → DSH 用宿主模型生成 → 写 `live/qq-outbox` → 出站插件发群。
+  **普通回复（被 @、正常接话）不走这条路**：仍是 AstrBot 自己生成、直接发群，只有一道。
+  为什么这一种要绕两道：AstrBot 那边没有 DSH 的上下文（人设、记忆、索引、群里刚聊过什么），
+  它生成的话不像本人；所以「要不要接」这个便宜判断留在 AstrBot 本地，「说什么」交给 DSH。
+  **代价**：文件当队列、20 秒一轮，从命到发出最长约 40 秒。
   实测 2026-11-17 13:52:00 在群里发出一句 27 字（`[outbox-ok] … 27字 487ms`）。
   开关是文件 `live/interest-forward.on`：在才转发，不在就还是老办法。
 - **E-3 消息身份与状态**：入站记录升 v2，`eventId` 取平台 `message_id`（实测 `idSource: platform`），`normalHandling` 三态；
