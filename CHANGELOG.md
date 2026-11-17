@@ -39,6 +39,15 @@ check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
   实测：`live/qq-outbox` → `[outbox-ok] 1794894717421-a3ecea.json -> ming:GroupMessage:<group-b> 27字 487ms`，
   **13:52:00 真的在群里说了一句 27 字**。整条链（AstrBot 命中 → 转发 → DSH 生成 → outbox → 群）通了。
 
+### 2026-11-17 · 删掉「只浏览」默认（她的要求：自由活动一直被拦）
+
+- 她原话：「自由活动一直被只浏览模式拦截，删除只浏览模式吧」。
+- `normalizePolicy` 的缺省从 `browse_only` 改成 `editable`；配置里显式写 `browse_only` 仍然生效（想收紧随时改回来）。
+- **顺带修了一个真 bug**：加这条之前，`mode: editable` 会掉进「按类别判定」那条路——写类照样被拒，
+  等于配置里写什么都没用。现在 `editable` 明确放行，只有花钱类仍然拒。
+- 自测 59 项。其中 18 条原本写的是「缺省 = 只浏览」的契约，改成「显式 browse_only 时仍然这样」——
+  **是契约变了跟着改，不是为了让测试过而改断言**。browse_only 的规格一条没删。
+
 ### 2026-11-17 · E-2 转发链路：AstrBot 命中 → DSH 决定 → outbox 发回群
 
 - 她纠正了方向：「让 astrbot 如果检测到兴趣就记录下来转发给 dsh」。我先前做的是「DSH 自己扫 inbox 找兴趣」——那是另一条路，方向错了。

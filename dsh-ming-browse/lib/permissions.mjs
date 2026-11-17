@@ -60,8 +60,11 @@ export function classify(tool) {
  */
 export function normalizePolicy(raw) {
   const p = raw && typeof raw === 'object' ? raw : {}
-  // 缺省 / 认不出的值都走 browse_only（2026-11-17 她拍板）；legacy 必须显式写。
-  const mode = p.mode === MODE.LEGACY ? MODE.LEGACY : MODE.BROWSE_ONLY
+  // 2026-11-17 17:40 她：「自由活动一直被只浏览模式拦截，删除只浏览模式吧」。
+  // 默认改成 editable；browse_only 这个词还认（写在配置里仍然生效），但不再是缺省。
+  // 想收紧就把 mode 显式写成 browse_only。
+  const mode =
+    p.mode === MODE.LEGACY ? MODE.LEGACY : p.mode === MODE.BROWSE_ONLY ? MODE.BROWSE_ONLY : MODE.EDITABLE
   const allow = Array.isArray(p.allow)
     ? p.allow.filter((x) => typeof x === 'string' && Object.values(KIND).includes(x))
     : []
@@ -102,6 +105,12 @@ export function check(policy, ctx) {
   const CONTAINER = new Set(['run_code', 'ops_load_sdk'])
   if (CONTAINER.has(String(c.tool || ''))) return { ok: true, reason: '', skipped: 'container' }
   if (p.mode === MODE.LEGACY) return { ok: true, reason: '', skipped: 'legacy-mode' }
+  // 2026-11-17：加这一条之前，mode 写 editable 反而会掉到下面的按类别判定（写类照拒）——
+  // 配置里写什么都没用。现在 editable 就是「默认放行」，只有花钱类仍然拒。
+  if (p.mode === MODE.EDITABLE) {
+    if (classify(c.tool) === KIND.PAY) return { ok: false, reason: '可编辑模式也不含花钱类动作' }
+    return { ok: true, reason: '', skipped: 'editable-mode' }
+  }
 
   // 主体豁免：标识只从宿主给的可信上下文取（subject = 会话 id，roundAgentId = 宿主给的 agent id），
   // 不看模型自报。名单里的主体可写 / 可执行，但花钱类永远不在此列。
