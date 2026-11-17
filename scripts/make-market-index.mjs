@@ -33,7 +33,10 @@ const REPO_URL = 'https://github.com/Chess12333/Hers_Life'
 const REPO_DIR = 'https://github.com/Chess12333/Hers_Life'
 
 const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim()
-const commit = git('rev-parse', ref)
+// 2026-11-17（核查 4.5-4）：`rev-parse v1.2.2` 对**附注标签**返回的是 tag 对象，不是提交。
+// tag 对象不能直接拿去 checkout / 浅克隆，市场装到那个 SHA 上会失败。
+// 统一解到提交：`<ref>^{commit}`。轻量标签行为不变。
+const commit = git('rev-parse', ref + '^{commit}')
 if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('不是一个完整 commit：' + ref + ' -> ' + commit)
 const stamp = Number(git('log', '-1', '--format=%ct', commit))
 
