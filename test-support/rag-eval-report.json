@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-17T06:18:27.522Z",
+  "at": "2026-11-17T06:21:47.869Z",
   "corpus": {
     "doc": 8,
     "web": 6,
@@ -12,8 +12,8 @@
     "Hit@5": 0.692,
     "MRR": 0.508,
     "no-answer 误报": "4/4",
-    "latency p50 ms": 0.7,
-    "latency p90 ms": 1.2
+    "latency p50 ms": 0.5,
+    "latency p90 ms": 1.1
   },
   "byCategory": {
     "direct": {

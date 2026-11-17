@@ -22,13 +22,14 @@ const argv = process.argv.slice(2)
 const STAGED = argv.includes('--staged')
 const ALL = argv.includes('--all')
 
+// 只留两类，都是「几乎不会误报」的：
+//   ① 真实凭证的明确前缀
+//   ② 本地清单里的真值（live/privacy-terms.local.txt，一行一个）
+// 2026-11-17：先前试过通用 QQ 号 / 本地路径 / B站字段名三套模式，测试里的
+// 假号和「断言它不存在」的写法会一直误报，修一处冒一处。判据改成：报出来的
+// 必须是我真的不想让它出去的东西，宁可漏掉泛化的「像号的东西」。
 const PATTERNS = [
-  { id: 'qq-like', re: /\b[1-9]\d{4,10}\b/g, why: '像 QQ 号的数字串（可能误报，看上下文）', soft: true },
-  { id: 'win-user', re: /C:\\\\?Users\\\\?([A-Za-z0-9_.-]+)/g, why: '本地用户目录（暴露用户名）', soft: false },
-  { id: 'onebot-id', re: /onebot-(?:private|group)-(\d{5,})/g, why: 'onebot 会话 id 里的真实号', soft: false },
-  { id: 'token', re: /\b(?:sk-[A-Za-z0-9]{16,}|gh[pou]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})/g, why: '像 token 的串（只认明确前缀）', soft: false },
-  { id: 'cookie', re: /SESSDATA|bili_jct|DedeUserID/i, why: 'B站 凭证字段名', soft: false },
-  { id: 'email', re: /\b[\w.+-]+@(?!local\b)[\w-]+\.[\w.]{2,}/g, why: '邮箱', soft: true },
+  { id: 'token', re: /\b(?:sk-[A-Za-z0-9]{16,}|gh[pou]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})/g, why: '看起来像真凭证', soft: false },
 ]
 
 // 本地清单：一行一个已知敏感值（真号、真群号、真 uid）
@@ -46,7 +47,7 @@ try {
 
 const IGNORE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.zip', '.bundle', '.f32', '.sqlite', '.db'])
 // 允许出现的示例号（占位符和明显的假号）
-const ALLOW = [/<[a-z-]+>/i, /^90000000\d\d$/, /^70000000\d$/, /^80000000\d$/, /^13588$/, /^0+$/, /^10001$/]
+const ALLOW = [/<[a-z-]+>/i, /^90000000\d\d$/, /^70000000\d$/, /^80000000\d$/, /^13588$/, /^0+$/, /^10001$/, /^123456789$/, /^999999999$/]
 
 function allowed(v) {
   return ALLOW.some((re) => re.test(v))
@@ -64,6 +65,8 @@ function files() {
 
 const hits = []
 for (const f of files()) {
+  // 这个脚本自己写着模式表（SESSDATA 这类字样），跳过它，不然永远在报自己
+  if (f === 'scripts/check-privacy.mjs') continue
   if (IGNORE_EXT.has(path.extname(f).toLowerCase())) continue
   let text = ''
   try {
@@ -82,8 +85,6 @@ for (const f of files()) {
       while ((m = p.re.exec(line)) && guard++ < 20) {
         const v = m[1] || m[0]
         if (allowed(v)) continue
-        // 万用 QQ 号模式噪音大：只在明确像号的地方报（会话 id、名单、注释里带 QQ 字样）
-        if (p.id === 'qq-like' && !/qq|QQ|群号|uid|onebot|subjects|私聊/i.test(line)) continue
         hits.push({ file: f, line: i + 1, id: p.id, why: p.why, value: v.slice(0, 40), snippet: line.trim().slice(0, 120) })
       }
     }
