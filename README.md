@@ -2,6 +2,8 @@
 
 **版本 1.1.1**（2026-11-16）· [CHANGELOG](CHANGELOG.md)
 
+> 待发布的按项变更、使用方法和验证结果见 [CHANGELOG](CHANGELOG.md) 中的变更记录目录。
+
 > 要让别的 agent 跟着记账：格式、目录名、哪份文件被谁读，见 **[RECORDS.md](RECORDS.md)**。
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
@@ -35,6 +37,8 @@ QQ 那一侧换壳之后，QQ-Agent 的插件、看门狗、启动路径全部�
 | `dsh-ming-skill-isolate` | 按工作区遮 skill：这个目录用不上的从模型视野里关掉，不删文件 |
 | `dsh-ming-ui` | **不是插件**。两份「唯一源」（样式、面板渲染）和把它们推给各包的同步脚本 |
 
+
+可选扩展：[共同活动卡](dsh-ming-activities/README.md)——手动保存进度和下一步，需要单独安装，不自动触发 AI。
 
 ## 消息源：AstrBot（QQ-Agent 已停用）
 
