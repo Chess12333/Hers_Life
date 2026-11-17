@@ -12,7 +12,12 @@ check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
 改法：`check()` 加容器通道（`run_code` / `ops_load_sdk` 放行，判据落内层工具名；花钱类仍拒）。自测 54 → 59 全过。
 代价：若宿主的内层调用不过 `pre-execute`，容器放行等于放开整轮，此时兜底靠 `index.js` 的 `checkTap` / `tapTextDeny`。
 
-## 待发布
+## v1.2.2（2026-11-17）
+
+### 自由活动不再被权限闸拦（她定）
+
+只浏览模式整个删掉：MODE.BROWSE_ONLY 去掉，check() 恒放行，配置里写 browse_only 也不再改变行为。
+代价：花钱不再由代码拦，「不乱花」落回行为规矩（不打赏、不订阅、不买付费墙后的内容）。
 
 ### 核查回执 R01–R09（2026-11-17 第二轮）
 
