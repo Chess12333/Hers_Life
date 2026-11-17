@@ -310,6 +310,7 @@ async function rebuildIndex() {
         source: normSource(parsed.meta.source),
         supersedes: parsed.meta.supersedes || '',
         superseded_by: parsed.meta.superseded_by || '',
+        merged_from: mergedIds(parsed.meta),
         last_confirmed: parsed.meta.last_confirmed || '',
         size: text.length,
       });
@@ -327,6 +328,24 @@ async function loadIndex() {
     }
   } catch { /* 缺失或损坏 → 从 notes/ 重建 */ }
   return rebuildIndex();
+}
+
+// 启动时修复缺失/损坏或被旧版误建成空的目录；笔记正文始终保留原样。
+async function recoverIndex() {
+  let raw = null;
+  try { raw = await readFile(indexPath(), 'utf8'); }
+  catch (e) { if (e.code !== 'ENOENT') throw e; }
+  let current;
+  try { current = raw === null ? null : JSON.parse(raw); } catch { /* 从笔记恢复 */ }
+  const valid = current && Array.isArray(current.notes);
+  if (valid && current.notes.length) return;
+  const notes = await rebuildIndex();
+  if (valid && !notes.length) return;
+  if (raw !== null) {
+    await writeFile(indexPath() + '.recovery-' + Date.now() + '-' + process.pid + '.bak', raw,
+      { encoding: 'utf8', flag: 'wx' });
+  }
+  await atomicWrite(indexPath(), JSON.stringify({ version: 1, notes }, null, 2));
 }
 
 // 写串行化：同进程多 agent 并发写也按序落盘
@@ -1070,7 +1089,7 @@ export function apply(ctx) {
   enqueue(async () => {
     await mkdir(notesDir(), { recursive: true });
     if (readFileSyncOrNull(corePath()) === null) await atomicWrite(corePath(), TEMPLATE);
-    if (readFileSyncOrNull(indexPath()) === null) await atomicWrite(indexPath(), JSON.stringify({ version: 1, notes: [] }, null, 2));
+    await recoverIndex();
   }).catch((e) => console.error('dsh-core-memory: bootstrap failed', e));
 
   for (const def of toolDefs) {

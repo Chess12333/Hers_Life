@@ -11,7 +11,7 @@
 //   5. memory_read 会显示状态行，作废的挂 ⚠
 //
 // 跑法：node qa-status.mjs（在插件目录下；假 DSH_HOME，不碰真记忆）
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -35,9 +35,7 @@ const ctx = {
 apply(ctx)
 await new Promise((r) => setTimeout(r, 200))
 
-// 老条目是手工放进 notes/ 的，而 bootstrap 会写一份空索引——删掉空索引，强制从 notes/ 重建，
-// 否则「手工放进去的旧文件」根本进不了索引（这条本身是既有行为，不是这次改动带来的）。
-rmSync(join(home, 'memory', 'index.json'), { force: true })
+// 启动恢复应直接发现原有笔记；不再删索引绕过初始化缺陷。
 
 const T = (n) => tools.find((t) => t.name === n)
 let fails = 0
