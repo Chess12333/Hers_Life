@@ -597,10 +597,19 @@ export function apply(ctx, config) {
         prefer: { provider: cfg.llmProvider || '', model: cfg.llmModel || '' },
         log: (m) => log('info', m),
       })
-      const t = setInterval(() => {
+      // 2026-11-17（核查 R06-1）：定时器交给宿主管，别用裸 setInterval——
+      // 插件卸载/热重载后旧的还活着，就会出现两个消费者同时 tick。
+      // 没有 ctx.interval 的老宿主才退回 setInterval，并且登记成可清理的。
+      const runTick = () => {
         void forward.tick().catch((e) => log('warn', 'forward tick: ' + String(e)))
-      }, 20000)
-      if (typeof t.unref === 'function') t.unref()
+      }
+      if (typeof sctx.interval === 'function') {
+        sctx.interval(runTick, 20000)
+      } else {
+        const t = setInterval(runTick, 20000)
+        if (typeof t.unref === 'function') t.unref()
+        if (typeof sctx.effect === 'function') sctx.effect(() => clearInterval(t))
+      }
       log('info', 'interest-forward 已接上（20 秒一轮 → qq-outbox）')
     })
   }

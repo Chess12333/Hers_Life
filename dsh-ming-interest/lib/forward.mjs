@@ -16,7 +16,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 
+// 2026-11-17（核查 R06）：只留 800 个 done id + 每轮重读整份源日志，有个洞——
+// 源日志不裁，被挤出 done 的旧行会重新变成 fresh，整条重放一遍（实测 801 条时第二轮又多出一条）。
+// 现在记账分两层：**游标**（读到源文件第几个字节）是权威，id 集合只用来挡「游标重来」之后的重复。
+// 800 只决定 id 列表留多长，不再是正确性的依据。
 const DONE_KEEP = 800
+const STATE_VERSION = 2
 
 /** 一条转发请求的稳定 id（同一行重读不会重复处理）。 */
 export function idOf(rec) {
@@ -41,32 +46,60 @@ export function buildPrompt(rec) {
   ].filter(Boolean).join('\n')
 }
 
-function readDone(file) {
+/** 记账：{cursor, prefix, ids}。旧格式（只有 ids）照读，游标从 0 起。 */
+function readState(file) {
   try {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'))
-    return Array.isArray(j?.ids) ? j.ids : []
+    return {
+      ids: Array.isArray(j?.ids) ? j.ids.filter((x) => typeof x === 'string') : [],
+      cursor: Number.isFinite(j?.cursor) && j.cursor > 0 ? Math.floor(j.cursor) : 0,
+      prefix: typeof j?.prefix === 'string' ? j.prefix : '',
+    }
   } catch {
-    return []
+    return { ids: [], cursor: 0, prefix: '' }
   }
 }
 
-function writeDone(file, ids) {
-  const keep = ids.slice(-DONE_KEEP)
+function writeState(file, state) {
+  const keep = state.ids.slice(-DONE_KEEP)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = file + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify({ ids: keep }, null, 2), 'utf8')
+  const body = { schemaVersion: STATE_VERSION, cursor: state.cursor || 0, prefix: state.prefix || '', ids: keep }
+  fs.writeFileSync(tmp, JSON.stringify(body, null, 2), 'utf8')
   fs.renameSync(tmp, file)
 }
 
-function readForward(file) {
-  let text = ''
-  try { text = fs.readFileSync(file, 'utf8') } catch { return [] }
-  const out = []
-  for (const line of text.split('\n')) {
-    if (!line.trim()) continue
-    try { out.push(JSON.parse(line)) } catch { /* 坏行跳过 */ }
+/**
+ * 已消费那一段（0..cursor）的指纹。追加不会让它变；整份换掉会。
+ * 只看开头 64 字节不够——两条记录的 JSON 前缀往往一模一样，换了文件也认不出来（实测栽过一次）。
+ */
+function prefixOf(buf, n) {
+  const end = Math.max(0, Math.min(Number(n) || 0, buf.length))
+  return crypto.createHash('sha1').update(buf.subarray(0, end)).digest('hex').slice(0, 16)
+}
+
+/**
+ * 从游标往后读**完整的行**：最后一行还没换行符就不算（生产者在写一半）。
+ * 源文件比游标还短 = 被换掉或截短了，游标归零，靠 id 集合挡重复。
+ * 返回的每一行带自己的结束偏移，处理到哪一行就把游标推到哪儿。
+ */
+function readNew(file, cursor, prevPrefix) {
+  let buf
+  try { buf = fs.readFileSync(file) } catch { return { rows: [], end: Number(cursor) || 0, reset: false, buf: Buffer.alloc(0) } }
+  let start = Number(cursor) > 0 ? Math.floor(Number(cursor)) : 0
+  // 比游标短 = 截短；已消费段的指纹变了 = 整份换掉（长度可能更长，只看长度认不出来）。
+  const reset = start > buf.length || (start > 0 && !!prevPrefix && prefixOf(buf, start) !== prevPrefix)
+  if (reset) start = 0
+  const rows = []
+  let lineStart = start
+  for (let i = start; i < buf.length; i++) {
+    if (buf[i] !== 0x0a) continue
+    const line = buf.subarray(lineStart, i).toString('utf8').trim()
+    lineStart = i + 1
+    if (!line) continue
+    try { rows.push({ rec: JSON.parse(line), end: lineStart }) } catch { /* 坏行跳过，游标照样越过它 */ }
   }
-  return out
+  return { rows, end: lineStart, reset, buf }
 }
 
 /**
@@ -136,9 +169,13 @@ export async function collectOne(llm, prompt, { system = '', timeoutMs = 25000, 
     await Promise.race([
       (async () => {
         for await (const chunk of stream) {
-          const type = chunk && chunk.type
+          const type = String((chunk && chunk.type) || '')
+          // 思考过程永远不进 raw：它是给调试看的，不是能发出去的话（核查 R05）。
+          if (/reasoning|thinking/i.test(type)) {
+            if (typeof chunk.text === 'string') reasoning += chunk.text
+            continue
+          }
           if (type === 'text-delta' && typeof chunk.text === 'string') raw += chunk.text
-          else if (type === 'reasoning-delta' && typeof chunk.text === 'string') reasoning += chunk.text
           else {
             const extra = pickText(chunk)
             if (extra) raw += extra
@@ -150,21 +187,38 @@ export async function collectOne(llm, prompt, { system = '', timeoutMs = 25000, 
   } catch (e) {
     return { text: '', why: 'timeout:' + (e?.message || '') }
   }
-  const text = (raw || reasoning || '').trim()
-  if (!text) return { text: '', why: 'empty', raw: '' }
+  // 2026-11-17（核查 R05）：这里原来是 (raw || reasoning) —— 模型只回一段思考时，
+  // 思考文字会被当成正式回复写进待发箱。只有正式答案通道能成为外发文本；
+  // 没有答案就如实说没有，交给上层按「不说」处理。
+  const text = raw.trim()
+  if (!text) {
+    return { text: '', why: reasoning ? 'reasoning-only' : 'empty', raw: '', reasoningChars: reasoning.length }
+  }
   if (/^none$/i.test(text)) return { text: '', why: 'none', raw: text.slice(0, 60) }
   // 只留第一段（模型有时会带解释）
   return { text: text.split('\n').map((x) => x.trim()).filter(Boolean)[0]?.slice(0, 300) || '', why: '', raw: text.slice(0, 120) }
 }
 
-function writeOutbox(dir, rec, text) {
+// 箱子名用**稳定的 job id**，不再用时间戳 + 随机数：
+// 同一个源事件重放时，同名箱子已经在那儿，就不写第二份（发送端按 jobId 回执）。
+// 注意 state 只表示 queued（已入箱），不等于 QQ 已收到。
+function writeOutbox(dir, rec, text, jobId) {
   fs.mkdirSync(dir, { recursive: true })
-  const name = `${Date.now()}-${crypto.randomBytes(3).toString('hex')}.json`
-  const payload = { chatKey: rec.chatKey, text }
-  const tmp = path.join(dir, name + '.tmp')
+  const name = jobId + '.json'
+  const full = path.join(dir, name)
+  if (fs.existsSync(full)) return { name, reused: true }
+  const payload = { jobId, chatKey: rec.chatKey, text, state: 'queued', createdAt: new Date().toISOString() }
+  const tmp = full + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8')
-  fs.renameSync(tmp, path.join(dir, name))
-  return name
+  fs.renameSync(tmp, full)
+  return { name, reused: false }
+}
+
+function writeDebug(dir, obj) {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.appendFileSync(path.join(dir, 'interest-forward-debug.jsonl'), JSON.stringify(obj) + '\n', 'utf8')
+  } catch { /* 调试落盘失败不影响主流程 */ }
 }
 
 /**
@@ -182,54 +236,78 @@ export function createForwardConsumer(opts) {
   const system = opts.system || ''
   const maxPerTick = Number(opts.maxPerTick) > 0 ? Number(opts.maxPerTick) : 2
 
+  // 2026-11-17（核查 R06-1）：20 秒定时器不管上一轮跑没跑完。上一轮还在等模型时下一轮已经进来，
+  // 两轮读到同一行 → 两次模型调用、两个箱子。这一条链自己要有一个执行中标记。
+  let ticking = false
+  const debugDir = path.dirname(doneFile)
+
   return {
-    /** 跑一轮。返回 {handled, skipped, sent[]}。 */
+    /** 跑一轮。返回 {handled, skipped, sent[], why?}。 */
     async tick() {
-      const rows = readForward(forwardFile)
-      if (!rows.length) return { handled: 0, skipped: 0, sent: [] }
-      const done = new Set(readDone(doneFile))
-      const fresh = rows.filter((r) => !done.has(idOf(r)))
-      if (!fresh.length) return { handled: 0, skipped: 0, sent: [] }
-
-      // 路由只解析一次（每次 tick），解析不出来就整轮不调模型。
-      const route = await resolveRoute(llm, opts.prefer || {})
-      if (!route) {
-        for (const rec of fresh.slice(0, maxPerTick)) {
-          try {
-            fs.appendFileSync(path.join(path.dirname(doneFile), 'interest-forward-debug.jsonl'),
-              JSON.stringify({ at: new Date().toISOString(), why: 'no-route', text: rec.text, group: rec.groupId }) + '\n', 'utf8')
-          } catch { /* ignore */ }
+      if (ticking) return { handled: 0, skipped: 0, sent: [], why: 'busy' }
+      ticking = true
+      try {
+        const state = readState(doneFile)
+        const done = new Set(state.ids)
+        let cursor = state.cursor
+        const { rows, end, reset, buf } = readNew(forwardFile, cursor, state.prefix)
+        if (reset) cursor = 0
+        if (!rows.length) {
+          // 只有空行/坏行时也要把游标推过去，否则每次 tick 都从头再扫一遍。
+          if (end !== state.cursor) writeState(doneFile, { ids: [...done], cursor: end, prefix: prefixOf(buf, end) })
+          return { handled: 0, skipped: 0, sent: [] }
         }
-        return { handled: 0, skipped: 0, sent: [], why: 'no-route' }
-      }
-      log(`[interest-forward] 用 ${route.provider}/${route.model}`)
 
-      let handled = 0
-      let skipped = 0
-      const sent = []
-      for (const rec of fresh.slice(0, maxPerTick)) {
-        const id = idOf(rec)
-        const r = await collectOne(llm, buildPrompt(rec), { system, timeoutMs: opts.timeoutMs, route })
-        if (r.text) {
-          const name = writeOutbox(outboxDir, rec, r.text)
-          sent.push({ id, chatKey: rec.chatKey, name, text: r.text })
-          log(`[interest-forward] 回一句 → ${rec.chatKey}：${r.text.slice(0, 40)}`)
-        } else {
-          skipped += 1
-          log(`[interest-forward] 不回（${r.why || '空'}）：${String(rec.text || '').slice(0, 30)}`)
-          // 2026-11-17：模型两次都回 NONE，看不出是「判断不接」还是「拿不到输出」。
-          // 把原因落一行，下次不用靠猜。
-          try {
-            fs.appendFileSync(path.join(path.dirname(doneFile), 'interest-forward-debug.jsonl'),
-              JSON.stringify({ at: new Date().toISOString(), why: r.why || 'empty', raw: r.raw || '', text: rec.text, group: rec.groupId }) + '\n', 'utf8')
-          } catch { /* 调试落盘失败不影响 */ }
+        // 已经记过的行先把游标推过去（游标重置后才会走到这儿）。
+        const queue = []
+        for (const e of rows) {
+          if (done.has(idOf(e.rec))) cursor = Math.max(cursor, e.end)
+          else queue.push(e)
         }
-        done.add(id)
-        handled += 1
+        if (!queue.length) {
+          writeState(doneFile, { ids: [...done], cursor, prefix: prefixOf(buf, cursor) })
+          return { handled: 0, skipped: 0, sent: [] }
+        }
+
+        // 路由只解析一次（每次 tick），解析不出来就整轮不调模型——游标不动，下一轮再试。
+        const route = await resolveRoute(llm, opts.prefer || {})
+        if (!route) {
+          for (const e of queue.slice(0, maxPerTick)) {
+            writeDebug(debugDir, { at: new Date().toISOString(), why: 'no-route', text: e.rec.text, group: e.rec.groupId })
+          }
+          return { handled: 0, skipped: 0, sent: [], why: 'no-route' }
+        }
+        log(`[interest-forward] 用 ${route.provider}/${route.model}`)
+
+        let handled = 0
+        let skipped = 0
+        const sent = []
+        for (const e of queue.slice(0, maxPerTick)) {
+          const rec = e.rec
+          const id = idOf(rec)
+          const r = await collectOne(llm, buildPrompt(rec), { system, timeoutMs: opts.timeoutMs, route })
+          if (r.text) {
+            const w = writeOutbox(outboxDir, rec, r.text, id)
+            sent.push({ id, chatKey: rec.chatKey, name: w.name, text: r.text, reused: w.reused })
+            log(`[interest-forward] 回一句 → ${rec.chatKey}：${r.text.slice(0, 40)}`)
+          } else {
+            skipped += 1
+            log(`[interest-forward] 不回（${r.why || '空'}）：${String(rec.text || '').slice(0, 30)}`)
+            // 模型回 NONE 和「拿不到输出」要分得开，下次不用靠猜。
+            writeDebug(debugDir, {
+              at: new Date().toISOString(), why: r.why || 'empty', raw: r.raw || '', text: rec.text, group: rec.groupId,
+            })
+          }
+          done.add(id)
+          handled += 1
+          cursor = Math.max(cursor, e.end)
+          // 一条一记：中途崩掉，已经入箱/已经判过的不至于整轮再来一遍。
+          writeState(doneFile, { ids: [...done], cursor, prefix: prefixOf(buf, cursor) })
+        }
+        return { handled, skipped, sent }
+      } finally {
+        ticking = false
       }
-      const ids = [...done]
-      writeDone(doneFile, ids)
-      return { handled, skipped, sent }
     },
   }
 }

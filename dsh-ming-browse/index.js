@@ -97,13 +97,8 @@ const DEFAULTS = {
   ownerQQ: (process.env.MING_OWNER_QQ || '').trim(),
   /**
    * H-3 授权政策（2026-11-17 加，同日 11:13 她定默认值）。
-   * 默认 browse_only：我自己出门闲逛那一轮，只放 read，其余按类别拒。
-   * 要回到以前的手（什么都让动）得**显式**写 legacy —— 缺省和认不出的值都按 browse_only。
-   * 判据是宿主给的 agent id（pre-execute 里的 guarded），不是模型自报。
-   * 2026-11-17 11:3x 她补：「阑珊可以是可编辑」——默认 browse_only 不动，只把 subjects
-   * 名单里的主体（会话 id 或 agent id）开成 editable；名单空着就与以前完全一样。
-   */
-  permissionPolicy: { mode: 'browse_only', allow: [], subjects: [] },
+   * 2026-11-17 17:45 她删掉了只浏览模式：这道闸现在不拦任何东西。
+  permissionPolicy: { mode: 'editable', allow: [], subjects: [] },
   /**
    * 在哪个会话里叫醒我：
    *   'qq'   —— 正在使用的那个 QQ 会话（她 2026-10-20 定的：别另开会话，就在聊天里叫）
