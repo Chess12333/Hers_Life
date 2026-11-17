@@ -39,6 +39,8 @@ import {
 } from './lib/tools.js'
 import { applyBilibiliFramesTool } from './lib/frames.js'
 import { createProviderHolder } from './lib/provider-holder.mjs'
+// 2026-11-17（核查 R01）：统一账号状态。内存 / 凭证服务 / 文件三处只由它一个人写。
+import { createAccount } from './lib/account.mjs'
 // 社交面（评论/发评/历史/关注/收藏夹/动态/私信会话）：实现都在 social.js，这里只接线。
 import { applyBilibiliSocialTools } from './lib/social.js'
 
@@ -94,12 +96,33 @@ const API_HEADERS = {
   Origin: 'https://www.bilibili.com',
 }
 
-/** 进程内存里的登录态；重启即失效，故意不落盘 */
-let session = null // { cookie, csrf, uid, uname }
+/**
+ * 2026-11-17（核查 R01）：**一个账号，一个权威**。
+ *   accountRef —— lib/account.mjs 的实例：内存 + 凭证服务 + 文件，三处由它一个人写；
+ *   profile    —— 只放显示用的名字，不参与鉴权。
+ * 以前这里是第四份状态 session：登录工具写它、provider 从别处拿、社交面又自己读文件，
+ * 于是「退出后被恢复」「显示已登录但 provider 没换」都能发生。
+ * 现在所有「这个号现在是登录吗」都走 session()，它只读 accountRef。
+ */
+let accountRef = null
+const profile = { uname: '', uid: '' }
 let pendingKey = null
 
+/** 这一轮该用的登录态（所有读状态的地方都从这里取，别再新开一条路）。 */
+function session() {
+  const cur = accountRef ? accountRef.current() : { cookie: '', gen: 0, loggedIn: false }
+  return {
+    cookie: cur.cookie,
+    gen: cur.gen,
+    loggedIn: !!cur.cookie,
+    csrf: cookieValue(cur.cookie, 'bili_jct'),
+    uid: profile.uid || cookieValue(cur.cookie, 'DedeUserID'),
+    uname: profile.uname,
+  }
+}
+
 function cookieHeader() {
-  return session ? session.cookie : ''
+  return session().cookie
 }
 
 /** 从 cookie 串里取一个键的值 */
@@ -163,46 +186,39 @@ async function api(pathname, init) {
   return { status: res.status, json }
 }
 
-function applyRestore(ctx) {
-  // 启动时从 DSH 凭证服务恢复登录态：走服务 API，不去读 .credentials.yaml
-  if (!ctx.credentials || typeof ctx.credentials.resolve !== 'function') return
-  Promise.resolve()
-    .then(async () => {
-      const r = await ctx.credentials.resolve(CRED_REF)
-      if (!r || !r.value) return
-      const restored = sessionFromCookie(r.value)
-      session = restored
-      if (restored && restored.cookie) rebuildProvider(restored.cookie)
-      const me = await api('/x/web-interface/nav')
-      const d = me.json && me.json.data
-      if (d && d.isLogin) {
-        session.uname = d.uname
-        session.uid = String(d.mid)
-      } else {
-        session = null // 过期了就清掉，免得拿着废 cookie 到处撞
-      }
-    })
-    .catch(() => { /* 恢复失败就当没登录 */ })
-}
+// 2026-11-17（R01）：原来这里有个模块级的 applyRestore，它在 apply 外面引用 apply 里面的
+// rebuildProvider —— 名字不在作用域里，一进去就 ReferenceError，被 catch 吞掉：
+// 结果「显示已登录」，provider 没换、nav 也没校验。恢复流程现在在 apply 里面（见 restoreLogin）。
 
 export function apply(ctx, config) {
-  applyRestore(ctx)
-
   // ——— B站取数（搜索 / 视频详情 / 字幕 / 直链 / 抽帧） ———
   // 配置走纯对象，不挂 schemastery：少一个依赖就少一处加载失败。
   const cfg = config && typeof config === 'object' ? config : {}
-  // cookie 必须在**构造 provider 之前**读到：provider 构造时把 cookie 抄成自己的字段，
-  // 之后再改 options 对象它根本不看。2026-11-08 实测：异步填的那一版，字幕永远报「账号未登录」。
-  // 读不到 = 匿名，不报错、不崩；任何分支都不把 cookie 写进日志或工具输出。
-  let cookie = ''
-  try {
-    const raw = JSON.parse(readFileSync(cfg.credentialFile || DEFAULT_CREDENTIAL_FILE, 'utf8'))
-    // 2026-11-17（G）：退出会写 tombstone（{loggedOutAt}）。有它就当没登录——
-    // 以前 logout 只清凭证服务、文件还留着，下次启动就从文件「复活」了。
-    cookie = raw && raw.loggedOutAt ? '' : buildCookieHeader(raw)
-  } catch {
-    cookie = ''
-  }
+  const credentialFile = cfg.credentialFile || DEFAULT_CREDENTIAL_FILE
+
+  // 2026-11-17（核查 R01）：一个账号一个权威。内存 / 凭证服务 / 文件只由 account 写。
+  // 宿主的 credentials 是 resolve/set（unset 不一定有），lib 的契约是 get/set/unset ——
+  // 适配放在这里；两个名字不同的对象不能直接互塞。
+  const credService = ctx.credentials && typeof ctx.credentials.resolve === 'function'
+    ? {
+      get: async (key) => {
+        try {
+          const r = await ctx.credentials.resolve(key)
+          return r && typeof r.value === 'string' ? r.value : ''
+        } catch { return '' }
+      },
+      set: (key, value) => ctx.credentials.set(key, value),
+      unset: typeof ctx.credentials.unset === 'function' ? (key) => ctx.credentials.unset(key) : undefined,
+    }
+    : null
+  const account = createAccount({
+    file: credentialFile,
+    readText: (f) => readFile(f, 'utf8'),
+    writeText: (f, t) => writeFile(f, t, 'utf8'),
+    service: credService,
+    serviceKey: CRED_REF,
+  })
+  accountRef = account
 
   // 2026-11-17（G.5 第二轮）：provider 构造时会把 cookie 抄成自己的字段，之后改 options 它不看。
   // 所以这里留一个可替换的真身 + 一个代理：工具闭包里拿到的永远是代理，
@@ -216,10 +232,36 @@ export function apply(ctx, config) {
   const providerHolder = createProviderHolder(
     (opts) => new BilibiliOfficialProvider(opts),
     baseOptions,
-    cookie,
+    '',
   )
   const provider = providerHolder.proxy
   const rebuildProvider = (ck) => providerHolder.swap(ck)
+
+  // 启动恢复：服务优先、文件兜底、tombstone 优先于两者。恢复完**才**换 provider；
+  // 恢复失败就当没登录——绝不保留「显示已登录、provider 没换」的半截状态。
+  const restoreLogin = async () => {
+    try {
+      const r = await account.restore()
+      const cur = account.current()
+      if (!cur.cookie) {
+        if (r && r.reason === 'logged-out-before') console.error('[ming-bilibili] 上次退出过，本次按未登录启动')
+        return
+      }
+      rebuildProvider(cur.cookie)
+      const me = await api('/x/web-interface/nav')
+      const d = me.json && me.json.data
+      if (d && d.isLogin) {
+        profile.uname = String(d.uname || '')
+        profile.uid = String(d.mid || '')
+      } else {
+        account.drop() // 过期了：清内存，不写 tombstone（下次还能从服务恢复新扫的）
+        rebuildProvider('')
+      }
+    } catch (e) {
+      console.error('[ming-bilibili] 恢复登录态失败：' + String((e && e.message) || e))
+    }
+  }
+  void restoreLogin()
 
   if (ctx.systemPrompt && typeof ctx.systemPrompt.section === 'function') {
     try {
@@ -249,12 +291,14 @@ export function apply(ctx, config) {
   })
 
   // ——— 社交面：评论 / 发评 / 观看历史 / 关注 / 收藏夹 / 动态 / 私信会话 ———
-  // cookie 由 social.js 每次请求前现读凭证文件（换 cookie 不用重启）；这里只传路径。
+  // 2026-11-17（核查 R01）：凭证不再由 social 自己读文件——那会绕开退出标记和代次。
+  // 统一从这里取当前那一代 cookie（没有就空 = 匿名）。
   // 整段包一层：新工具注册不成功，搜索/字幕/登录那一批照旧。
   try {
     applyBilibiliSocialTools(ctx, {
       credentialFile: cfg.credentialFile || DEFAULT_CREDENTIAL_FILE,
       timeoutMs: toolTimeout,
+      cookieProvider: () => session(),
     })
   } catch (e) {
     console.error('[ming-bilibili] 社交面工具整体注册失败（其余工具不受影响）：' + String((e && e.message) || e))
@@ -264,7 +308,8 @@ export function apply(ctx, config) {
     name: 'bili_login',
     description:
       '登录 B 站账号（扫码）。action=start 返回一个手机可打开的登录链接；你在手机 B 站确认后，'
-      + '用 action=poll 轮询结果。登录态只存在内存里，DSH 重启就要重新扫。',
+      + '用 action=poll 轮询结果。登录成功后同时写进 DSH 凭证服务和本地凭证文件，重启能自己恢复；'
+      + 'action=logout 三层一起清并写退出标记。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -278,29 +323,21 @@ export function apply(ctx, config) {
       const action = args && args.action
 
       if (action === 'status') {
-        if (!session) return '当前没有登录态。'
-        return '已登录：' + (session.uname || session.uid) + '（uid ' + (session.uid || '?') + '）'
+        const s = session()
+        if (!s.loggedIn) return '当前没有登录态。'
+        return '已登录：' + (s.uname || s.uid) + '（uid ' + (s.uid || '?') + '）'
       }
 
       if (action === 'logout') {
-        session = null
         pendingKey = null
+        // 2026-11-17（R01）：退出由 account 一个人做——内存清零、服务 unset、文件写 tombstone，
+        // 并且代次 +1：正在飞的那次扫码结果回来会被认成过期的，不许把号又登回去。
+        const r = await account.clear()
         rebuildProvider('')
-        // 2026-11-17（G）：退出都退出——内存、凭证服务、文件三层一起清。
-        // 文件不能删成空白：写 tombstone，下次启动读到它就知道「是退出过」，不是「第一次装」。
-        let svcOk = false
-        let fileOk = false
-        try { await ctx.credentials.unset(CRED_REF); svcOk = true } catch { svcOk = false }
-        try {
-          await writeFile(
-            cfg.credentialFile || DEFAULT_CREDENTIAL_FILE,
-            JSON.stringify({ loggedOutAt: new Date().toISOString() }, null, 2),
-            'utf8',
-          )
-          fileOk = true
-        } catch { fileOk = false }
-        return '已退出：' + (svcOk ? '凭证服务已清' : '凭证服务没清成') + '，'
-          + (fileOk ? '文件已写退出标记（不会被旧 cookie 复活）' : '文件没写成功，下次启动可能从旧文件恢复')
+        profile.uname = ''
+        profile.uid = ''
+        return '已退出：' + (r.service ? '凭证服务已清' : '凭证服务没清成（可能本来就没有）') + '，'
+          + (r.tombstone ? '文件已写退出标记（不会被旧 cookie 复活）' : '文件没写成功，下次启动可能从旧文件恢复')
       }
 
       if (action === 'start') {
@@ -320,6 +357,8 @@ export function apply(ctx, config) {
 
       if (action === 'poll') {
         if (!pendingKey) return '还没有开始登录。先调用 action=start。'
+        // 记下这一轮开始时是第几代：结果回来时若已经退出/换号，就不许写回（R01 的迟到结果）。
+        const genAtStart = account.current().gen
         const { res, text } = await requestBody(
           'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=' + encodeURIComponent(pendingKey),
           { headers: { ...API_HEADERS } },
@@ -338,28 +377,25 @@ export function apply(ctx, config) {
           .join('; ')
         if (!cookie) return '拿到了成功码，但没解析出 cookie。'
 
-        session = { cookie, csrf: jar.bili_jct || '', uid: jar.DedeUserID || '', uname: '' }
         pendingKey = null
+        // 迟到结果：期间退出 / 又扫了另一次，这一条就是过期的，不入账。
+        if (account.isStale(genAtStart)) {
+          return '这次扫码的结果回来时登录状态已经变了（期间退出或换了号），没写回。要登录请重新 start。'
+        }
+        // 写：内存 + 凭证服务 + 文件一次做完，哪一层没写成功都如实报。
+        const saved = await account.save(cookie)
         // G.5：登录后立刻把 provider 换成带新 cookie 的那一份（不等重启）
-        rebuildProvider(cookie)
-        // 落进凭证服务：DSH 重启后能自己恢复，不用再扫
-        let savedSvc = false
-        try { await ctx.credentials.set(CRED_REF, cookie); savedSvc = true } catch { savedSvc = false }
-        // 2026-11-17（G）：登录也落文件，两边同步——退出时才能两边一起清干净。
-        let savedFile = false
-        try {
-          await writeFile(cfg.credentialFile || DEFAULT_CREDENTIAL_FILE, JSON.stringify(jar, null, 2), 'utf8')
-          savedFile = true
-        } catch { savedFile = false }
+        rebuildProvider(account.current().cookie)
 
         const me = await api('/x/web-interface/nav')
         const d = me.json && me.json.data
+        const s = session()
         if (d && d.isLogin) {
-          session.uname = d.uname
-          session.uid = String(d.mid)
+          profile.uname = String(d.uname || '')
+          profile.uid = String(d.mid || '')
         }
-        return '登录成功：' + (session.uname || '(名字待查)') + '（uid ' + (session.uid || '?') + '）\n'
-          + '保存：' + (savedSvc ? '凭证服务 ✓' : '凭证服务 ✗') + ' / ' + (savedFile ? '文件 ✓' : '文件 ✗')
+        return '登录成功：' + (session().uname || '(名字待查)') + '（uid ' + (session().uid || '?') + '）\n'
+          + '保存：' + (saved.service ? '凭证服务 ✓' : '凭证服务 ✗') + ' / ' + (saved.file ? '文件 ✓' : '文件 ✗')
           + '\n接着用 bili_me 看账号状态。'
       }
 
@@ -385,7 +421,7 @@ export function apply(ctx, config) {
     output: { schema: { type: 'string' }, render: (_a, v) => [{ type: 'text', text: String(v) }] },
     async execute(args) {
       const action = args && args.action
-      if (!session) return '还没登录。先 bili_login action=start。'
+      if (!session().loggedIn) return '还没登录。先 bili_login action=start。'
 
       if (action === 'whoami') {
         const me = await api('/x/web-interface/nav')
@@ -411,7 +447,7 @@ export function apply(ctx, config) {
         if (!nick) return 'rename 需要提供 nickname。'
         // 这个接口历史上收的是 uname，不是 nick；传 nig 会被当成空串，
         // 报回来的是「昵称长度太短」（实测 2026-10-20）。两个都带上。
-        const body = new URLSearchParams({ uname: nick, nick, csrf: session.csrf })
+        const body = new URLSearchParams({ uname: nick, nick, csrf: session().csrf })
         const r = await api('/x/member/web/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -419,7 +455,7 @@ export function apply(ctx, config) {
         })
         const j = r.json || {}
         if (j.code === 0) {
-          session.uname = nick
+          profile.uname = nick
           return '改名成功：现在是「' + nick + '」。'
         }
         return '改名被拒（code=' + j.code + '）：' + (j.message || JSON.stringify(j).slice(0, 200))
@@ -445,7 +481,7 @@ export function apply(ctx, config) {
         for (const ep of endpoints) {
           const fd = new FormData()
           fd.append('pic', new Blob([buf], { type: 'image/png' }), 'avatar.png')
-          fd.append('csrf', session.csrf)
+          fd.append('csrf', session().csrf)
           let json
           try {
             const { res, text } = await requestBody(ep, {

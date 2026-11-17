@@ -145,8 +145,20 @@ export class SocialClient {
       : SOCIAL_DEFAULT_CREDENTIAL_FILE
   }
 
-  /** 现读凭证；文件不可读时退回上一次读到的（仍是空就匿名）。 */
+/** 现读凭证；文件不可读时退回上一次读到的（仍是空就匿名）。 */
   credential() {
+    // 2026-11-17（核查 R01）：插件里有统一账号状态时**不许再自己读文件**——
+    // 那会绕开退出标记（tombstone）和代次，变成第三条状态路径。
+    // 没有 cookieProvider 的调用方（单测 / 别的宿主）才退回读文件。
+    const provider = this.options && this.options.cookieProvider
+    if (typeof provider === 'function') {
+      let c
+      try { c = provider() } catch { c = null }
+      const cookie = typeof c === 'string' ? c : (c && c.cookie) || ''
+      const out = { cookie, csrf: (c && c.csrf) || '', uid: (c && c.uid) || '' }
+      if (cookie) this.credentialCache = out
+      return out
+    }
     const fresh = readCredential(this.credentialFile)
     if (fresh.cookie.length > 0) {
       this.credentialCache = fresh
@@ -548,6 +560,8 @@ const textOutput = {
 export function applyBilibiliSocialTools(ctx, options = {}) {
   const client = new SocialClient({
     credentialFile: options.credentialFile || SOCIAL_DEFAULT_CREDENTIAL_FILE,
+    // 统一账号入口传进来的取凭证口径；没有就按老样子读文件。
+    ...(typeof options.cookieProvider === 'function' ? { cookieProvider: options.cookieProvider } : {}),
   })
   const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : SOCIAL_DEFAULT_TOOL_TIMEOUT_MS
   const registered = []

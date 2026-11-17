@@ -45,6 +45,7 @@ const CHECKS = [
   { id: 'interest/forward', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-interest-forward.mjs'], why: 'E-2 转发消费：AstrBot 命中 → DSH 决定 → 写 qq-outbox；NONE 不写箱、模型炸不崩' },
   { id: 'bilibili/account', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-account.mjs'], why: 'G 一个账号一个权威：退出三层一起清、tombstone 防复活、迟到响应丢弃' },
   { id: 'bilibili/provider-swap', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-provider-holder.mjs'], why: 'G.5 登录后不重启就生效：proxy 转发 + swap 换真身' },
+  { id: 'bilibili/entry-account', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-entry.mjs'], why: 'G 真实入口：恢复要校验、tombstone 优先、退出的迟到结果不许写回（核查 R01）' },
   { id: 'rag/eval', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/rag-eval.mjs'], why: 'J-4 合成语料 30 题评测：Hit@1/3/5、MRR、同文跨层、来源不串' },
   { id: 'rag/index', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-rag-index.mjs'], why: 'J-6 代际快照/校验/回退：坏索引不许发布，当前代永远不删' },
   { id: 'inject/report', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-inject-report.mjs'], why: 'K-2 组装值 vs 实际请求并列：账本缺失如实报，不拿字符推 token' },

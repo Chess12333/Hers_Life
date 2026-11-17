@@ -133,6 +133,17 @@ export function createAccount(io) {
       return { applied: true, source: state.source, gen: state.gen }
     },
 
+    /**
+     * 只清内存（配额过期、nav 说不登录），**不写 tombstone**：
+     * 「这次验出来不算」不等于「她主动退出过」，下次还得能从服务/文件恢复。
+     */
+    drop() {
+      state.cookie = ''
+      state.source = 'expired'
+      state.gen += 1
+      return { gen: state.gen }
+    },
+
     /** 登录成功：两边都写，gen +1。返回哪些层写成功了，失败不掩盖。 */
     async save(cookie) {
       const result = { service: false, file: false, gen: 0 }
