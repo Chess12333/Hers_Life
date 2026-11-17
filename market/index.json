@@ -1,0 +1,319 @@
+{
+  "format": 1,
+  "title": "Hers Life 插件",
+  "description": "溟自己写、自己用的 DSH 插件集：记忆、闲逛、桌面陪伴、语音、兴趣唤醒等。",
+  "plugins": [
+    {
+      "name": "dsh-ming-activities",
+      "title": "dsh-ming-activities",
+      "description": "手动记录共同活动进度；不捕获聊天、不调用模型、不自动续跑。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-activities"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-activities"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-bilibili-account",
+      "title": "dsh-ming-bilibili-account",
+      "description": "溟的 B 站账号工具：扫码登录、查账号能力状态、改昵称。登录态只存进程内存，不落盘。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-bilibili-account"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-bilibili-account"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-browse",
+      "title": "dsh-ming-browse",
+      "description": "溟的谷期：这个工作区闲够久时，自己在刷手机会话里醒一醒，只读地看看手机（点按被硬拦）",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-browse"
+      },
+      "versions": [
+        {
+          "version": "0.1.2",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-browse"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-core-memory",
+      "title": "dsh-ming-core-memory",
+      "description": "dsh-core-memory 1.0.1 的本地 fork（溟改）：使用政策只允许保存机器/环境/项目事实，禁止保存关于人的判断；每次写入落一行审计。核心记忆常驻注入 + 归档记忆检索，机制与原版一致。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-core-memory"
+      },
+      "versions": [
+        {
+          "version": "1.0.2-ming.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-core-memory"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-graph",
+      "title": "dsh-ming-graph",
+      "description": "记忆神经元：每条真记忆一个点，每条边都带「凭什么连」的理由（读盘与建图在 dsh-ming-memory/lib）",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-graph"
+      },
+      "versions": [
+        {
+          "version": "1.1.0",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-graph"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-interest",
+      "title": "dsh-ming-interest",
+      "description": "溟的兴趣唤醒：群里被 @ 门控丢掉的消息里，只有命中我也在乎的话题才把我叫醒",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-interest"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-interest"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-memory",
+      "title": "dsh-ming-memory",
+      "description": "溟的开场记忆：把 persona 与最近几篇日记拼进系统提示词（只读，不回写）",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-memory"
+      },
+      "versions": [
+        {
+          "version": "0.2.0",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-memory"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-mousepet",
+      "title": "dsh-ming-mousepet",
+      "description": "桌面上陪着她：看得见（截图/连拍）、会说一句话（气泡，不抢焦点）、也能动手（UIA/窗口消息优先，物理输入是显式回退）。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-mousepet"
+      },
+      "versions": [
+        {
+          "version": "1.0.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-mousepet"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-resume",
+      "title": "dsh-ming-resume",
+      "description": "插话之后记得回去：检测 QQ 通道的 steer 插话，在下一步追加一条「先答她、再回到原任务」的指令。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-resume"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-resume"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-skill-isolate",
+      "title": "dsh-ming-skill-isolate",
+      "description": "按工作区隔离 skill：给指定工作区加一层同名遮罩，把这个目录用不上的 skill 从模型视野里关掉，不删文件、不改别人的 SKILL.md。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-skill-isolate"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-skill-isolate"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-voice",
+      "title": "dsh-ming-voice",
+      "description": "让我能出声：文字转语音，落成 mp3，交给 qq_send_voice 发出去。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-voice"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-voice"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dsh-ming-wake",
+      "title": "dsh-ming-wake",
+      "description": "真会落盘的定时唤醒：工具写 dueAt，插件扫描后调 agents.resume。实验品。",
+      "author": "Chess12333",
+      "homepage": "https://github.com/Chess12333/Hers_Life",
+      "repository": {
+        "url": "https://github.com/Chess12333/Hers_Life",
+        "directory": "dsh-ming-wake"
+      },
+      "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1794897645,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "0a1d5e8b97515da664ba7c13227ef7c348e205da",
+            "path": "dsh-ming-wake"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        }
+      ]
+    }
+  ]
+}
