@@ -32,3 +32,6 @@ astrbot_plugins/**/__pycache__/
 
 # 测试跑出来的时长采样（>1MB）
 dsh-ming-mousepet/test/live-duration-*.json
+
+# 运行数据不进仓库（2026-11-17：重建仓库时误加了两个）
+live/
