@@ -14,6 +14,9 @@ check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
 
 ## 待发布
 
+- **插件市场索引**（2026-11-17）：`market/index.json`（format 1，12 个包，git 源钉 commit）+ 生成器 `scripts/make-market-index.mjs`。
+  以前这些包只有 `link:` 一条装法；现在可以把索引 URL 加进插件市场直接装。**每次发版要重跑生成器**，否则市场停在旧 commit。
+
 按项变更记录保存在 [changelog 目录](changelog/)，每份说明包含行为变化、使用方法、验证和限制。各项可独立审查；正式发布版本号暂不变。
 
 - **去重状态落盘**（同日补）：候选收集前读 `live/inbox-state.json`，已结算（handled/claimed/not_handled/failed）的事件不再投递；

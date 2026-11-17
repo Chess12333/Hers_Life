@@ -76,6 +76,24 @@ cd dsh-ming-graph && node build.mjs        # 从各插件的 src/panel.js 直接
 cd dsh-ming-memory && node build.mjs
 ```
 
+## 插件市场索引
+
+不想手动 clone + `link:` 的话，把这一个 URL 加进 DSH 的 **插件市场 → 索引源**（在设置里，只有用户本人能加）：
+
+```
+https://raw.githubusercontent.com/Chess12333/Hers_Life/main/market/index.json
+```
+
+索引是 format 1，由 `scripts/make-market-index.mjs` 生成。12 个包全部走 git 源（`type: git` + 仓库 URL + **钉住的 commit** + `path:`），所以装到的永远是某个确定的提交，不是 main 的浮动头。
+
+**每次发版要重跑一次**，否则市场里还停在旧 commit：
+
+```bash
+node scripts/make-market-index.mjs --ref=v1.2.1 --validator="<DSH_HOME>/data/versions/<版本>/node_modules"
+```
+
+`--validator` 会调宿主自带的 `@deepseek-ai/dsh-plugin-market-index` 按 format 1 校验；不给就跳过，并明说「没验过」。
+
 ## 隐私
 
 这个仓是从本机导出的，导出脚本会先剔一遍再自检（本机用户名、QQ 号、群号、B 站 uid、密钥、真人昵称、超过 1MB 的文件），命中任何一条就不许提交。
