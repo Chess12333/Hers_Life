@@ -1,0 +1,78 @@
+{
+  "at": "2026-11-17T02:41:36.349Z",
+  "suite": "offline",
+  "only": "",
+  "root": "C:\\dsh\\Hers_Life",
+  "results": [
+    {
+      "id": "core-memory/rag-availability",
+      "status": "PASS",
+      "ms": 101,
+      "exit": 0,
+      "tail": "ℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 44.7538"
+    },
+    {
+      "id": "core-memory/status",
+      "status": "PASS",
+      "ms": 288,
+      "exit": 0,
+      "tail": "PASS read 显示被哪条取代\nPASS 非法 status/source 回落到默认值\nPASS supersedes 指错会拒绝\nPASS 被拒绝时不写索引\n\n全部通过"
+    },
+    {
+      "id": "core-memory/tools",
+      "status": "PASS",
+      "ms": 226,
+      "exit": 0,
+      "tail": "标签：QQ-Agent, 归因, 提示词, chat-store, blocks.js, attribution-check, 2026-10-31\n  ⚠ 这条已被 [20261031-133244-systemprompt-userprompt-2026-10]「更正：记忆注入在 systemPrompt 而非 userPrompt（2026-10-31 13:33）」取代（2026-10-31）——现行口径：**更正 2026-10-31 13:33**：上一条写「13:19 那轮的提示词里根本没有 09:44 那段」是**错的**——我当时只扫…\n\n2026-10-31 13:21 浔让我查「消息作者归因」：13:19 我把 09:44 我自己说的『上课别看手机』讲成了是她说的，她怀疑今天换的新架构有 bug。\n\n检查：⚠被取代行 = ok"
+    },
+    {
+      "id": "core-memory/index-check",
+      "status": "PASS",
+      "ms": 333,
+      "exit": 0,
+      "tail": "PASS 墓碑没复活\nPASS 留了一份检查备份\nPASS 备份内容是原索引\nPASS 笔记文件一个没删\nPASS 再查一次是干净的\n★ 全过（qa-index-check）"
+    },
+    {
+      "id": "core-memory/recovery",
+      "status": "PASS",
+      "ms": 174,
+      "exit": 0,
+      "tail": "ℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 116.3108"
+    },
+    {
+      "id": "memory/diary-budget",
+      "status": "PASS",
+      "ms": 646,
+      "exit": 0,
+      "tail": "PASS  最新三篇都在场（日记有自己的 8000 字预算）\nPASS  人设没被日记挤走\nPASS  没有缺文件\nPASS  没有被静默省掉的整篇\n\n★ 全过（qa-diary-budget：4/4）"
+    },
+    {
+      "id": "memory/config-budget",
+      "status": "PASS",
+      "ms": 662,
+      "exit": 0,
+      "tail": "ℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 601.5766"
+    },
+    {
+      "id": "bilibili/load",
+      "status": "PASS",
+      "ms": 112,
+      "exit": 0,
+      "tail": "ℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 52.1975"
+    },
+    {
+      "id": "browse/audit",
+      "status": "PASS",
+      "ms": 482,
+      "exit": 0,
+      "tail": "PASS 同样条件下「关注」也被拒\nPASS 不带写操作字样的点按照放  — {\"kind\":\"allow\"}\nPASS 带「充电」的按钮照旧一律拒  — {\"kind\":\"deny\",\"reason\":\"这个按钮带「充电」，属于花钱/续费那一类，不点。\"}\nPASS 上一轮还在跑 → 不会再开一轮  — 1 vs 1\n\n全部通过"
+    },
+    {
+      "id": "activities/qa",
+      "status": "PASS",
+      "ms": 101,
+      "exit": 0,
+      "tail": "ℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.0597"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+- insert:
+    - id: ming-resume
+      name: 'dsh-ming-resume'
+      config:
+        root: '<PUT_YOUR_WORKSPACE>'

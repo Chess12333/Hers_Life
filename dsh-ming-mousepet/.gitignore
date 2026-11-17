@@ -1,0 +1,26 @@
+node_modules/
+test/testapp.log
+test/testapp.json
+*.zip
+*.bak-*
+settings.json
+.DS_Store
+Thumbs.db
+
+# 本机备份与临时文件（含旧版 sidecar、日志、一次性补丁脚本），不入库
+backup/
+.tmp/
+.tmp-*.py
+*.sync-backup-*
+*.sync-experiment-failed
+backup-sidecar.ps1.*
+*.log
+test/backup-*/
+
+# 本机截图与录制
+shots/
+captures/
+pet-capture/
+
+# 测试采集到的原始数据（>1MB），不入库
+test/live-duration-*.json

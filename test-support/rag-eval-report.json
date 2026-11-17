@@ -1,0 +1,1708 @@
+{
+  "at": "2026-11-17T06:18:27.522Z",
+  "corpus": {
+    "doc": 8,
+    "web": 6,
+    "qq": 6
+  },
+  "questions": 30,
+  "metrics": {
+    "Hit@1": 0.385,
+    "Hit@3": 0.654,
+    "Hit@5": 0.692,
+    "MRR": 0.508,
+    "no-answer 误报": "4/4",
+    "latency p50 ms": 0.7,
+    "latency p90 ms": 1.2
+  },
+  "byCategory": {
+    "direct": {
+      "n": 8,
+      "hit1": 3,
+      "hit3": 6,
+      "hit5": 7
+    },
+    "synonym": {
+      "n": 6,
+      "hit1": 1,
+      "hit3": 2,
+      "hit5": 2
+    },
+    "disambiguation": {
+      "n": 5,
+      "hit1": 1,
+      "hit3": 2,
+      "hit5": 2
+    },
+    "date": {
+      "n": 4,
+      "hit1": 3,
+      "hit3": 4,
+      "hit5": 4
+    },
+    "same-text-diff-source": {
+      "n": 3,
+      "hit1": 2,
+      "hit3": 3,
+      "hit5": 3
+    },
+    "no-answer": {
+      "n": 4,
+      "hit1": 0,
+      "hit3": 0,
+      "hit5": 0
+    }
+  },
+  "results": [
+    {
+      "id": "D1",
+      "category": "direct",
+      "query": "沉默 没话说",
+      "relevantIds": [
+        "d01"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q06",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 5,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D2",
+      "category": "direct",
+      "query": "陵云台 木头 摇动",
+      "relevantIds": [
+        "d03"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 3,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D3",
+      "category": "direct",
+      "query": "蚕茧 台北",
+      "relevantIds": [
+        "d04"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D4",
+      "category": "direct",
+      "query": "凭证服务 文件 三层",
+      "relevantIds": [
+        "d06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q06",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D5",
+      "category": "direct",
+      "query": "分块相加 总长",
+      "relevantIds": [
+        "d07"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 2,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D6",
+      "category": "direct",
+      "query": "谜语 主动",
+      "relevantIds": [
+        "w03"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 3,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D7",
+      "category": "direct",
+      "query": "不需要证明你有用",
+      "relevantIds": [
+        "w02"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "w02",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w01",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "D8",
+      "category": "direct",
+      "query": "耳机 眼睛会抗议",
+      "relevantIds": [
+        "q03"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q03",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S1",
+      "category": "synonym",
+      "query": "什么时候该闭嘴",
+      "relevantIds": [
+        "d01",
+        "d08"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d04",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w01",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "category": "synonym",
+      "query": "评价是谁说的",
+      "relevantIds": [
+        "d02"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "category": "synonym",
+      "query": "先确认再开口",
+      "relevantIds": [
+        "d05"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w06",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "category": "synonym",
+      "query": "自然语言总结",
+      "relevantIds": [
+        "w06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w06",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 3,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "category": "synonym",
+      "query": "别的 AI 吃醋",
+      "relevantIds": [
+        "q05"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "category": "synonym",
+      "query": "说话要留白",
+      "relevantIds": [
+        "d08",
+        "d01"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w04",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "X1",
+      "category": "disambiguation",
+      "query": "她说的语气是哪一种",
+      "relevantIds": [
+        "w04",
+        "d01"
+      ],
+      "forbiddenIds": [
+        "w02"
+      ],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q03",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "category": "disambiguation",
+      "query": "重启之后问 PR",
+      "relevantIds": [
+        "w05"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w01",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "category": "disambiguation",
+      "query": "群里有人说 AI 是自己写的",
+      "relevantIds": [
+        "q01"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w06",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "category": "disambiguation",
+      "query": "桌面游戏 二十六届",
+      "relevantIds": [
+        "q04"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q04",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d04",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 2,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "X5",
+      "category": "disambiguation",
+      "query": "表情包 鱼",
+      "relevantIds": [
+        "q02"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": 0,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "T1",
+      "category": "date",
+      "query": "十一月中旬 巧艺 陵云台",
+      "relevantIds": [
+        "d03"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "category": "date",
+      "query": "十月三十 她说不需要证明",
+      "relevantIds": [
+        "w02"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "w02",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "category": "date",
+      "query": "十一月十七 账号 退出",
+      "relevantIds": [
+        "d06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d04",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d05",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "category": "date",
+      "query": "十月底 耳机",
+      "relevantIds": [
+        "q03"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q03",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": 2,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "category": "same-text-diff-source",
+      "query": "沉默不是没话说",
+      "relevantIds": [
+        "d01",
+        "q06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q06",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "category": "same-text-diff-source",
+      "query": "这一拍不用接",
+      "relevantIds": [
+        "d01",
+        "q06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q06",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w06",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 1,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "category": "same-text-diff-source",
+      "query": "确定这一拍",
+      "relevantIds": [
+        "d01",
+        "q06"
+      ],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d01",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q06",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        }
+      ],
+      "rank": 2,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "N1",
+      "category": "no-answer",
+      "query": "量子纠缠的实验数据",
+      "relevantIds": [],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": null,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "N2",
+      "category": "no-answer",
+      "query": "红楼梦第八十回原文",
+      "relevantIds": [],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w03",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "d08",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": null,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "N3",
+      "category": "no-answer",
+      "query": "股票今天的收盘价",
+      "relevantIds": [],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "q05",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d03",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        }
+      ],
+      "rank": null,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "id": "N4",
+      "category": "no-answer",
+      "query": "火星基地的氧气浓度",
+      "relevantIds": [],
+      "forbiddenIds": [],
+      "hits": [
+        {
+          "id": "q01",
+          "layer": "qq",
+          "src": "qq"
+        },
+        {
+          "id": "d06",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "d07",
+          "layer": "doc",
+          "src": ""
+        },
+        {
+          "id": "w02",
+          "layer": "web",
+          "src": "web"
+        },
+        {
+          "id": "q03",
+          "layer": "qq",
+          "src": "qq"
+        }
+      ],
+      "rank": null,
+      "status": "ready",
+      "issues": [
+        {
+          "layer": "doc",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "web",
+          "code": "manifest-missing",
+          "severity": "info"
+        },
+        {
+          "layer": "qq",
+          "code": "manifest-missing",
+          "severity": "info"
+        }
+      ]
+    }
+  ]
+}

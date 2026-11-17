@@ -1,0 +1,14 @@
+- insert:
+    - id: ming-memory
+      name: dsh-ming-memory
+      config:
+        # 指向放 persona/ 和 diary/ 的工作区。也可以不写在这里，
+        # 改放到 ~/.dsh/ming-memory.json 的 root（本机配置不进仓库）。
+        # root: '/path/to/your/workspace'
+        personaFiles:
+          - persona/人设.md
+          - persona/名字.md
+          - persona/约定.md
+        diaryDir: diary
+        diaryCount: 3
+        maxChars: 12000

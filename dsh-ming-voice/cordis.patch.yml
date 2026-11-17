@@ -1,0 +1,7 @@
+- insert:
+    - id: ming-voice
+      name: 'dsh-ming-voice'
+      config:
+        root: '<workspace>'
+        voice: 'zh-CN-XiaoxiaoNeural'
+        rate: '+0%'

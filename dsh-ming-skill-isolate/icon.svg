@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Skill isolation">
+  <rect width="64" height="64" rx="14" fill="#0b2233"/>
+  <circle cx="24" cy="26" r="9" fill="none" stroke="#4fb3d9" stroke-width="3"/>
+  <circle cx="24" cy="26" r="3.5" fill="#4fb3d9"/>
+  <path d="M30.5 32.5 L40 42" stroke="#4fb3d9" stroke-width="3" stroke-linecap="round"/>
+  <path d="M38 20 L50 20 M38 26 L46 26" stroke="#8fd6ef" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>
+  <path d="M42 44 L56 30" stroke="#ff7a7a" stroke-width="3" stroke-linecap="round"/>
+</svg>
