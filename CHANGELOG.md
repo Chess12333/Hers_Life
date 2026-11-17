@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v1.2.1（2026-11-17 紧急补丁）
+
+**v1.2.0 的 `dsh-ming-browse` 会把自己拦死。** `permissionPolicy` 默认 `browse_only`，`run_code` 不在分类表 → UNKNOWN → 拒；而 `run_code` 是唯一能直接调用的工具，于是自由活动那一轮连读文件都做不到。用 v1.2.0 的原文件实测：
+
+```
+check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
+→ { ok: false, reason: '只浏览模式：run_code 没有分类，不放行' }
+```
+
+改法：`check()` 加容器通道（`run_code` / `ops_load_sdk` 放行，判据落内层工具名；花钱类仍拒）。自测 54 → 59 全过。
+代价：若宿主的内层调用不过 `pre-execute`，容器放行等于放开整轮，此时兜底靠 `index.js` 的 `checkTap` / `tapTextDeny`。
+
 ## 待发布
 
 按项变更记录保存在 [changelog 目录](changelog/)，每份说明包含行为变化、使用方法、验证和限制。各项可独立审查；正式发布版本号暂不变。
