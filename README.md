@@ -2,6 +2,8 @@
 
 **版本 1.1.1**（2026-11-16）· [CHANGELOG](CHANGELOG.md)
 
+> 待发布的按项变更、使用方法和验证结果见 [CHANGELOG](CHANGELOG.md) 中的变更记录目录。
+
 > 要让别的 agent 跟着记账：格式、目录名、哪份文件被谁读，见 **[RECORDS.md](RECORDS.md)**。
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。
@@ -22,7 +24,7 @@ QQ 那一侧换壳之后，QQ-Agent 的插件、看门狗、启动路径全部�
 
 | 包 | 干什么 |
 |---|---|
-| `dsh-ming-core-memory` | 核心记忆 + 归档记忆。核心常驻注入，归档按意思检索；写入政策只收机器/环境/项目事实，不写关于人的判断 |
+| `dsh-ming-core-memory` | [只读记忆查看](dsh-ming-core-memory/INSPECTOR.md)；核心记忆 + 归档记忆。核心常驻注入，归档按意思检索；写入政策只收机器/环境/项目事实，不写关于人的判断 |
 | `dsh-ming-memory` | 开场记忆：把人设文件与最近几篇日记拼进系统提示词，只读不回写 |
 | `dsh-ming-graph` | 记忆神经元与星图。每条真记忆一个点，每条边都带「凭什么连」的理由 |
 | `dsh-ming-mousepet` | 桌宠：**AI 光标**、截图、连拍、常驻看屏（常态识别，画面动了才留帧）、气泡说话（不抢焦点）、UIA/窗口消息动手。原来的轻量版 `dsh-ming-cursor` 2026-11-10 起并进这里，不再单列 |

@@ -14,6 +14,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { buildGraph, expand, describeChain, mergedIds, conflictCandidates, REPLACES } from './graph.js';
 import { ragSearch } from './rag.js';
+import { createInspectorRoute } from './inspector.js';
 import {
   readRows as readRecallRows,
   record as recordRecall,
@@ -1087,6 +1088,24 @@ export function apply(ctx) {
   // 设置页读写接口：风格页（client.js）经同源 fetch 调用。
   // webServer 是可选依赖——缺席时插件照常工作，只是设置页不可用。
   ctx.inject(['webServer'], (c) => {
+    c.effect(() => c.webServer.register(createInspectorRoute({
+      directory: notesDir,
+      parseNote: parseNoteFile,
+      describe(meta, id) {
+        return {
+          title: meta.title || id,
+          tags: (meta.tags || '').split(',').map(s => s.trim()).filter(Boolean),
+          created: meta.created || '', updated: meta.updated || '',
+          status: normStatus(meta.status),
+          statusLabel: meta.status ? statusLabel(meta.status) : '未标注（旧条目按生效使用）',
+          source: normSource(meta.source),
+          sourceLabel: ({ user_statement: '用户明确说的', direct_observation: '直接观察', agent_inference: 'AI 推断', external_source: '外部资料', unknown: '来源未知' })[normSource(meta.source)],
+          lastConfirmed: meta.last_confirmed || '',
+          supersedes: meta.supersedes || '', supersededBy: meta.superseded_by || '',
+          mergedFrom: mergedIds(meta),
+        };
+      },
+    })), 'dsh-core-memory: read-only inspector');
     c.effect(() => c.webServer.register({
       kind: 'exact',
       path: '/dsh-core-memory/persona',

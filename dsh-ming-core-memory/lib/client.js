@@ -248,6 +248,74 @@ window.__ModuleLoader__.load({
 				return React.createElement('div', { className: 'persona-page' }, children);
 			}
 
+			function MemoryInspector() {
+				const h = React.createElement;
+				const [data, setData] = React.useState(null);
+				const [error, setError] = React.useState('');
+				const [revision, setRevision] = React.useState(0);
+				const [query, setQuery] = React.useState('');
+				const [status, setStatus] = React.useState('all');
+				const [page, setPage] = React.useState(0);
+				const [selected, setSelected] = React.useState('');
+				const [note, setNote] = React.useState(null);
+				const [detailError, setDetailError] = React.useState('');
+				const endpoint = '/dsh-core-memory/inspector';
+				const json = async (url, signal) => {
+					const r = await fetch(url, { signal });
+					const value = await r.json();
+					if (!r.ok || value.error) throw new Error(value.error || '读取失败');
+					return value;
+				};
+				React.useEffect(() => {
+					const controller = new AbortController();
+					setData(null); setError(''); setSelected(''); setPage(0);
+					json(endpoint, controller.signal).then(setData).catch(e => { if (!controller.signal.aborted) setError(e.message); });
+					return () => controller.abort();
+				}, [revision]);
+				React.useEffect(() => {
+					const controller = new AbortController();
+					setNote(null); setDetailError('');
+					if (selected) json(endpoint + '?id=' + encodeURIComponent(selected), controller.signal)
+						.then(v => setNote(v.note)).catch(e => { if (!controller.signal.aborted) setDetailError(e.message); });
+					return () => controller.abort();
+				}, [selected]);
+				const button = (label, onClick, disabled = false) => h('button', { className: 'persona-btn', type: 'button', onClick, disabled }, label);
+				const field = (label, value) => h('div', { key: label, style: { overflowWrap: 'anywhere' } }, h('strong', null, label + '：'), value || '未记录');
+				const rows = (data?.notes || []).filter(n => (status === 'all' || n.status === status) &&
+					(n.title + ' ' + n.id + ' ' + n.tags.join(' ')).toLowerCase().includes(query.toLowerCase()));
+				const filtered = rows.slice(page * 25, (page + 1) * 25);
+				const known = new Set((data?.notes || []).map(n => n.id));
+				const relation = (label, id) => id ? h('div', { key: label }, label + '：', known.has(id) ? button(id, () => setSelected(id)) : id + '（当前库中未找到）') : null;
+				return h('section', { className: 'persona-page', 'aria-label': '记忆查看' },
+					h('h2', { style: { margin: 0 } }, '记忆查看'),
+					h('p', { className: 'persona-hint', style: { margin: 0 } }, '查看已有归档文件的来源类别和状态。来源标签是当时留下的记录，不等于已经核实；这里不会自动记下对话。'),
+					h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+						h('input', { className: 'persona-textarea', style: { minHeight: 36, flex: '1 1 220px', width: 'auto' }, 'aria-label': '搜索记忆标题、标签或编号', placeholder: '搜索标题、标签或编号', value: query, onChange: e => { setQuery(e.target.value); setPage(0); } }),
+						h('select', { className: 'persona-btn', 'aria-label': '记忆状态', value: status, onChange: e => { setStatus(e.target.value); setPage(0); } },
+							[['all', '全部状态'], ['active', '生效'], ['candidate', '候选'], ['superseded', '已被取代'], ['invalidated', '已作废']].map(([v, label]) => h('option', { key: v, value: v }, label))),
+						button('刷新', () => setRevision(v => v + 1))),
+					error ? h('p', { className: 'persona-error', role: 'alert' }, error) : !data ? h('p', { role: 'status' }, '正在读取记忆…') : null,
+					data?.unreadable.length ? h('p', { className: 'persona-error', role: 'alert' }, '有 ' + data.unreadable.length + ' 个文件未能读取，本列表不完整：' + data.unreadable.join('、')) : null,
+					data ? h('div', { className: 'persona-hint', role: 'status' }, rows.length ? '找到 ' + rows.length + ' 条，第 ' + (page + 1) + ' / ' + Math.ceil(rows.length / 25) + ' 页' : (data.notes.length ? '没有符合筛选的记忆。' : '还没有归档记忆。')) : null,
+					h('div', { className: 'persona-grid' }, filtered.map(n => h('button', { key: n.id, type: 'button', className: 'persona-card' + (selected === n.id ? ' on' : ''), onClick: () => setSelected(n.id), 'aria-pressed': selected === n.id },
+						h('span', { className: 'persona-body' }, h('span', { className: 'persona-name', style: { overflowWrap: 'anywhere' } }, n.title), h('span', { className: 'persona-desc' }, n.statusLabel + ' · ' + n.sourceLabel + ' · ' + (n.created || '日期未知')))))),
+					rows.length > 25 ? h('div', { className: 'persona-actions' }, button('上一页', () => setPage(p => p - 1), page === 0), button('下一页', () => setPage(p => p + 1), (page + 1) * 25 >= rows.length)) : null,
+					selected ? h('article', { 'aria-label': '记忆详情', style: { border: '1px solid var(--dsw-alias-border-l1,#8885)', borderRadius: 12, padding: 16, display: 'grid', gap: 10 } },
+						button('关闭详情', () => setSelected('')),
+						detailError ? h('p', { className: 'persona-error', role: 'alert' }, detailError) : !note ? h('p', { role: 'status' }, '正在读取原文…') : h(React.Fragment, null,
+							h('h3', { style: { margin: 0, overflowWrap: 'anywhere' } }, note.title),
+							field('状态', note.statusLabel), field('来源类别', note.sourceLabel),
+							note.status === 'superseded' || note.status === 'invalidated' ? h('strong', { className: 'persona-error' }, '这是旧记录，不应当作当前结论。') : null,
+							field('创建时间', note.created), field('更新时间', note.updated), field('最近确认', note.lastConfirmed), field('原文件', note.file),
+							relation('取代了', note.supersedes), relation('被取代或并入', note.supersededBy),
+							...note.mergedFrom.map((id, i) => relation('合并来源 ' + (i + 1), id)),
+							h('p', { className: 'persona-hint', style: { margin: 0 } }, '以下为已保存的笔记正文，不代表原始聊天逐字记录。'),
+							h('pre', { style: { margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', font: 'inherit', lineHeight: 1.7 } }, note.body))) : null);
+			}
+			ctx.effect(() => slots.inject('settings.section', () => slots.register(
+				{ name: 'settings.section', id: 'memory-inspector', order: 18, label: '记忆查看' }, MemoryInspector
+			)), 'dsh-core-memory: memory inspector section');
+
 			ctx.effect(function () {
 				return slots.inject('settings.section', function () {
 					return slots.register(
