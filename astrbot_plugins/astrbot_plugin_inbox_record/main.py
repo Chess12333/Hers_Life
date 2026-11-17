@@ -59,6 +59,35 @@ def _message_id(event: AstrMessageEvent):
     return "gen-" + uuid.uuid4().hex, "generated"
 
 
+def _identity(event: AstrMessageEvent, event_id: str, id_source: str) -> dict:
+    """一条事件的身份：**入站、claimed、handled 三处必须一模一样**。
+
+    2026-11-17（核查 R04）：回执原来只写 eventId，而消费者按
+    (platform, bot, 会话, eventId) 组 key —— 于是同一条消息变成两条：
+    带正文那条一直 pending，回执那条自己 claimed。这里的字段就是那个 key 的全部来源。
+    """
+    try:
+        gid = event.get_group_id()
+    except Exception:  # noqa: BLE001
+        gid = None
+    try:
+        bot = str(event.get_self_id() or "")
+    except Exception:  # noqa: BLE001
+        bot = ""
+    try:
+        sender = str(event.get_sender_id() or "")
+    except Exception:  # noqa: BLE001
+        sender = ""
+    return {
+        "eventId": event_id,
+        "idSource": id_source,
+        "platform": "qq",
+        "botAccountId": bot,
+        "conversation": {"kind": "group" if gid else "private", "id": str(gid or sender or "")},
+        "senderId": sender,
+    }
+
+
 def _append(line: dict) -> None:
     parent = os.path.dirname(os.path.abspath(INBOX))
     if parent:
@@ -75,7 +104,24 @@ class InboxRecord(Star):
         self._warned = False
         # eventId -> 入站时间；发送后钩子要靠它找回同一条消息。
         self._seen: dict[str, str] = {}
+        # 平台没给 message_id 时的兜底 id：同一个 event 对象在几个钩子里要拿到同一个，
+        # 不然「调用模型前 / 发送后」两个回执各自 gen 一个，永远拼不回一条。
+        self._gen_ids: dict[int, str] = {}
         logger.info("[inbox-record] v%d，写入 %s", VERSION, INBOX)
+
+    def _ids(self, event: AstrMessageEvent):
+        event_id, id_source = _message_id(event)
+        if id_source == "generated":
+            key = id(event)
+            cached = self._gen_ids.get(key)
+            if cached:
+                event_id = cached
+            else:
+                self._gen_ids[key] = event_id
+                if len(self._gen_ids) > 500:
+                    for k in list(self._gen_ids)[: len(self._gen_ids) - 500]:
+                        self._gen_ids.pop(k, None)
+        return event_id, id_source
 
     def _warn(self, msg: str, exc: Exception) -> None:
         if not self._warned:
@@ -86,21 +132,13 @@ class InboxRecord(Star):
     async def record(self, event: AstrMessageEvent):
         try:
             gid = event.get_group_id()
-            event_id, id_source = _message_id(event)
+            event_id, id_source = self._ids(event)
             now = time.time()
             received_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now))
             line = {
-                # —— v2 字段 ——
+                # —— v2 字段：身份只从 _identity 来，回执和入站用的是同一份 ——
                 "version": VERSION,
-                "eventId": event_id,
-                "idSource": id_source,
-                "platform": "qq",
-                "botAccountId": str(event.get_self_id() or ""),
-                "conversation": {
-                    "kind": "group" if gid else "private",
-                    "id": str(gid or event.get_sender_id() or ""),
-                },
-                "senderId": str(event.get_sender_id() or ""),
+                **_identity(event, event_id, id_source),
                 "sourceKind": "user",
                 "receivedAt": received_at,
                 "normalHandling": "pending",
@@ -148,13 +186,12 @@ class InboxRecord(Star):
         钩子真触发时再补 handled，补不上就如实留 claimed。
         """
         try:
-            event_id, id_source = _message_id(event)
+            event_id, id_source = self._ids(event)
             _append({
                 "version": VERSION,
                 "kind": "outcome",
-                "eventId": event_id,
-                "idSource": id_source,
-                "platform": "qq",
+                # 2026-11-17（核查 R04）：回执也要带 bot / 会话，否则消费者拼 key 拼不回
+                **_identity(event, event_id, id_source),
                 "normalHandling": "claimed",
                 "outcome": {"stage": "decorating", "at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())},
                 "ts": int(time.time() * 1000),
@@ -170,14 +207,12 @@ class InboxRecord(Star):
             # 而本插件是纯旁观（不参与决策），所以**一次都不会触发**。留着是为了换部署时能自证，
             # 日志降到 debug，别刷。
             logger.debug("[inbox-record] after_message_sent 触发")
-            event_id, id_source = _message_id(event)
+            event_id, id_source = self._ids(event)
             received_at = self._seen.get(event_id, "")
             line = {
                 "version": VERSION,
                 "kind": "outcome",
-                "eventId": event_id,
-                "idSource": id_source,
-                "platform": "qq",
+                **_identity(event, event_id, id_source),
                 "normalHandling": "handled",
                 "outcome": {
                     "stage": "sent",

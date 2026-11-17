@@ -107,5 +107,46 @@ ok('同 ID 不同会话 → 两个 key', keyOf({ ...a, conversation: { kind: 'gr
   ok('上限截断', Object.keys(pruneState(many, { max: 5, now }).entries).length === 5)
 }
 
+// --- R04：回执与入站必须是同一份身份 ---
+{
+  // 生产者现在的形状：入站带平台/bot/会话，claimed/handled 也带同一份。
+  const good = [
+    ev('m-1'),
+    JSON.stringify({
+      version: 2, kind: 'outcome', eventId: 'm-1', platform: 'qq', botAccountId: 'bot-1',
+      conversation: { kind: 'group', id: 'g1' }, senderId: 'u1', normalHandling: 'claimed',
+    }),
+    JSON.stringify({
+      version: 2, kind: 'outcome', eventId: 'm-1', platform: 'qq', botAccountId: 'bot-1',
+      conversation: { kind: 'group', id: 'g1' }, senderId: 'u1', normalHandling: 'handled',
+    }),
+  ]
+  const r = mergeEvents(good)
+  ok('R04 完整身份 pending→claimed→handled 归并成一条', r.events.size === 1, String(r.events.size))
+  ok('R04 最终状态是 handled', [...r.events.values()][0].status === 'handled')
+
+  // 老回执只有 eventId：能在唯一可关联时补进去，找不到就单列（不猜）。
+  const legacyReceipt = [
+    ev('m-2'),
+    JSON.stringify({ version: 2, kind: 'outcome', eventId: 'm-2', platform: 'qq', normalHandling: 'handled' }),
+  ]
+  const r2 = mergeEvents(legacyReceipt)
+  ok('R04 只有 eventId 的老回执照样归到同一条', r2.events.size === 1, String(r2.events.size))
+  ok('R04 迟到 pending 不把 handled 打回去', [...r2.events.values()][0].status === 'handled')
+
+  // 两个 bot 里有同名 message_id：不合并。
+  const twoBots = [
+    ev('m-3'),
+    JSON.stringify({
+      version: 2, kind: 'message', eventId: 'm-3', platform: 'qq', botAccountId: 'bot-2',
+      conversation: { kind: 'group', id: 'g1' }, senderId: 'u1', normalHandling: 'pending',
+    }),
+    JSON.stringify({ version: 2, kind: 'outcome', eventId: 'm-3', platform: 'qq', normalHandling: 'handled' }),
+  ]
+  const r3 = mergeEvents(twoBots)
+  ok('R04 两个 bot 同 message_id 不误合并', r3.events.size === 2, String(r3.events.size))
+  ok('R04 归属不明如实记 orphan，不硬塞', r3.orphan === 1, String(r3.orphan))
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)

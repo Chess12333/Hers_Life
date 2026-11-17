@@ -21,6 +21,20 @@ export function keyOf(ev) {
   return [ev.platform || 'qq', ev.botAccountId || ev.frame?.self_id || '', kind, convId, ev.eventId || ''].join('|')
 }
 
+/**
+ * 一条记录的身份构成，以及它**是否完整**。
+ * 2026-11-17（核查 R04）：老回执只写了 eventId（没有 bot / 会话），
+ * 按 keyOf 拼出来是 "qq|||id"，跟入站那条永远拼不到一起。
+ * 这里把它标成「不完整」，归并时只在唯一可关联的情况下补进去。
+ */
+export function identityOf(ev) {
+  const conv = ev?.conversation || {}
+  const bot = ev?.botAccountId || ev?.frame?.self_id || ''
+  const convId = conv.id || ev?.frame?.group_id || ev?.frame?.user_id || ''
+  const kind = conv.kind || ev?.frame?.message_type || ''
+  return { eventId: String(ev?.eventId || ''), bot, convId, kind, complete: !!(bot && convId && kind) }
+}
+
 /** 这条记录是不是 v2（有消息身份与处理状态）。 */
 export function isV2(ev) {
   return !!ev && Number(ev.version) >= 2 && typeof ev.eventId === 'string' && ev.eventId !== ''
@@ -40,12 +54,36 @@ export function mergeEvents(lines) {
   const events = new Map()
   let bad = 0
   let legacy = 0
+  const parsed = []
   for (const raw of lines) {
     if (!raw || !String(raw).trim()) continue
     let ev
     try { ev = JSON.parse(raw) } catch { bad++; continue }
     if (!isV2(ev)) { legacy++; continue }
-    const key = keyOf(ev)
+    parsed.push(ev)
+  }
+
+  // 每条记录自己的 key + 身份是否完整；完整身份的 key 按 eventId 归档，
+  // 给「只有 eventId 的老回执」找回它属于哪一条。
+  const recs = parsed.map((ev) => ({ ev, key: keyOf(ev), id: identityOf(ev) }))
+  const fullKeys = new Map()
+  for (const r of recs) {
+    if (!r.id.complete) continue
+    if (!fullKeys.has(r.id.eventId)) fullKeys.set(r.id.eventId, new Set())
+    fullKeys.get(r.id.eventId).add(r.key)
+  }
+
+  let orphan = 0
+  for (const r of recs) {
+    const ev = r.ev
+    let key = r.key
+    if (!r.id.complete) {
+      const cands = fullKeys.get(r.id.eventId)
+      // 唯一可关联才关联；两个 bot / 两个会话里有同名 id 时**不猜**——
+      // 记成 orphan（未知归属），不新造一条半截事件把账搅浑。
+      if (cands && cands.size === 1) key = [...cands][0]
+      else { orphan++; continue }
+    }
     const prev = events.get(key)
     const status = ev.kind === 'outcome' ? (ev.normalHandling || 'unknown') : (ev.normalHandling || 'pending')
     if (!prev) {
@@ -56,7 +94,7 @@ export function mergeEvents(lines) {
     if ((RANK[status] ?? -1) >= (RANK[prev.status] ?? -1)) prev.status = status
     if (!prev.frame && ev.frame) prev.frame = ev.frame
   }
-  return { events, bad, legacy }
+  return { events, bad, legacy, orphan }
 }
 
 /**
