@@ -80,8 +80,8 @@ ok('名单内主体：shell 放行', check(SUBJ, subjCtx('ops_bash')).ok === tru
 ok('名单内主体：放行带 skipped 原因', check(SUBJ, subjCtx('ops_bash')).skipped === 'subject-editable')
 ok('名单内主体：发布类放行', check(SUBJ, subjCtx('qzone_post')).ok === true)
 ok('名单内主体：未分类工具也放行', check(SUBJ, subjCtx('some_plugin_tool')).ok === true)
-ok('名单内主体：花钱类仍拒', check(SUBJ, subjCtx('pay_checkout')).ok === false)
-ok('名单内主体：花钱类给的原因对', /花钱/.test(check(SUBJ, subjCtx('pay_checkout')).reason))
+ok('名单内主体：花钱类也放行（2026-11-17 17:43 她定的）', check(SUBJ, subjCtx('pay_checkout')).ok === true)
+ok('名单内主体：花钱类给 skipped 原因', check(SUBJ, subjCtx('pay_checkout')).skipped === 'subject-editable')
 ok('名单外主体：照旧只读', check(SUBJ, { tool: 'ops_bash', subject: 'someone', ...AUTO }).ok === false)
 ok('名单外主体：读接口照旧放行', check(SUBJ, { tool: 'bilibili_search', subject: 'someone', ...AUTO }).ok === true)
 ok('agent id 也能对上名单', check({ subjects: ['a1'] }, { tool: 'ops_bash', ...AUTO }).ok === true)
@@ -98,8 +98,11 @@ ok('名单写 QQ 号：另一个自己人也放行', check(OWN, ownCtx('onebot-p
 ok('名单写会话名：self 模式的 ming-browse 对上', check(OWN, ownCtx('ming-browse')).ok === true)
 ok('不在名单里的号 → 仍只读', check(OWN, ownCtx('onebot-private-999999999-x')).ok === false)
 ok('不做子串猜：3737 不该命中 9000000001', check({ mode: 'browse_only', subjects: ['3737'] }, ownCtx('onebot-private-9000000001-x')).ok === false)
-ok('自己人也拒花钱类', check(OWN, ownCtx('onebot-private-9000000001-x', 'pay_checkout')).ok === false)
+ok('自己人花钱类也放行', check(OWN, ownCtx('onebot-private-9000000001-x', 'pay_checkout')).ok === true)
 ok('号在 id 中间也认（不要求是固定位置）', check(OWN, ownCtx('session-9000000001-0000-1111')).ok === true)
+
+// 花钱类：显式 browse_only 时仍然拒（收紧时该有的兜底）
+ok('browse_only：花钱类仍拒', check({ mode: 'browse_only' }, { tool: 'pay_checkout', ...AUTO }).ok === false)
 
 // --- 7) 容器放行：自由活动不能被自己的闸拦死（2026-11-17 14:37 她定的） ---
 ok('run_code 一律放行（容器）', check({ mode: 'browse_only' }, { tool: 'run_code', ...AUTO }).ok === true)

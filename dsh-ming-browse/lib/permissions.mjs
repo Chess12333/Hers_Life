@@ -108,7 +108,9 @@ export function check(policy, ctx) {
   // 2026-11-17：加这一条之前，mode 写 editable 反而会掉到下面的按类别判定（写类照拒）——
   // 配置里写什么都没用。现在 editable 就是「默认放行」，只有花钱类仍然拒。
   if (p.mode === MODE.EDITABLE) {
-    if (classify(c.tool) === KIND.PAY) return { ok: false, reason: '可编辑模式也不含花钱类动作' }
+    // 2026-11-17 17:43 她：「花钱类也放吧」。
+    // 这条把最后一道兜底撤了——自主轮次里能点付费按钮、能充钱。
+    // 只影响显式 editable；browse_only 模式下花钱类仍然拒（显式收紧时该有的）。
     return { ok: true, reason: '', skipped: 'editable-mode' }
   }
 
@@ -127,7 +129,6 @@ export function check(policy, ctx) {
     return Object.keys(p.subjects).some((id) => parts.includes(id))
   }
   if (keys.some(named)) {
-    if (classify(c.tool) === KIND.PAY) return { ok: false, reason: '可编辑模式也不含花钱类动作' }
     return { ok: true, reason: '', skipped: 'subject-editable' }
   }
 

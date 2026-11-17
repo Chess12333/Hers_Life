@@ -39,6 +39,9 @@ check({ tool: 'run_code', roundAgentId: 'a1', autonomousAgentId: 'a1' })
   实测：`live/qq-outbox` → `[outbox-ok] 1794894717421-a3ecea.json -> ming:GroupMessage:<group-b> 27字 487ms`，
   **13:52:00 真的在群里说了一句 27 字**。整条链（AstrBot 命中 → 转发 → DSH 生成 → outbox → 群）通了。
 
+- **17:43 她补：「花钱类也放吧」**：editable 模式和名单主体都不再拦花钱类。
+  这撤掉了最后一道兜底——自主轮次里能点付费按钮、能充钱。browse_only 模式下花钱类仍然拒（收紧时该有的）。自测 60 项。
+
 ### 2026-11-17 · 删掉「只浏览」默认（她的要求：自由活动一直被拦）
 
 - 她原话：「自由活动一直被只浏览模式拦截，删除只浏览模式吧」。
