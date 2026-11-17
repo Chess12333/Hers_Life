@@ -12,6 +12,8 @@ dist/
 *.webp
 *.gif
 *.html
+# 例外：浏览器扩展的设置页是**要发出去的源码**，不是截图/预览页（核查 R03）。
+!dsh-ming-mousepet/extension/options.html
 
 # 媒体
 *.mp4

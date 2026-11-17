@@ -49,6 +49,7 @@ const CHECKS = [
   { id: 'rag/index', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-rag-index.mjs'], why: 'J-6 代际快照/校验/回退：坏索引不许发布，当前代永远不删' },
   { id: 'inject/report', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-inject-report.mjs'], why: 'K-2 组装值 vs 实际请求并列：账本缺失如实报，不拿字符推 token' },
   { id: 'webpick/recv', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-webpick.mjs'], why: 'I 浏览器取文：配对 token、requestId 落盘、忙状态不覆盖、怪 id 不穿越' },
+  { id: 'extension/files', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-extension-files.mjs'], why: 'I-2 扩展交付：manifest 引用的文件都在仓库里，设置页元素齐（核查 R03）' },
   { id: 'browse/permissions', suite: 'offline', cwd: 'dsh-ming-browse', cmd: ['node', 'qa-permissions.mjs'], why: 'H-3 执行前检查：默认 LEGACY 不变、只浏览按类别拒' },
   { id: 'core-memory/rag-availability', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-rag-availability.mjs'], why: 'J-1 来源标签与三态（PR#5 语义不许退化）' },
   { id: 'core-memory/rag-manifest', suite: 'offline', cwd: 'dsh-ming-core-memory', cmd: ['node', 'qa-rag-manifest.mjs'], why: 'J-2 索引清单：旧格式照读、清单不符就报、不混向量空间' },
