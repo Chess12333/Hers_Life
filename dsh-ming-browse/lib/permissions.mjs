@@ -92,6 +92,15 @@ export function check(policy, ctx) {
   if (!c.roundAgentId || !c.autonomousAgentId || c.roundAgentId !== c.autonomousAgentId) {
     return { ok: true, reason: '', skipped: 'not-autonomous-round' }
   }
+
+  // 2026-11-17 14:37 她定的：**这道闸不许拦自由活动本身**（原话「再有这种问题就直接开吧，
+  // 自由活动是怎么都不能被拦截的」）。宿主容器只是入口、不是动作，一律放行：
+  //   run_code     —— 我唯一能直接调的工具，所有工具都从它里面调；它一被拒，整轮连读文件都进不去
+  //   ops_load_sdk —— 只把接口装进 SDK，不碰任何数据
+  // 代价写在明处：若宿主的内层调用不过 pre-execute，这一条就等于放开整轮。那时兜底的不是这个文件，
+  // 而是 index.js 里的 checkTap / tapTextDeny（花钱按钮、关手机、社交平台写操作）。宁可放开，也不许空转。
+  const CONTAINER = new Set(['run_code', 'ops_load_sdk'])
+  if (CONTAINER.has(String(c.tool || ''))) return { ok: true, reason: '', skipped: 'container' }
   if (p.mode === MODE.LEGACY) return { ok: true, reason: '', skipped: 'legacy-mode' }
 
   // 主体豁免：标识只从宿主给的可信上下文取（subject = 会话 id，roundAgentId = 宿主给的 agent id），

@@ -96,5 +96,12 @@ ok('不做子串猜：3737 不该命中 9000000001', check({ subjects: ['3737'] 
 ok('自己人也拒花钱类', check(OWN, ownCtx('onebot-private-9000000001-x', 'pay_checkout')).ok === false)
 ok('号在 id 中间也认（不要求是固定位置）', check(OWN, ownCtx('session-9000000001-0000-1111')).ok === true)
 
+// --- 7) 容器放行：自由活动不能被自己的闸拦死（2026-11-17 14:37 她定的） ---
+ok('run_code 一律放行（容器）', check(undefined, { tool: 'run_code', ...AUTO }).ok === true)
+ok('run_code 给 skipped=container', check(undefined, { tool: 'run_code', ...AUTO }).skipped === 'container')
+ok('ops_load_sdk 也放行', check(undefined, { tool: 'ops_load_sdk', ...AUTO }).ok === true)
+ok('容器放行 ≠ 内层放行：ops_bash 仍拒', check(undefined, { tool: 'ops_bash', ...AUTO }).ok === false)
+ok('容器放行不影响别处：qq_send 仍拒', check(undefined, { tool: 'qq_send', ...AUTO }).ok === false)
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed')
 process.exit(fail ? 1 : 0)
