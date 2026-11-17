@@ -496,6 +496,7 @@ async function loadShared(cfg, force = false) {
     const raw = await readFile(sharedPath(cfg), 'utf8')
     const parsed = JSON.parse(raw)
     for (const [k, v] of Object.entries(parsed || {})) {
+      if (isBrowseSession(k)) continue
       if (!v || typeof v !== 'object') continue
       const at = Number(v.at) || 0
       const prev = SHARED.get(k)
@@ -535,11 +536,19 @@ function saveSharedSoon(cfg) {
 
 // 玩手机那个会话不进共享上下文（2026-10-21）：它是自己出去逛的，不是跟她说话。
 // 让它进来，聊天那边每步都会被一堆浏览废话灌满。
-const IGNORED_SESSIONS = new Set(['ming-browse'])
+function isBrowseSession(id) {
+  return /^ming-browse(?:-\d+)?$/.test(String(id || ''))
+}
+
+// 只过滤已知的自动生产者。QQ/AstrBot 转交的真人消息也可能是 plugin:*，不能一概丢掉。
+const AUTOMATED_SOURCES = new Set([
+  'plugin', // 旧格式
+  'plugin:ming-browse', 'plugin:ming-interest', 'plugin:ming-resume', 'plugin:ming-wake',
+])
 
 function recordShared(cfg, session, text) {
   const sid = String((session && session.id) || '')
-  if (!sid || IGNORED_SESSIONS.has(sid)) return
+  if (!sid || isBrowseSession(sid)) return
   const clean = String(text).replace(/\s+/g, ' ').trim()
   if (!clean) return
   const prev = SHARED.get(sid) || { surface: surfaceOf(session), tail: '', digest: '', at: 0 }
@@ -585,7 +594,7 @@ function renderDialog(e) {
 /** 记住溟自己最后回的那一句。不动 at（at 是她说话的时间），单独记 mineAt。 */
 function recordMine(cfg, session, text) {
   const sid = String((session && session.id) || '')
-  if (!sid || IGNORED_SESSIONS.has(sid)) return
+  if (!sid || isBrowseSession(sid)) return
   const clean = String(text).replace(/\s+/g, ' ').trim()
   if (!clean) return
   const prev = SHARED.get(sid) || { surface: surfaceOf(session), tail: '', digest: '', at: 0 }
@@ -1126,6 +1135,7 @@ async function writeWebForQq(cfg, force = false) {
     try { feed = JSON.parse(await readFile(sharedPath(cfg), 'utf8')) } catch { feed = null }
     const entries = feed && typeof feed === 'object' ? Object.entries(feed) : []
     for (const [sid, e] of entries) {
+      if (isBrowseSession(sid)) continue
       if (!e || typeof e !== 'object') continue
       if ((e.scope || scopeOf(sid)) !== 'dm') continue
       if ((e.surface || 'web') !== 'web') continue
@@ -1319,11 +1329,11 @@ export function apply(ctx, config) {
       const cwd = session && session.header && session.header.cwd
       if (!insideRoot(cwd, cfg.root)) return
       const src = event.data && event.data.source
-      if (src && src.kind === 'plugin') return // 插件自己注入的话不算「浔说的」
       // 压缩门牌：压完留一句「这是压缩，不是失忆」。compaction/* 只落日志、不上台面，
       // 所以从事件里捡最后一次的区间，挂在系统提示上（不大动会话，不占轮次）。
       if (event.type === 'compaction/summary') noteCompact(session, event)
       if (event.type === 'user/message') {
+        if (AUTOMATED_SOURCES.has(src && src.kind)) return
         const text = extractUserText(event.data)
         if (text) recordShared(cfg, session, text)
       } else if (event.type === 'assistant/message') {

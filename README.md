@@ -2,6 +2,8 @@
 
 **版本 1.1.1**（2026-11-16）· [CHANGELOG](CHANGELOG.md)
 
+> 待发布的按项变更、使用方法和验证结果见 [CHANGELOG](CHANGELOG.md) 中的变更记录目录。
+
 > 要让别的 agent 跟着记账：格式、目录名、哪份文件被谁读，见 **[RECORDS.md](RECORDS.md)**。
 
 一台 Windows 机器上，一个 AI 的**记忆、眼睛、手和声音**。十二个插件，跑在 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）上。

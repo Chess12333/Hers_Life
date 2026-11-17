@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const suites = ['qa-smoke.mjs', 'qa-names.mjs', 'qa-clean.mjs', 'qa-share.mjs', 'qa-diary-budget.mjs', 'qa-compact.mjs', 'qa-cache.mjs']
+const suites = ['qa-smoke.mjs', 'qa-names.mjs', 'qa-clean.mjs', 'qa-share.mjs', 'qa-source.mjs', 'qa-diary-budget.mjs', 'qa-compact.mjs', 'qa-cache.mjs']
 
 const bad = []
 for (const f of suites) {
