@@ -211,6 +211,8 @@ function normalize(config) {
     personaFiles: personaFiles.length ? personaFiles : DEFAULTS.personaFiles,
     diaryDir: typeof c.diaryDir === 'string' && c.diaryDir.trim() ? c.diaryDir : DEFAULTS.diaryDir,
     diaryCount,
+    // Only an explicit nonnegative integer is a cap; unset/invalid keeps legacy defaults.
+    diaryChars: Number.isInteger(c.diaryChars) && c.diaryChars >= 0 ? c.diaryChars : undefined,
     maxChars,
     totalChars: Number.isInteger(c.totalChars) ? Math.max(c.totalChars, 20000) : DEFAULTS.totalChars,
     qq,
@@ -385,7 +387,9 @@ function compose(cfg, persona, diaries, missing) {
   const kept = []
   const dropped = []
   let used = head.length + body.length + foot.length
-  const budget = Math.max(cfg.maxChars, used + diaryBudget)
+  const budget = Number.isInteger(cfg.diaryChars)
+    ? used + diaryBudget
+    : Math.max(cfg.maxChars, used + diaryBudget)
   for (let i = diaries.length - 1; i >= 0; i--) {
     const d = diaries[i]
     const chunk = '\n### ' + d.rel + '\n' + d.txt + '\n'
@@ -1236,7 +1240,7 @@ async function syncPersonaForQq(cfg) {
 
 async function refresh(cfg) {
   // 缓存键带上身份称呼：2026-11-10 起「溟/浔」可配，只按 root 存会把上一份称呼留下来。
-  const key = cfg.root + '|' + SELF.name + '|' + SELF.full + '|' + SELF.user + '|' + (SELF.identity ? '1' : '0')
+  const key = JSON.stringify([cfg.root, SELF, cfg.personaFiles, cfg.diaryDir, cfg.diaryCount, cfg.diaryChars, cfg.maxChars, cfg.totalChars])
   const prev = CACHE.get(key)
   const snap = await buildSnapshot(cfg)
   if (prev && prev.sig === snap.sig) return prev
