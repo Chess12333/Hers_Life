@@ -43,6 +43,7 @@ const CHECKS = [
   { id: 'interest/inbox', suite: 'offline', cwd: 'dsh-ming-interest', cmd: ['node', 'qa-inbox.mjs'], why: 'E-3 消息身份/归并/去重/候选判定（合成事件，不读真实 inbox）' },
   { id: 'interest/chat-sessions', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-chat-sessions.mjs'], why: 'E-3 会话映射生成：一个 chatId 多候选、带后缀优先、非 onebot 不进' },
   { id: 'interest/forward', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-interest-forward.mjs'], why: 'E-2 转发消费：AstrBot 命中 → DSH 决定 → 写 qq-outbox；NONE 不写箱、模型炸不崩' },
+  { id: 'interest/forward-final-text', suite: 'offline', cwd: '.', cmd: ['node', 'test-support/qa-forward-final-text.mjs'], why: '仅正式文本可出站；非正常结束不投递' },
   { id: 'bilibili/account', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-account.mjs'], why: 'G 一个账号一个权威：退出三层一起清、tombstone 防复活、迟到响应丢弃' },
   { id: 'bilibili/provider-swap', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-provider-holder.mjs'], why: 'G.5 登录后不重启就生效：proxy 转发 + swap 换真身' },
   { id: 'bilibili/entry-account', suite: 'offline', cwd: 'dsh-ming-bilibili-account', cmd: ['node', 'qa-entry.mjs'], why: 'G 真实入口：恢复要校验、tombstone 优先、退出的迟到结果不许写回（核查 R01）' },

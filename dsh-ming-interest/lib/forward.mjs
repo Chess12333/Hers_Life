@@ -102,18 +102,9 @@ function readNew(file, cursor, prevPrefix) {
   return { rows, end: lineStart, reset, buf }
 }
 
-/**
- * 流里的文字不一定都叫 text-delta。桌宠的 talker 早就写了这层兜底，
- * 我第一版只认 text-delta，于是 raw 一直是空——实测 why:"empty"、raw:""。
- */
+/** DSH 正文增量。工具、计量及扩展事件都可能含文字。 */
 export function pickText(chunk) {
-  if (!chunk || typeof chunk !== 'object') return ''
-  if (typeof chunk.text === 'string') return chunk.text
-  if (typeof chunk.delta === 'string') return chunk.delta
-  if (chunk.delta && typeof chunk.delta.text === 'string') return chunk.delta.text
-  if (typeof chunk.content === 'string') return chunk.content
-  if (chunk.message && typeof chunk.message.content === 'string') return chunk.message.content
-  return ''
+  return chunk?.type === 'text-delta' && typeof chunk.text === 'string' ? chunk.text : ''
 }
 
 /**
@@ -146,7 +137,8 @@ export async function resolveRoute(llm, prefer = {}) {
 export async function collectOne(llm, prompt, { system = '', timeoutMs = 25000, route = null } = {}) {
   if (!llm || typeof llm.stream !== 'function') return { text: '', why: 'no-llm' }
   let raw = ''
-  let reasoning = ''
+  let reasoningChars = 0
+  let incomplete = ''
   let stream
   try {
     stream = llm.stream({
@@ -171,14 +163,14 @@ export async function collectOne(llm, prompt, { system = '', timeoutMs = 25000, 
         for await (const chunk of stream) {
           const type = String((chunk && chunk.type) || '')
           // 思考过程永远不进 raw：它是给调试看的，不是能发出去的话（核查 R05）。
-          if (/reasoning|thinking/i.test(type)) {
-            if (typeof chunk.text === 'string') reasoning += chunk.text
-            continue
-          }
-          if (type === 'text-delta' && typeof chunk.text === 'string') raw += chunk.text
-          else {
-            const extra = pickText(chunk)
-            if (extra) raw += extra
+          if (/reasoning|thinking/i.test(type) && typeof chunk.text === 'string') {
+            reasoningChars += chunk.text.length
+          } else if (type === 'tool-call-delta' || (type === 'block-start' && chunk.blockType === 'tool-call')) {
+            incomplete = 'tool-call'
+          } else if (type === 'finish' && chunk.reason?.kind !== 'stop') {
+            incomplete = 'incomplete-finish'
+          } else {
+            raw += pickText(chunk)
           }
         }
       })(),
@@ -190,9 +182,10 @@ export async function collectOne(llm, prompt, { system = '', timeoutMs = 25000, 
   // 2026-11-17（核查 R05）：这里原来是 (raw || reasoning) —— 模型只回一段思考时，
   // 思考文字会被当成正式回复写进待发箱。只有正式答案通道能成为外发文本；
   // 没有答案就如实说没有，交给上层按「不说」处理。
+  if (incomplete) return { text: '', why: incomplete, raw: '' }
   const text = raw.trim()
   if (!text) {
-    return { text: '', why: reasoning ? 'reasoning-only' : 'empty', raw: '', reasoningChars: reasoning.length }
+    return { text: '', why: reasoningChars ? 'reasoning-only' : 'empty', raw: '', reasoningChars }
   }
   if (/^none$/i.test(text)) return { text: '', why: 'none', raw: text.slice(0, 60) }
   // 只留第一段（模型有时会带解释）

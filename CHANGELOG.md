@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 待发布
+
+- 兴趣转发只接受正文增量。工具调用、截断和报错结束时丢弃未完成文本。可用 `node test-support/qa-forward-final-text.mjs` 离线验证。
+
 ## v1.2.1（2026-11-17 紧急补丁）
 
 **v1.2.0 的 `dsh-ming-browse` 会把自己拦死。** `permissionPolicy` 默认 `browse_only`，`run_code` 不在分类表 → UNKNOWN → 拒；而 `run_code` 是唯一能直接调用的工具，于是自由活动那一轮连读文件都做不到。用 v1.2.0 的原文件实测：
