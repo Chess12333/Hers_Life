@@ -16,11 +16,11 @@
       "versions": [
         {
           "version": "0.1.0",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-activities"
           },
           "engines": {
@@ -42,11 +42,11 @@
       "versions": [
         {
           "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-bilibili-account"
           },
           "engines": {
@@ -68,11 +68,11 @@
       "versions": [
         {
           "version": "0.1.2",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-browse"
           },
           "engines": {
@@ -93,12 +93,12 @@
       },
       "versions": [
         {
-          "version": "1.0.2-ming.1",
-          "publishTimestamp": 1794909782,
+          "version": "1.0.2-ming.2",
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-core-memory"
           },
           "engines": {
@@ -120,11 +120,11 @@
       "versions": [
         {
           "version": "1.1.0",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-graph"
           },
           "engines": {
@@ -145,12 +145,12 @@
       },
       "versions": [
         {
-          "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "version": "0.1.2",
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-interest"
           },
           "engines": {
@@ -172,11 +172,11 @@
       "versions": [
         {
           "version": "0.2.0",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-memory"
           },
           "engines": {
@@ -198,11 +198,11 @@
       "versions": [
         {
           "version": "1.0.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-mousepet"
           },
           "engines": {
@@ -224,11 +224,11 @@
       "versions": [
         {
           "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-resume"
           },
           "engines": {
@@ -250,11 +250,11 @@
       "versions": [
         {
           "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-skill-isolate"
           },
           "engines": {
@@ -276,11 +276,11 @@
       "versions": [
         {
           "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-voice"
           },
           "engines": {
@@ -302,11 +302,11 @@
       "versions": [
         {
           "version": "0.1.1",
-          "publishTimestamp": 1794909782,
+          "publishTimestamp": 1795068150,
           "source": {
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
-            "commit": "040b4c3caef9d49ca3a94dba91678af8ceb101cc",
+            "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
             "path": "dsh-ming-wake"
           },
           "engines": {
