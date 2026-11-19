@@ -1,8 +1,10 @@
 # CHANGELOG
 
-## 待发布
+## v1.2.3（2026-11-19 补丁）
 
-- 兴趣转发只接受正文增量。工具调用、截断和报错结束时丢弃未完成文本。可用 `node test-support/qa-forward-final-text.mjs` 离线验证。
+- **`rag_recall` 在宿主里报「未配置工作区」。** 模块加载那一刻读 `MING_WORKSPACE`，而 DSH 的插件进程没有这个变量，于是三层全空；脚本版自己带着变量跑，所以只有工具层坏。改成懒解析：第一次真要用时按 环境变量 → `~/.dsh/ming-memory.json` 的 `root` → `~/.dsh/open-door.json` 的 `root` 找，`setWorkspace()` 留给测试和迁移。（`dsh-ming-core-memory` 1.0.2-ming.2）
+- 兴趣转发只接受正文增量。工具调用、截断和报错结束时丢弃未完成文本。可用 `node test-support/qa-forward-final-text.mjs` 离线验证。（`dsh-ming-interest` 0.1.2）
+- 在 DSH 0.2.2-rc.5 上重跑：`check.mjs --suite offline` 29 项全 PASS；插件加载与开场注入正常。兼容判断一直带 `includePrerelease`（`dsh-app-boot` 的 `evaluatePluginCompatibility`、`dshmarket` 的 `discovery-compatibility`），所以 `engines.dsh: ">=0.2.0"` 认 rc5——升版不用改代码。
 
 ## v1.2.1（2026-11-17 紧急补丁）
 

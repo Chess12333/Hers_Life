@@ -15,8 +15,9 @@
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { homedir } from 'node:os'
 
-const LIVE = process.env.MING_WORKSPACE ? join(process.env.MING_WORKSPACE, 'live') : ''
+let LIVE = process.env.MING_WORKSPACE ? join(process.env.MING_WORKSPACE, 'live') : ''
 const ENDPOINT = process.env.EMB_ENDPOINT || 'http://127.0.0.1:18091/v1/embeddings'
 const MODEL = process.env.EMB_MODEL || 'bge-base-zh-v1.5-q8_0'
 const DIM = 768
@@ -34,8 +35,43 @@ const cache = new Map() // layer -> { sig, vecs, ids, rows }
 //   live/rag-index/current.json      → {generation, at, layers:{...}}
 //   live/rag-index/generations/<gen>/<layer>/{vectors.f32,ids.json,corpus.jsonl,manifest.json}
 // 指针指到的那一代是**不可变目录**，从它读就不会撞上生成器正在写的半份 live 文件。
-const GEN_ROOT = LIVE ? join(LIVE, 'rag-index') : ''
-const CURRENT = GEN_ROOT ? join(GEN_ROOT, 'current.json') : ''
+let GEN_ROOT = LIVE ? join(LIVE, 'rag-index') : ''
+let CURRENT = GEN_ROOT ? join(GEN_ROOT, 'current.json') : ''
+
+// 2026-11-19：宿主插件进程里没有 MING_WORKSPACE，模块加载那一刻 LIVE 是空的，
+// 于是 rag_recall 对三层全报「未配置工作区」；脚本版自己是带着变量跑的，所以只有工具层坏。
+// 改成懒解析：第一次真要用时按 环境变量 → ~/.dsh/ming-memory.json 的 root → ~/.dsh/open-door.json 的 root 找工作区。
+function dshHomeDir() {
+  return process.env.DSH_HOME || join(homedir(), '.dsh')
+}
+
+function rootOfJson(name) {
+  try {
+    const j = JSON.parse(readFileSync(join(dshHomeDir(), name), 'utf8'))
+    return j && typeof j.root === 'string' ? j.root.trim() : ''
+  } catch { return '' }
+}
+
+/** 换工作区（测试 / 迁移用）。同一个路径重复调用不重算。 */
+export function setWorkspace(root) {
+  const ws = typeof root === 'string' ? root.trim() : ''
+  if (!ws) return false
+  const next = join(ws, 'live')
+  if (next === LIVE) return true
+  LIVE = next
+  GEN_ROOT = join(LIVE, 'rag-index')
+  CURRENT = join(GEN_ROOT, 'current.json')
+  cache.clear()
+  return true
+}
+
+/** 有就用，没有就现场找一个；找不到还是空，由调用方报 unconfigured。 */
+function ensureWorkspace() {
+  if (LIVE) return LIVE
+  const root = process.env.MING_WORKSPACE || rootOfJson('ming-memory.json') || rootOfJson('open-door.json')
+  if (root) setWorkspace(root)
+  return LIVE
+}
 
 function statOk(p) {
   try { statSync(p); return true } catch { return false }
@@ -43,6 +79,7 @@ function statOk(p) {
 
 /** 指针说的那一代（不保证完整；调用方自己验）。 */
 function generationDir() {
+  ensureWorkspace()
   if (!CURRENT) return ''
   let cur
   try { cur = JSON.parse(readFileSync(CURRENT, 'utf8')) } catch { return '' }
@@ -54,6 +91,7 @@ function generationDir() {
 
 /** live/ 里那一份（老路径）。 */
 function liveFiles(name) {
+  ensureWorkspace()
   const spec = LAYERS[name]
   return {
     emb: join(LIVE, spec.emb),
@@ -100,6 +138,7 @@ function layerFiles(name) {
  * **维度相同不代表模型相同**，所以模型名不同也拒（不同向量空间的点积不能混排）。
  */
 function readManifest(name, manifestPath) {
+  ensureWorkspace()
   const p = manifestPath || join(LIVE, LAYERS[name].manifest)
   let raw
   try {
@@ -169,6 +208,7 @@ function sigOf(files) {
 }
 
 function loadLayer(name) {
+  ensureWorkspace()
   if (!LIVE) throw new Error('未配置 MING_WORKSPACE')
   const spec = LAYERS[name]
   // 2026-11-17（R09）：路径不再写死 live/ —— 指针指向完整且不过期的一代时，从那一代读。

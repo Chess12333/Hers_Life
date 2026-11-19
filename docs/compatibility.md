@@ -3,7 +3,7 @@
 > 只写**实际跑过**的，不写「应该支持」。每一行都要能被别人照着复现；
 > 没条件验的写「未验」，不填空格的 PASS。
 >
-> 最后更新：2026-11-17 12:0x（Windows 本机实测）
+> 最后更新：2026-11-19 14:0x（Windows 本机实测）
 
 ## 本机基线
 
@@ -12,7 +12,7 @@
 | Windows | 10.0.26100.8457 | windows-live | 本表所有手动项都在这个版本上跑 | 2026-11-17 |
 | Windows PowerShell | 5.1.26100.8457 | parse | `check.mjs --suite windows-live` 的 sidecar 解析项 | 2026-11-17 |
 | Node | v24.21.0 | offline / build | `node scripts/check.mjs --suite offline` 全绿 | 2026-11-17 |
-| DSH | 0.2.2-rc.1 | host-contract | 插件加载 + 开场注入在本机跑；`host` 档需 `MING_RUN_MANUAL=1` 手工跑 | 2026-11-17 |
+| DSH | 0.2.2-rc.5 | host-contract | 十一套 ming 插件在 rc.5 上加载、注入块照常；`--suite offline` 29/29 PASS。`host` 档（`MING_RUN_MANUAL=1`）与 `windows-live` 本轮未重跑 | 2026-11-19 |
 | AstrBot | 4.29.4 | E 端到端 | 6199 端口收消息、日志「适配器已连接」 | 2026-11-17 |
 | Chrome | 157.0.4341.57 | I 扩展联调 | **未验**：需要扩展 + sidecar + Node 同批升级 | — |
 
