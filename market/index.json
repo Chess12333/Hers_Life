@@ -32,7 +32,7 @@
     {
       "name": "dsh-ming-bilibili-account",
       "title": "dsh-ming-bilibili-account",
-      "description": "溟的 B 站账号工具：扫码登录、查账号能力状态、改昵称。登录态只存进程内存，不落盘。",
+      "description": "溟的 B 站工具：扫码登录与账号状态；搜视频、取视频信息与播放直链、字幕、抽帧看画面；评论、观看历史、关注、收藏夹、动态、私信会话。登录态写本机凭证文件，退出写墓碑。",
       "author": "Chess12333",
       "homepage": "https://github.com/Chess12333/Hers_Life",
       "repository": {
@@ -47,6 +47,19 @@
             "type": "git",
             "url": "https://github.com/Chess12333/Hers_Life",
             "commit": "ced0479986001b806cb90d695a9e99b35823d8fe",
+            "path": "dsh-ming-bilibili-account"
+          },
+          "engines": {
+            "dsh": ">=0.2.0"
+          }
+        },
+        {
+          "version": "0.1.2",
+          "publishTimestamp": 1795422507,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Chess12333/Hers_Life",
+            "commit": "a2c13f29db603d6c11b4b9c438fe34aa9152d9a1",
             "path": "dsh-ming-bilibili-account"
           },
           "engines": {
