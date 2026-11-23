@@ -56,7 +56,12 @@ function resolveWorkspace() {
   } catch { /* 没本机配置就空着，下面的报错会说明 */ }
   return ''
 }
-const WORKSPACE = (() => { const w = resolveWorkspace(); return w ? path.normalize(w) : '' })()
+// 2026-11-23：改成每次现算。以前这里是模块加载时求值的常量，于是「建好 ~/.dsh/ming-graph.json
+// 还得重启 DSH 才生效」成了没人写下来的坑（换机器装的人第一轮就撞在这上面）。现在建完文件再点一次面板就行。
+function workspace() {
+  const w = resolveWorkspace()
+  return w ? path.normalize(w) : ''
+}
 
 const DEFAULTS = {
   // 记忆侧默认值（notes 目录、QQ 观察库、群友索引、记忆卡、日记目录）在 memory 那边，
@@ -65,12 +70,12 @@ const DEFAULTS = {
   syncSeconds: 120,
   // 2026-11-08：skill 开关。cwd 决定「按哪个工作区遮」——跟 dsh-ming-skill-isolate 的 root 是同一个意思；
   // offFile 留空就用 <skillsCwd>/skills-off.json，跟那边写的必须是同一个文件，否则开关写了也不生效。
-  skillsCwd: WORKSPACE,
+  get skillsCwd() { return workspace() },
   skillsOffFile: '',
   // 费用价目表：我们自己维护，缺省在 <workspace>/live/cost-prices.json
-  costPricesFile: process.env.MING_COST_PRICES || (WORKSPACE ? WORKSPACE + '\\live\\cost-prices.json' : ''),
+  costPricesFile: process.env.MING_COST_PRICES || (workspace() ? workspace() + '\\live\\cost-prices.json' : ''),
   // 2026-11-10：「索引费用」按钮写出来的自动价目。人工那份永远压过它。
-  costAutoFile: process.env.MING_COST_AUTO || (WORKSPACE ? WORKSPACE + '\\live\\cost-prices.auto.json' : ''),
+  costAutoFile: process.env.MING_COST_AUTO || (workspace() ? workspace() + '\\live\\cost-prices.auto.json' : ''),
 }
 
 // ---------- 本地配置 ----------
@@ -195,7 +200,7 @@ export async function readOverview(cfg) {
 }
 
 async function readAcp(wsHint) {
-  const ws = wsHint || WORKSPACE
+  const ws = wsHint || workspace()
   if (!ws) return { ok: false, error: '没配工作区：~/.dsh/ming-graph.json 写 diaryDir 或 workspace，或设环境变量 MING_WORKSPACE', jobs: [], calls: [], counts: {} }
   const live = path.join(ws, 'live')
   const jsonl = (name) => {
@@ -459,7 +464,7 @@ export function apply(ctx, config) {
               return
             }
             if (method === 'acp') {
-              respond(res, 200, await readAcp(cfg.workspace || WORKSPACE))
+              respond(res, 200, await readAcp(cfg.workspace || workspace()))
               return
             }
             if (method === 'cost' || method === 'cost/refresh') {

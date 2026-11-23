@@ -71,6 +71,13 @@ const DEFAULTS = {
   contextLines: 4,
 }
 
+/** 2026-11-23：相对路径按工作区解，绝对路径原样——配置里就能只写 'live/inbox.jsonl'。 */
+function underWorkspace(p, ws) {
+  const s = String(p || '')
+  if (!s) return s
+  return path.isAbsolute(s) ? s : path.join(path.resolve(ws || '.'), s)
+}
+
 function normalize(config) {
   const c = config && typeof config === 'object' ? config : {}
   const num = (v, f, min) => {
@@ -85,11 +92,11 @@ function normalize(config) {
   return {
     enabled: c.enabled !== false,
     workspacePath: path.resolve(str(c.workspacePath, DEFAULTS.workspacePath)),
-    inboxPath: str(c.inboxPath, DEFAULTS.inboxPath),
+    inboxPath: underWorkspace(str(c.inboxPath, DEFAULTS.inboxPath), str(c.workspacePath, DEFAULTS.workspacePath)),
     workspace: str(c.workspace, DEFAULTS.workspace),
     llmProvider: str(c.llmProvider, DEFAULTS.llmProvider),
     llmModel: str(c.llmModel, DEFAULTS.llmModel),
-    chatSessionsPath: str(c.chatSessionsPath, DEFAULTS.chatSessionsPath),
+    chatSessionsPath: underWorkspace(str(c.chatSessionsPath, DEFAULTS.chatSessionsPath), str(c.workspacePath, DEFAULTS.workspacePath)),
     interestsFile: str(c.interestsFile, DEFAULTS.interestsFile),
     logFile: str(c.logFile, DEFAULTS.logFile),
     stateFile: str(c.stateFile, DEFAULTS.stateFile),
@@ -135,7 +142,8 @@ function renderSegments(message) {
   for (const seg of message) {
     const type = String(seg?.type ?? '')
     const data = seg?.data ?? {}
-    if (type === 'text') parts.push(String(data.text ?? ''))
+    // 2026-11-23：入站正文尾巴上的 <system_reminder>…</system_reminder> 会跟着进提示词，读到就剥。
+    if (type === 'text') parts.push(String(data.text ?? '').replace(/<system[-_]reminder>[\s\S]*?<\/system[-_]reminder>/gi, ' '))
     else if (type === 'image') parts.push(data.sub_type === '1' ? '[表情包]' : '[图片]')
     else if (type === 'face') parts.push('[表情]')
     else if (type === 'record') parts.push('[语音]')

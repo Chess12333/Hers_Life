@@ -40,6 +40,20 @@ Windows 路径用正斜杠。`link:` 指向的目录必须是**运行目录**（
 
 `MING_ROOT` 与 `MING_WORKSPACE` **不是一回事**：混淆的结果是构建去读数据目录、或者插件去数据目录找源码。
 
+### 2.1 环境变量（换机器唯一要改的地方）
+
+两个仓里的路径都先读环境变量，没设才退回作者本机那份。在**启动 DSH / AstrBot 的那个环境**里设：
+
+| 变量 | 谁读 | 作用 |
+|---|---|---|
+| `MING_WORKSPACE` | 全部插件 | 数据工作区（`live/` `people/` `diary/`） |
+| `MING_ROOT` | 构建脚本 | 源码树（生成物、测试落盘） |
+| `MING_GRAPH_CONFIG` | `dsh-ming-graph` | 换一个本机配置文件（默认 `~/.dsh/ming-graph.json`） |
+| `MING_PLATFORM_ID` / `MING_SELF_NAME` | AstrBot 侧插件 | 平台 id 前缀与自我称呼 |
+| `MING_HER_QQ` / `MING_OWNERS` / `MING_GROUPS` | AstrBot 侧插件 | 主人号、自己人、群号 |
+
+自检：`python tools/check-placeholders.py`（在 `Hers_Life_For_Astrbot` 里跑）。
+
 ## 4. 递进组合（别一次全装）
 
 1. **最小可用**：`dsh-ming-core-memory` + `dsh-ming-memory`。给一个带 `persona/`、`diary/` 的工作区就能开场。
@@ -82,6 +96,23 @@ Windows 路径用正斜杠。`link:` 指向的目录必须是**运行目录**（
 - **中文空格路径**：构建脚本已用参数数组，理论安全；`qa-portability.mjs` 在临时目录验过，
   但临时目录路径是英文的，**中文没实跑**。
 - **npm 发布**：没有。将来要发，另跑 `npm pack --dry-run` 检查 client / license 是否齐。
+
+## 9. 换机器撞到的环境问题（2026-11-23，另一台机器上记的）
+
+不是本仓代码的问题，但按 README 从零装一定会遇上，记下来免得下一个人重踩：
+
+| 现象 | 根因 | 绕法 |
+|---|---|---|
+| 装本地目录包报 `ambiguous-install`，`package.json` 被回滚 | DSH 的 `plugin_manager install_bundle` 跑 `pnpm add link:<dir>` 后从输出里认包名，输出里同时列了已有的包就判歧义 | 走手工路线：`pnpm add link:...` + 手写 `dsh.profile.bundles` |
+| WSL 里跑 Docker 的 QQ 过一会儿就掉线 | 没有客户端连着约 1 分钟后 WSL 关整个虚拟机；`vmIdleTimeout=-1` 在 WSL 3.0.5 上实测无效 | 挂 `wsl.exe -d <distro> -- sleep infinity` 按住，并做成登录自启的计划任务（vbs 转一层不弹黑窗） |
+| compose 里写 `127.0.0.1:6081:6081` 后，Windows 侧完全连不上 noVNC | WSL 的 localhost 转发连的是虚拟机 eth0，不是回环 | 写 `"6081:6081"`（WSL 本身在 NAT 后面，局域网看不到） |
+| 进不去 SnowLuma 的 noVNC | 密码每次随机、只打在启动日志里 | 镜像认 `VNC_PASSWD` 环境变量（文档没写），在 compose 里固定下来 |
+| PyPI 装 `opencv-python-headless` 卡十几分钟 | 直连慢 | `--default-index https://mirrors.aliyun.com/pypi/simple/` |
+| GitHub release 附件 48 KB/s 甚至不动 | 直连被限 | `ghfast.top` 前缀代理（实测 250 KB/s–1.8 MB/s） |
+| Docker Hub 拉不动 | `registry-1.docker.io` 直连不通 | 配 `registry-mirrors`（如 `docker.1ms.run`） |
+| Playwright 浏览器下载慢 | 官方 CDN | `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright` |
+| ubuntu-base rootfs 里 apt 报 `Certificate verification failed` | 镜像里没有 CA 证书 | apt 源先用 **http**，装 `ca-certificates` 之后再换 https |
+| `systemctl: command not found` / dockerd 不自启 | 没有 systemd | 先 `apt install systemd systemd-sysv` |
 
 ## 相关检查
 

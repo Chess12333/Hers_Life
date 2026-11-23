@@ -156,6 +156,24 @@ node neuron-check.mjs out.json   # 指定落盘路径
 **没有这个文件也能跑**：只读 DSH 侧记忆，人名显示号码，房间按号码命名，星图中心不特指谁。
 配置项全写在 `index.js` 的 `DEFAULTS` 里，文件里的同名键就地覆盖。
 
+### 键一览（2026-11-23 补：以前这些键只在代码里散着，没人列全过）
+
+| 键 | 作用 | 缺省 |
+|---|---|---|
+| `workspace` | 数据工作区根 | 环境变量 `MING_WORKSPACE`，再退回 `diaryDir` 的父目录 |
+| `diaryDir` | 日记目录（`<ws>/diary`） | 由 `workspace` 推 |
+| `qqObservations` | QQ 侧观察库（JSONL）。**留空 = 不读 QQ 侧**（2026-11-23 起不再报 ENOENT） | `''` |
+| `peopleIndex` | `people/_index.json`（号码→昵称） | 空 |
+| `memoryCard` | 记忆卡 markdown | 空 |
+| `ownerId` / `ownerName` | 星图中心那个人 | 空 |
+| `roomLabels` | 房间号→看得懂的名字 | 空（并从 `live/qq-groups.json` 自动补） |
+| `costPricesFile` / `costAutoFile` | 费用价目表 / 自动抓的价目 | `<ws>\live\cost-prices*.json` |
+| `skillsCwd` / `skillsOffFile` | skill 开关写哪个 `skills-off.json` | `<ws>` / 空 |
+| `syncSeconds` | 多久 stat 一次数据源 | 120 |
+
+**什么时候要重启 DSH**：`workspace` / `diaryDir` / `qqObservations` 这些**路径**现在是每次请求现读（2026-11-23 起），建好或改完 `ming-graph.json`，在面板上点一次刷新就行，不用重启。
+但 `ownerName`、`roomLabels` 这类非路径键仍然在插件加载时读一次，改完要重启 DSH。
+
 ## 装
 
 ```yaml

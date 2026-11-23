@@ -15,7 +15,9 @@
         # 再没有就落到 ~/.dsh/ming-mousepet/webpick。
         webpickDir: ''
         companion:
-          enabled: true
+          # 2026-11-23：默认关。开了它自己定时判断、自己调模型开口——在作者机器上是本意，
+          # 在别人机器上就是装完开始悄悄烧 token。要用再打开。
+          enabled: false
           tickMs: 0   # 0 = 走心跳（10–90 分钟，中位 50）；给正数就固定间隔
           provider: wb-proxy
           model: 'hy4-preview'

@@ -1,6 +1,6 @@
 # AI · DSH 插件集
 
-**版本 1.2.3**（2026-11-19）· [CHANGELOG](CHANGELOG.md)
+**版本 1.2.4**（2026-11-23）· [CHANGELOG](CHANGELOG.md)
 
 > 待发布的按项变更、使用方法和验证结果见 [CHANGELOG](CHANGELOG.md) 中的变更记录目录。
 

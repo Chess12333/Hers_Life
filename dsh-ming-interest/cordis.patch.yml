@@ -2,11 +2,13 @@
     - id: ming-interest
       name: dsh-ming-interest
       config:
-        enabled: true
+        # 2026-11-23：默认关。这是作者本机的打开状态，别人装完不该自己开火。
+        enabled: false
         workspacePath: '<PUT_YOUR_WORKSPACE>'
         # onebot 的入站录制（recordInbound: true）落在这里。
-        inboxPath: '<PUT_YOUR_WORKSPACE>\live\inbox.jsonl'
-        chatSessionsPath: '<PUT_YOUR_WORKSPACE>\live\chat-sessions'
+        # 相对路径按 workspacePath 解（2026-11-23 起），省得把整串路径拼进占位符时替换漏掉一半。
+        inboxPath: 'live/inbox.jsonl'
+        chatSessionsPath: 'live/chat-sessions'
         interestsFile: 'live\interests.json'
         logFile: 'live\interest-log.jsonl'
         stateFile: 'live\interest-state.json'
@@ -19,5 +21,4 @@
         minChars: 6
         contextLines: 4
         # 只认她拉我进的这个群。
-        groups:
-          - '<PUT_YOUR_GROUP_ID>'
+        groups: []          # 要只认某些群就写号码：- '123456789'

@@ -79,6 +79,9 @@ export async function readDshNotes(dir) {
 }
 
 export async function readQqObservations(file) {
+  // 2026-11-23：MEMORY_DEFAULTS.qqObservations 默认是 ''（注释写着「留空 = 不读 QQ 侧」），
+  // 但代码把它直接喂给 readFile → ENOENT: open ''。星图建神经元时必调这里，整条 neuron 路径跟着抛错。
+  if (!file) return []
   const raw = await fs.readFile(file, 'utf8')
   const out = []
   const now = Date.now()

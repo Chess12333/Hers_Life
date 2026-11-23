@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v1.2.4（2026-11-23 补丁）
+
+这版没有新功能。全部来自**另一台机器上从零装这套**时记的一份问题清单（`Hers_Life_For_Astrbot/docs/install-fixes-20261123.md`）——作者机器上不会出现、换个人装就会踩的那些。
+
+- **`qqObservations` 留空会让整条 neuron 路径抛错。** `MEMORY_DEFAULTS.qqObservations` 默认 `''`（注释写着「留空 = 不读 QQ 侧」），但 `readQqObservations()` 直接把它喂给 `readFile` → `ENOENT: open ''`；星图建神经元必调它，于是没配 QQ 侧观察库的机器上星图永远空白。加 `if (!file) return []`。这是全部读盘里唯一没有 try/catch 兜底的一处。（`dsh-ming-memory` 0.2.1）
+- **`dsh-ming-graph` 的工作区改成每次现算。** 以前是模块加载时求值的常量，于是「建好 `~/.dsh/ming-graph.json` 之后还得重启 DSH」成了没人写下来的坑。现在 `workspace()` 惰性求值，`skillsCwd` / `costPricesFile` / `costAutoFile` 与 `/acp` 路由都跟着变；建完文件点一次面板刷新就行。非路径键（`ownerName` / `roomLabels`）仍是加载期读一次，这条差异和整张配置键表都写进 README 了。（`dsh-ming-graph` 1.1.1）
+- **`dsh-ming-interest` 的入站路径可以写相对路径**，按 `workspacePath` 解；读入正文时顺手剥掉平台接在尾巴上的 `<system_reminder>Current datetime…</system_reminder>`。（`dsh-ming-interest` 0.1.3）
+- **自动行为的默认值改成关。** `dsh-ming-browse`、`dsh-ming-interest` 的 `enabled`，`dsh-ming-mousepet` 的 `companion.enabled`：在作者机器上打开是本意，别人装完则是「一启动就在后台烧 token / 找不存在的 adb」。要用的自己在 `cordis.patch.yml` 里打开。（`dsh-ming-browse` 0.1.3 / `dsh-ming-mousepet` 1.0.2）
+- 验证：DSH 0.2.2-rc.5 上 `node scripts/check.mjs --suite offline` **29/29 PASS**。人设文件热同步、AstrBot 侧的环境变量改造在另一个仓（`Hers_Life_For_Astrbot`），不在本 tag 里。
+
 ## v1.2.3（2026-11-19 补丁）
 
 - **`rag_recall` 在宿主里报「未配置工作区」。** 模块加载那一刻读 `MING_WORKSPACE`，而 DSH 的插件进程没有这个变量，于是三层全空；脚本版自己带着变量跑，所以只有工具层坏。改成懒解析：第一次真要用时按 环境变量 → `~/.dsh/ming-memory.json` 的 `root` → `~/.dsh/open-door.json` 的 `root` 找，`setWorkspace()` 留给测试和迁移。（`dsh-ming-core-memory` 1.0.2-ming.2）
