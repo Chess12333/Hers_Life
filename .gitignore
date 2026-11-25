@@ -14,6 +14,10 @@ dist/
 *.html
 # 例外：浏览器扩展的设置页是**要发出去的源码**，不是截图/预览页（核查 R03）。
 !dsh-ming-mousepet/extension/options.html
+# 2026-11-25：桌宠的 AI 光标样式素材是运行必需的——缺了只剩兜底蓝圈（sprite 为空时
+# sidecar.ps1 只画一个圈加白点）。previews 是文档配图，60K，一并补上。
+!dsh-ming-mousepet/assets/cursors/*.png
+!dsh-ming-mousepet/assets/previews/*.png
 
 # 媒体
 *.mp4
